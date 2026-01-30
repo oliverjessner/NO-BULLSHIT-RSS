@@ -1,0 +1,15 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.oliverjessner.fnnd
+productName: No Bullshit RSS
+files:
+  - filter:
+      - electron/**
+      - src/**
+      - public/**
+      - sql/**
+      - sources.json
+      - package.json
+icon: public/images/logo_small.png
+electronVersion: 30.5.1

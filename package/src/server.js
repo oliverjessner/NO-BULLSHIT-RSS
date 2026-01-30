@@ -1,5 +1,4 @@
 import express from 'express';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import feedsRouter from './routes/feeds.js';
@@ -14,18 +13,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 1377;
 let isManualFetchRunning = false;
-const SERVER_LOG_PATH = process.env.SERVER_LOG_PATH || '';
-
-function logLine(message) {
-  if (!SERVER_LOG_PATH) return;
-  try {
-    fs.appendFileSync(SERVER_LOG_PATH, `${message}\n`);
-  } catch {
-    // Ignore logging failures to avoid crashing on startup.
-  }
-}
-
-logLine(`[server] starting pid=${process.pid} node=${process.version} cwd=${process.cwd()}`);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -92,23 +79,12 @@ app.use((err, req, res, next) => {
 async function start() {
   await initDatabase();
   app.listen(PORT, () => {
-    const msg = `Server running at http://localhost:${PORT}`;
-    console.log(msg);
-    logLine(`[server] ${msg}`);
+    console.log(`Server running at http://localhost:${PORT}`);
   });
   startScheduler();
 }
 
 start().catch((err) => {
   console.error('Failed to start server:', err);
-  logLine(`[server] Failed to start server: ${err?.stack || err?.message || String(err)}`);
   process.exit(1);
-});
-
-process.on('uncaughtException', (err) => {
-  logLine(`[server] uncaughtException: ${err?.stack || err?.message || String(err)}`);
-});
-
-process.on('unhandledRejection', (err) => {
-  logLine(`[server] unhandledRejection: ${err?.stack || err?.message || String(err)}`);
 });

@@ -1,0 +1,86 @@
+[
+    {
+        "name": "golem",
+        "url": "https://www.golem.de/",
+        "hasFeed": true,
+        "feeds": ["https://rss.golem.de/rss.php?feed=RSS2.0"]
+    },
+    {
+        "name": "heise-ix",
+        "url": "https://www.heise.de/ix",
+        "hasFeed": true,
+        "feeds": ["https://www.heise.de/ix/feed.xml"]
+    },
+    {
+        "name": "techcrunch",
+        "url": "https://techcrunch.com/",
+        "hasFeed": true,
+        "feeds": ["https://techcrunch.com/feed/"]
+    },
+    {
+        "name": "derstandard",
+        "url": "https://www.derstandard.at/web",
+        "hasFeed": true,
+        "feeds": ["https://www.derstandard.at/rss"]
+    },
+    {
+        "name": "winfuture",
+        "url": "https://winfuture.de/news/ticker/",
+        "hasFeed": true,
+        "feeds": ["https://winfuture.de/news/ticker.xml"]
+    },
+    {
+        "name": "sueddeutsche-wirtschaft",
+        "url": "https://www.sueddeutsche.de/wirtschaft",
+        "hasFeed": true,
+        "feeds": ["https://rss.sueddeutsche.de/rss/Wirtschaft?format=rss"]
+    },
+    {
+        "name": "gizmodo",
+        "url": "https://gizmodo.com/tech",
+        "hasFeed": true,
+        "feeds": ["https://gizmodo.com/rss"]
+    },
+    {
+        "name": "tomshardware",
+        "url": "https://www.tomshardware.com/",
+        "hasFeed": true,
+        "feeds": ["https://www.tomshardware.com/feeds/all"]
+    },
+    {
+        "name": "absatzwirtschaft",
+        "url": "https://www.absatzwirtschaft.de/das-ende-ist-nah-warum-der-ki-hype-enden-muss-260130/",
+        "hasFeed": true,
+        "feeds": ["https://www.absatzwirtschaft.de/feed"]
+    },
+    {
+        "name": "kickstarter",
+        "url": "https://www.kickstarter.com/discover/categories/technology",
+        "hasFeed": false,
+        "feeds": []
+    },
+    {
+        "name": "futurism",
+        "url": "https://futurism.com/",
+        "hasFeed": true,
+        "feeds": ["https://futurism.com/tag/blockchain/feed/"]
+    },
+    {
+        "name": "404media",
+        "url": "https://www.404media.co/",
+        "hasFeed": true,
+        "feeds": ["https://www.404media.co/rss"]
+    },
+    {
+        "name": "omgubuntu",
+        "url": "https://www.omgubuntu.co.uk/",
+        "hasFeed": true,
+        "feeds": ["http://feeds.feedburner.com/d0od?format=xml"]
+    },
+    {
+        "name": "linux-magazine",
+        "url": "https://www.linux-magazine.com/",
+        "hasFeed": true,
+        "feeds": ["https://www.linux-magazine.com/rss/feed/lmi_news"]
+    }
+]

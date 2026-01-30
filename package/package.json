@@ -11,16 +11,15 @@
         "db:init": "node src/init-db.js",
         "logos:refresh": "node src/scripts/refresh-logos.js",
         "postinstall": "echo \"skip\"",
-        "rebuild:sqlite3": "electron-rebuild -f -w @vscode/sqlite3",
-        "pack": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --dir",
-        "dist": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder",
-        "dist:all": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --mac --win --linux"
+        "rebuild:sqlite3": "electron-rebuild -f -w sqlite3",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder"
     },
     "dependencies": {
         "express": "^4.19.2",
         "iconv-lite": "^0.6.3",
         "rss-parser": "^3.13.0",
-        "@vscode/sqlite3": "5.1.12-vscode"
+        "sqlite3": "^5.1.7"
     },
     "devDependencies": {
         "electron": "^28.3.3",
@@ -37,13 +36,9 @@
             "sql/**",
             "sources.json",
             "package.json",
-            "build/icons/**",
-            "node_modules/**"
+            "build/icons/**"
         ],
         "icon": "build/icons/icon.icns",
-        "asarUnpack": [
-            "node_modules/@vscode/sqlite3/**"
-        ],
         "mac": {
             "icon": "build/icons/icon.icns"
         }

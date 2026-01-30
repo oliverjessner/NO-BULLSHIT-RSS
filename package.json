@@ -29,7 +29,7 @@
     },
     "build": {
         "appId": "com.oliverjessner.no-bullshit-rss",
-        "productName": "No Bullshit RSS",
+        "productName": "NO BULLSHIT RSS",
         "files": [
             "electron/**",
             "src/**",

@@ -17,10 +17,10 @@
         "dist:all": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --mac --win --linux"
     },
     "dependencies": {
-        "express": "^4.19.2",
+        "@vscode/sqlite3": "5.1.12-vscode",
+        "express": "^5.2.1",
         "iconv-lite": "^0.6.3",
-        "rss-parser": "^3.13.0",
-        "@vscode/sqlite3": "5.1.12-vscode"
+        "rss-parser": "^3.13.0"
     },
     "devDependencies": {
         "electron": "^28.3.3",

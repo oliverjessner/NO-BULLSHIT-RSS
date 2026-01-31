@@ -1,9 +1,8 @@
-const state = {
+const state = Object.seal({
     feeds: [],
     lists: [],
     editingId: null,
-};
-
+});
 const views = document.querySelectorAll('.view');
 const navLinks = document.querySelectorAll('.nav-link');
 const articlesState = document.getElementById('articles-state');
@@ -139,6 +138,7 @@ function renderFeeds() {
     feedsState.style.display = 'none';
 
     const template = document.getElementById('feed-item-template');
+
     state.feeds.forEach(feed => {
         const node = template.content.cloneNode(true);
         const logoEl = node.querySelector('.feed-logo');

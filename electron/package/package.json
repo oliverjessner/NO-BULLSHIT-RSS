@@ -1,6 +1,6 @@
 {
     "name": "no-bullshit-rss",
-    "version": "0.0.2",
+    "version": "1.0.0",
     "type": "module",
     "description": "RSS-based news aggregator",
     "main": "electron/main.cjs",
@@ -9,14 +9,17 @@
         "electron": "electron .",
         "dev": "node --watch backend/server.js",
         "db:init": "node scripts/init-db.js",
+        "logos:refresh": "node backend/scripts/refresh-logos.js",
         "postinstall": "echo \"skip\"",
-        "dist:all": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --mac --win --linux"
+        "rebuild:sqlite3": "electron-rebuild -f -w sqlite3",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder"
     },
     "dependencies": {
-        "@vscode/sqlite3": "5.1.12-vscode",
-        "express": "^5.2.1",
+        "express": "^4.19.2",
         "iconv-lite": "^0.6.3",
-        "rss-parser": "^3.13.0"
+        "rss-parser": "^3.13.0",
+        "sqlite3": "^5.1.7"
     },
     "devDependencies": {
         "electron": "^28.3.3",
@@ -24,12 +27,8 @@
         "electron-rebuild": "^3.2.9"
     },
     "build": {
-        "directories": {
-            "output": "electron/dist",
-            "buildResources": "electron/build"
-        },
         "appId": "com.oliverjessner.no-bullshit-rss",
-        "productName": "NO BULLSHIT RSS",
+        "productName": "No Bullshit RSS",
         "files": [
             "electron/**",
             "backend/**",
@@ -38,15 +37,11 @@
             "scripts/**",
             "scripts/sources.json",
             "package.json",
-            "electron/build/icons/**",
-            "node_modules/**"
+            "build/icons/**"
         ],
-        "icon": "electron/build/icons/icon.icns",
-        "asarUnpack": [
-            "node_modules/@vscode/sqlite3/**"
-        ],
+        "icon": "build/icons/icon.icns",
         "mac": {
-            "icon": "electron/build/icons/icon.icns"
+            "icon": "build/icons/icon.icns"
         }
     }
 }

@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 
+app.setName('NO BULLSHIT RSS');
+
 const PORT = process.env.PORT || '1377';
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -173,7 +175,7 @@ function createAboutWindow() {
     <div class="wrap">
       <h1>${name}</h1>
       <div class="meta">Version ${version}</div>
-      <div class="fine">Copyright Oliver Jessner</div>
+      <div class="fine">© Copyright Oliver Jessner</div>
       <div class="actions">
         <button id="close">Close</button>
       </div>

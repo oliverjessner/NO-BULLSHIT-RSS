@@ -352,7 +352,9 @@ function renderArticles(articles) {
 
     articles.forEach(article => {
         const node = template.content.cloneNode(true);
+
         node.querySelector('.meta-date').textContent = formatDate(article.publishedAt);
+
         const sourceLogo = node.querySelector('.source-logo');
         const sourceName = node.querySelector('.source-name');
 
@@ -364,6 +366,7 @@ function renderArticles(articles) {
         }
 
         sourceName.textContent = article.sourceName || '—';
+
         node.querySelector('.title').textContent = article.title || 'Ohne Titel';
         node.querySelector('.teaser').textContent = article.teaser || '';
 
@@ -381,7 +384,8 @@ function renderArticles(articles) {
                 await openListModal(article.id);
             });
         }
-        articlesList.appendChild(node);
+
+        return articlesList.appendChild(node);
     });
 }
 

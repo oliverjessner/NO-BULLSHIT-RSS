@@ -3,6 +3,8 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const http = require('node:http');
 
+app.setName('NO BULLSHIT RSS');
+
 const PORT = process.env.PORT || '1377';
 let serverProcess = null;
 let mainWindow = null;

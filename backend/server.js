@@ -8,6 +8,7 @@ import { startScheduler } from './services/scheduler.js';
 import { getLastFetchStatus, updateAllFeeds } from './services/fetcher.js';
 import { subscribe } from './services/events.js';
 import { logLine } from './utils/logger.js';
+import { initDatabase } from '../scripts/init-db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -75,6 +76,7 @@ app.use((err, req, res, next) => {
 
 async function start() {
     const msg = `Server running at http://localhost:${PORT}`;
+    await initDatabase();
 
     app.listen(PORT, () => {
         console.log(msg);

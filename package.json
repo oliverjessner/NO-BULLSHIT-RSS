@@ -32,6 +32,8 @@
         "productName": "NO BULLSHIT RSS",
         "files": [
             "electron/**",
+            "!electron/dist/**",
+            "!electron/package/**",
             "backend/**",
             "public/**",
             "backend/database/**",

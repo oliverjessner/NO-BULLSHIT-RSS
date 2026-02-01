@@ -3,6 +3,10 @@
 I vibe coded some electron slop.
 check out the [Landing page](https://oliverjessner.at/no-bullshit-rss/#promise).
 
+## App
+
+![overview of the app](/public/images/cards.webp)
+
 ## run as web app
 
 ```bash

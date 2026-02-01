@@ -28,18 +28,20 @@ async function seedFeeds() {
     }
 }
 
-async function initDatabase() {
+export async function initDatabase() {
     await initSchema();
     await ensureFeedLogoColumns();
     await ensureListColorColumn();
     await seedFeeds();
 }
 
-initDatabase()
-    .then(() => {
-        console.log('DB initialized');
-    })
-    .catch(err => {
-        console.error('DB init failed:', err);
-        process.exit(1);
-    });
+if (process.argv[1] && process.argv[1].endsWith('init-db.js')) {
+    initDatabase()
+        .then(() => {
+            console.log('DB initialized');
+        })
+        .catch(err => {
+            console.error('DB init failed:', err);
+            process.exit(1);
+        });
+}

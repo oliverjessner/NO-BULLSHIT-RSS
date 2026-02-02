@@ -1,12 +1,27 @@
 import express from 'express';
 import { all, get, run } from '../database/datenbank.js';
-import { checkUrlReachable, isValidUrl } from '../utils/validation.js';
+import { isValidUrl } from '../utils/validation.js';
 import Parser from 'rss-parser';
 import { fetchSiteLogo } from '../services/logo.js';
 import { publish } from '../services/events.js';
 
 const router = express.Router();
-const parser = new Parser({ timeout: 8000 });
+const parser = new Parser({
+  timeout: 8000,
+  headers: {
+    'User-Agent': 'rss-parser',
+    Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
+  },
+});
+
+const isFeedReachable = async (url) => {
+  try {
+    await parser.parseURL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -34,7 +49,7 @@ router.post('/', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid URL format' });
   }
 
-  const reachable = await checkUrlReachable(feedUrl);
+  const reachable = await isFeedReachable(feedUrl);
   if (!reachable) {
     return res.status(400).json({ error: 'Feed URL not reachable' });
   }
@@ -72,7 +87,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid URL format' });
   }
 
-  const reachable = await checkUrlReachable(feedUrl);
+  const reachable = await isFeedReachable(feedUrl);
   if (!reachable) {
     return res.status(400).json({ error: 'Feed URL not reachable' });
   }

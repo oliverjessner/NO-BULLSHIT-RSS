@@ -1,12 +1,27 @@
 import express from 'express';
 import { all, get, run } from '../database/datenbank.js';
-import { checkUrlReachable, isValidUrl } from '../utils/validation.js';
+import { isValidUrl } from '../utils/validation.js';
 import Parser from 'rss-parser';
 import { fetchSiteLogo } from '../services/logo.js';
 import { publish } from '../services/events.js';
 
 const router = express.Router();
-const parser = new Parser({ timeout: 8000 });
+const parser = new Parser({
+    timeout: 8000,
+    headers: {
+        'User-Agent': 'rss-parser',
+        Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
+    },
+});
+
+async function isFeedReachable(url) {
+    try {
+        await parser.parseURL(url);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 router.get('/', async (_, res) => {
     const feeds = await all('SELECT * FROM feeds ORDER BY id DESC');
@@ -21,7 +36,7 @@ router.get('/', async (_, res) => {
 });
 
 router.post('/', async ({ body: { name, websiteUrl, feedUrl } }, res) => {
-    const reachable = await checkUrlReachable(feedUrl);
+    const reachable = await isFeedReachable(feedUrl);
     const logo = await fetchSiteLogo(websiteUrl);
     let logoBuffer = null;
     let logoMime = null;
@@ -58,7 +73,7 @@ router.post('/', async ({ body: { name, websiteUrl, feedUrl } }, res) => {
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, websiteUrl, feedUrl } = req.body || {};
-    const reachable = await checkUrlReachable(feedUrl);
+    const reachable = await isFeedReachable(feedUrl);
     const existing = await get('SELECT * FROM feeds WHERE id = ?', [id]);
 
     if (!name || !websiteUrl || !feedUrl) {

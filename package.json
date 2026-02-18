@@ -21,7 +21,7 @@
         "rss-parser": "^3.13.0"
     },
     "devDependencies": {
-        "electron": "^28.3.3",
+        "electron": "^35.7.5",
         "electron-builder": "^24.13.3",
         "electron-rebuild": "^3.2.9"
     },

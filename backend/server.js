@@ -19,6 +19,7 @@ import { initDatabase } from '../scripts/init-db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
+const pinefetchCssPath = path.join(__dirname, '..', 'node_modules', 'pinefetch-designsystem', 'dist', 'pinefetch.css');
 const app = express();
 const PORT = process.env.PORT || 1377;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -124,6 +125,7 @@ app.use(
     }),
 );
 app.use(express.json({ limit: '1mb' }));
+app.get('/vendor/pinefetch.css', (_req, res) => res.sendFile(pinefetchCssPath));
 app.use(express.static(publicDir));
 app.use('/api', requireLocalApiClient, apiLimiter, writeLimiter);
 app.use('/api/feeds', feedsRouter);

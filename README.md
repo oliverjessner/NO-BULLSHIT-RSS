@@ -17,6 +17,12 @@ No-Bullshit RSS is a minimal, open-source RSS reader that focuses on reading—n
 - Dark mode
 - Storage visibility: settings now show how many articles are in your database
 
+## Frontend
+
+Shared design tokens and UI primitives come from the
+[PineFetch Designsystem](https://github.com/oliverjessner/PineFetch-Designsystem)
+package. App-specific layout and responsive behavior remain in `public/styles.css`.
+
 ## Digest
 
 Related articles from multiple sources are clustered into daily, weekly, and monthly stories.

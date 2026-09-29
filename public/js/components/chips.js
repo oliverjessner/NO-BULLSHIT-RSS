@@ -3,7 +3,7 @@ export function createTopicChip(topic, { digest = false, activeSlug = '' } = {})
     const label = String(topic?.label || slug || 'topic');
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = digest ? 'digest-topic-chip' : 'article-topic-chip';
+    chip.className = digest ? 'digest-topic-chip pf-badge' : 'article-topic-chip pf-badge';
     chip.textContent = label;
     chip.title = topic?.score == null ? (slug || label) : `${label} (${Number(topic.score || 0).toFixed(2)})`;
     chip.dataset.action = 'filter-topic';
@@ -20,7 +20,9 @@ export function createTopicChip(topic, { digest = false, activeSlug = '' } = {})
 export function createSourceChip({ name = 'Unknown source', logo = '', feedId = null } = {}, { digest = true } = {}) {
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = digest ? 'digest-source-chip is-clickable' : 'meta-source digest-source-chip is-clickable';
+    chip.className = digest
+        ? 'digest-source-chip is-clickable pf-badge pf-badge-muted'
+        : 'meta-source digest-source-chip is-clickable pf-badge pf-badge-muted';
     chip.dataset.action = 'filter-source';
     chip.dataset.sourceName = name;
     chip.setAttribute('aria-label', `Filter feed by ${name}`);

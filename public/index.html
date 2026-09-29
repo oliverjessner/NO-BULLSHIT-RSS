@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>NO BULL💩 RSS</title>
         <link rel="icon" href="/images/logo/logo_small.png" />
+        <link rel="stylesheet" href="/vendor/pinefetch.css" />
         <link rel="stylesheet" href="/styles.css" />
     </head>
     <body>
@@ -13,10 +14,10 @@
                 <img class="brand-logo" src="/images/logo/logo.png" alt="No Bullshit RSS" />
             </div>
 
-            <nav class="nav">
-                <button class="nav-link is-active" data-view="main">Feed</button>
-                <button class="nav-link" data-view="digest">Digest</button>
-                <button class="nav-link" data-view="settings">Settings</button>
+            <nav class="nav pf-segmented">
+                <button class="nav-link pf-segmented-btn pf-is-active is-active" data-view="main" aria-pressed="true">Feed</button>
+                <button class="nav-link pf-segmented-btn" data-view="digest" aria-pressed="false">Digest</button>
+                <button class="nav-link pf-segmented-btn" data-view="settings" aria-pressed="false">Settings</button>
             </nav>
         </header>
 
@@ -32,44 +33,44 @@
                             <p id="feed-count" class="feed-count" aria-live="polite">Loading…</p>
                             <div class="feed-heading-actions">
                                 <details id="feed-export-menu" class="bulk-actions-menu">
-                                    <summary id="feed-export-trigger" class="btn ghost bulk-actions-trigger" aria-label="Feed actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
-                                    <div id="feed-export-popover" class="bulk-actions-popover export-popover" role="menu">
-                                        <button id="feed-import-trigger" type="button" role="menuitem">Import articles</button>
-                                        <div class="action-menu-divider" role="presentation"></div>
-                                        <p class="export-popover-title">Export</p>
-                                        <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                                        <button type="button" role="menuitem" data-export-format="json">JSON</button>
-                                        <button type="button" role="menuitem" data-export-format="csv">CSV</button>
-                                        <button type="button" role="menuitem" data-export-format="links">Link list</button>
+                                    <summary id="feed-export-trigger" class="btn ghost pf-btn pf-btn-ghost bulk-actions-trigger" aria-label="Feed actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
+                                    <div id="feed-export-popover" class="bulk-actions-popover export-popover pf-menu" role="menu">
+                                        <button id="feed-import-trigger" class="pf-menu-item" type="button" role="menuitem">Import articles</button>
+                                        <div class="action-menu-divider pf-menu-divider" role="presentation"></div>
+                                        <p class="export-popover-title pf-section-title">Export</p>
+                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
                                     </div>
                                 </details>
                             </div>
                         </div>
                     </div>
                     <div class="toolbar-actions">
-                        <input id="search-input" class="search-input" type="search" placeholder="Search articles…" />
-                        <select id="filter-topic" class="select" aria-label="Filter by topic">
+                        <input id="search-input" class="search-input pf-input" type="search" placeholder="Search articles…" />
+                        <select id="filter-topic" class="select pf-select" aria-label="Filter by topic">
                             <option value="">Topic: All</option>
                         </select>
-                        <select id="filter-source" class="select" aria-label="Filter by source">
+                        <select id="filter-source" class="select pf-select" aria-label="Filter by source">
                             <option value="">Source: All</option>
                         </select>
-                        <select id="filter-list" class="select" aria-label="Filter by list">
+                        <select id="filter-list" class="select pf-select" aria-label="Filter by list">
                             <option value="">List: All</option>
                         </select>
-                        <select id="filter-bullshit" class="select" aria-label="Filter by bullshit status">
+                        <select id="filter-bullshit" class="select pf-select" aria-label="Filter by bullshit status">
                             <option value="all">Bullshit: All</option>
                             <option value="clean">Bullshit: Clean</option>
                             <option value="bullshit">Bullshit: Bullshit</option>
                         </select>
-                        <div id="toggle-layout" class="view-toggle" role="group" aria-label="Feed layout">
-                            <button class="view-toggle-option" data-layout="list" type="button" aria-pressed="false">Compact</button>
-                            <button class="view-toggle-option is-active" data-layout="cards" type="button" aria-pressed="true">Cards</button>
+                        <div id="toggle-layout" class="view-toggle pf-segmented" role="group" aria-label="Feed layout">
+                            <button class="view-toggle-option pf-segmented-btn" data-layout="list" type="button" aria-pressed="false">Compact</button>
+                            <button class="view-toggle-option pf-segmented-btn is-active" data-layout="cards" type="button" aria-pressed="true">Cards</button>
                         </div>
                     </div>
                     <div id="active-filter-row" class="active-filter-row hide">
                         <div id="active-filter-chips" class="active-filter-chips" aria-label="Active filters"></div>
-                        <button id="run-fetch" class="clear-filters" type="button">Clear filters</button>
+                        <button id="run-fetch" class="clear-filters pf-btn pf-btn-danger" type="button">Clear filters</button>
                     </div>
                 </div>
                 <div id="dashboard-layout" class="dashboard-layout">
@@ -78,25 +79,25 @@
                             <span class="spinner" aria-hidden="true"></span>
                         </div>
                         <div class="articles-scroll">
-                            <h2 id="articles-state" class="state">Loading…</h2>
+                            <h2 id="articles-state" class="state pf-status">Loading…</h2>
                             <div id="articles-list" class="cards"></div>
-                            <button id="articles-load-more" class="articles-load-more hide" type="button">
+                            <button id="articles-load-more" class="articles-load-more pf-btn pf-btn-ghost hide" type="button">
                                 Load more
                             </button>
                         </div>
                     </div>
                     <aside id="article-viewer" class="article-viewer hide" aria-live="polite">
                         <div class="article-viewer-header">
-                            <h2 id="article-viewer-title" class="article-viewer-title">Article viewer</h2>
+                            <h2 id="article-viewer-title" class="article-viewer-title pf-section-title">Article viewer</h2>
                             <div class="article-viewer-controls">
                                 <div
                                     id="article-viewer-width-toggle"
-                                    class="article-viewer-width-toggle"
+                                    class="article-viewer-width-toggle pf-segmented"
                                     role="group"
                                     aria-label="Viewer width"
                                 >
                                     <button
-                                        class="article-viewer-width-option"
+                                        class="article-viewer-width-option pf-segmented-btn"
                                         data-viewer-width="35"
                                         type="button"
                                         aria-pressed="false"
@@ -104,7 +105,7 @@
                                         35%
                                     </button>
                                     <button
-                                        class="article-viewer-width-option"
+                                        class="article-viewer-width-option pf-segmented-btn"
                                         data-viewer-width="50"
                                         type="button"
                                         aria-pressed="true"
@@ -112,7 +113,7 @@
                                         50%
                                     </button>
                                 </div>
-                                <button id="article-viewer-hide" class="btn ghost" type="button">Hide</button>
+                                <button id="article-viewer-hide" class="btn ghost pf-btn pf-btn-ghost" type="button">Hide</button>
                             </div>
                         </div>
                         <p id="article-viewer-message" class="article-viewer-message hide"></p>
@@ -132,12 +133,12 @@
                     <div class="digest-header">
                         <div
                             id="digest-range-toggle"
-                            class="digest-sort-toggle digest-range-toggle"
+                            class="digest-sort-toggle digest-range-toggle pf-segmented"
                             role="group"
                             aria-label="Digest range"
                         >
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option"
+                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
                                 data-digest-range="day"
                                 type="button"
                                 aria-pressed="true"
@@ -145,7 +146,7 @@
                                 Day
                             </button>
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option"
+                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
                                 data-digest-range="week"
                                 type="button"
                                 aria-pressed="false"
@@ -153,7 +154,7 @@
                                 Week
                             </button>
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option"
+                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
                                 data-digest-range="month"
                                 type="button"
                                 aria-pressed="false"
@@ -161,16 +162,16 @@
                                 Month
                             </button>
                         </div>
-                        <p id="digest-subtitle" class="digest-subtitle">Loading…</p>
+                        <p id="digest-subtitle" class="digest-subtitle pf-subtitle">Loading…</p>
                         <div class="digest-header-meta">
                             <div
                                 id="digest-sort-toggle"
-                                class="digest-sort-toggle"
+                                class="digest-sort-toggle pf-segmented"
                                 role="group"
                                 aria-label="Sort clusters"
                             >
                                 <button
-                                    class="digest-sort-option digest-control-option"
+                                    class="digest-sort-option digest-control-option pf-segmented-btn"
                                     data-digest-sort="desc"
                                     type="button"
                                     aria-pressed="true"
@@ -178,7 +179,7 @@
                                     Newest
                                 </button>
                                 <button
-                                    class="digest-sort-option digest-control-option"
+                                    class="digest-sort-option digest-control-option pf-segmented-btn"
                                     data-digest-sort="asc"
                                     type="button"
                                     aria-pressed="false"
@@ -187,15 +188,15 @@
                                 </button>
                             </div>
                             <details id="digest-bulk-menu" class="bulk-actions-menu">
-                                <summary id="digest-export-trigger" class="digest-control-option bulk-actions-trigger" aria-label="Digest actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
-                                <div id="digest-export-popover" class="bulk-actions-popover export-popover" role="menu">
-                                    <button id="digest-mark-all" type="button" role="menuitem">Mark visible as digested</button>
-                                    <div class="action-menu-divider" role="presentation"></div>
-                                    <p class="export-popover-title">Export</p>
-                                    <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                                    <button type="button" role="menuitem" data-export-format="json">JSON</button>
-                                    <button type="button" role="menuitem" data-export-format="csv">CSV</button>
-                                    <button type="button" role="menuitem" data-export-format="links">Link list</button>
+                                <summary id="digest-export-trigger" class="digest-control-option pf-segmented-btn bulk-actions-trigger" aria-label="Digest actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
+                                <div id="digest-export-popover" class="bulk-actions-popover export-popover pf-menu" role="menu">
+                                    <button id="digest-mark-all" class="pf-menu-item" type="button" role="menuitem">Mark visible as digested</button>
+                                    <div class="action-menu-divider pf-menu-divider" role="presentation"></div>
+                                    <p class="export-popover-title pf-section-title">Export</p>
+                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
                                 </div>
                             </details>
                         </div>
@@ -203,21 +204,21 @@
 
                     <div id="digest-layout" class="dashboard-layout digest-layout">
                         <div class="dashboard-primary">
-                            <h2 id="digest-state" class="state">Loading…</h2>
+                            <h2 id="digest-state" class="state pf-status">Loading…</h2>
                             <div id="digest-list" class="digest-clusters"></div>
                         </div>
                         <aside id="digest-article-viewer" class="article-viewer hide" aria-live="polite">
                             <div class="article-viewer-header">
-                                <h2 id="digest-article-viewer-title" class="article-viewer-title">Article viewer</h2>
+                                <h2 id="digest-article-viewer-title" class="article-viewer-title pf-section-title">Article viewer</h2>
                                 <div class="article-viewer-controls">
                                     <div
                                         id="digest-article-viewer-width-toggle"
-                                        class="article-viewer-width-toggle"
+                                        class="article-viewer-width-toggle pf-segmented"
                                         role="group"
                                         aria-label="Viewer width"
                                     >
                                         <button
-                                            class="article-viewer-width-option"
+                                            class="article-viewer-width-option pf-segmented-btn"
                                             data-viewer-width="35"
                                             type="button"
                                             aria-pressed="false"
@@ -225,7 +226,7 @@
                                             35%
                                         </button>
                                         <button
-                                            class="article-viewer-width-option"
+                                            class="article-viewer-width-option pf-segmented-btn"
                                             data-viewer-width="50"
                                             type="button"
                                             aria-pressed="true"
@@ -233,7 +234,7 @@
                                             50%
                                         </button>
                                     </div>
-                                    <button id="digest-article-viewer-hide" class="btn ghost" type="button">Hide</button>
+                                    <button id="digest-article-viewer-hide" class="btn ghost pf-btn pf-btn-ghost" type="button">Hide</button>
                                 </div>
                             </div>
                             <p id="digest-article-viewer-message" class="article-viewer-message hide"></p>
@@ -251,172 +252,173 @@
 
             <section id="view-settings" class="view view-settings">
                 <div class="settings-tabs-wrap">
-                    <div class="settings-tabs">
-                        <button class="settings-tab is-active" data-settings="feeds" type="button">
+                    <div class="settings-tabs pf-segmented">
+                        <button class="settings-tab pf-segmented-btn pf-is-active is-active" data-settings="feeds" type="button" aria-pressed="true">
                             Add new RSS Feeds
                         </button>
-                        <button class="settings-tab" data-settings="topics" type="button">Topics</button>
-                        <button class="settings-tab" data-settings="bullshit" type="button">Bullshit Rules</button>
-                        <button class="settings-tab" data-settings="lists" type="button">Lists</button>
-                        <button class="settings-tab" data-settings="digest" type="button">Digest</button>
-                        <button class="settings-tab" data-settings="cosmetics" type="button">Cosmetics</button>
+                        <button class="settings-tab pf-segmented-btn" data-settings="topics" type="button" aria-pressed="false">Topics</button>
+                        <button class="settings-tab pf-segmented-btn" data-settings="bullshit" type="button" aria-pressed="false">Bullshit Rules</button>
+                        <button class="settings-tab pf-segmented-btn" data-settings="lists" type="button" aria-pressed="false">Lists</button>
+                        <button class="settings-tab pf-segmented-btn" data-settings="digest" type="button" aria-pressed="false">Digest</button>
+                        <button class="settings-tab pf-segmented-btn" data-settings="cosmetics" type="button" aria-pressed="false">Cosmetics</button>
                     </div>
                 </div>
 
                 <div id="settings-feeds" class="settings-panel is-active">
                     <div class="settings-feeds-left">
-                        <form id="feed-form" class="card form">
-                            <div class="form-row">
-                                <label for="feed-name">Feed name</label>
-                                <input type="text" id="feed-name" placeholder="e.g. Business Insider Tech" required />
+                        <form id="feed-form" class="card form pf-panel">
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="feed-name">Feed name</label>
+                                <input class="pf-input" type="text" id="feed-name" placeholder="e.g. Business Insider Tech" required />
                             </div>
-                            <div class="form-row">
-                                <label for="feed-website">Website URL</label>
-                                <input type="url" id="feed-website" placeholder="https://example.com" required />
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="feed-website">Website URL</label>
+                                <input class="pf-input" type="url" id="feed-website" placeholder="https://example.com" required />
                             </div>
-                            <div class="form-row">
-                                <label for="feed-url">Feed URL</label>
-                                <input type="url" id="feed-url" placeholder="https://example.com/feed.xml" required />
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="feed-url">Feed URL</label>
+                                <input class="pf-input" type="url" id="feed-url" placeholder="https://example.com/feed.xml" required />
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success" id="feed-submit">store feed</button>
-                                <button type="button" class="btn ghost" id="feed-cancel">cancel</button>
-                                <button type="button" class="btn" id="feed-test">test feed</button>
+                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="feed-submit">store feed</button>
+                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="feed-cancel">cancel</button>
+                                <button type="button" class="btn pf-btn" id="feed-test">test feed</button>
                             </div>
-                            <div id="feed-form-status" class="form-status"></div>
+                            <div id="feed-form-status" class="form-status pf-status"></div>
                         </form>
-                        <div id="fetch-status" class="status-line">Last fetch: —</div>
-                        <div id="article-count-status" class="status-line">Saved articles: —</div>
+                        <div id="fetch-status" class="status-line pf-panel-soft pf-status">Last fetch: —</div>
+                        <div id="article-count-status" class="status-line pf-panel-soft pf-status">Saved articles: —</div>
                         <div class="form-actions">
-                            <button type="button" class="btn" id="settings-fetch-now">fetch now</button>
+                            <button type="button" class="btn pf-btn" id="settings-fetch-now">fetch now</button>
                         </div>
                     </div>
 
                     <div class="settings-feeds-content">
-                        <div id="feeds-state" class="state">Loading…</div>
+                        <div id="feeds-state" class="state pf-status">Loading…</div>
                         <div id="feeds-list" class="list"></div>
                     </div>
                 </div>
 
                 <div id="settings-bullshit" class="settings-panel">
                     <div class="settings-bullshit-left">
-                        <form id="bullshit-rule-form" class="card form">
-                            <h3 class="title">Bullshit Rules</h3>
-                            <p class="teaser">Automatically mark noisy or unwanted articles using local rules.</p>
-                            <div class="form-row">
-                                <label for="bullshit-rule-name">Name</label>
-                                <input type="text" id="bullshit-rule-name" placeholder="e.g. Black Friday" maxlength="200" required />
+                        <form id="bullshit-rule-form" class="card form pf-panel">
+                            <h3 class="title pf-section-title">Bullshit Rules</h3>
+                            <p class="teaser pf-subtitle">Automatically mark noisy or unwanted articles using local rules.</p>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="bullshit-rule-name">Name</label>
+                                <input class="pf-input" type="text" id="bullshit-rule-name" placeholder="e.g. Black Friday" maxlength="200" required />
                             </div>
-                            <div class="form-row">
-                                <label for="bullshit-rule-field">Field</label>
-                                <select id="bullshit-rule-field" class="select">
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="bullshit-rule-field">Field</label>
+                                <select id="bullshit-rule-field" class="select pf-select">
                                     <option value="title">Title</option>
                                     <option value="teaser">Teaser</option>
                                     <option value="url">URL</option>
                                     <option value="source">Source</option>
                                 </select>
                             </div>
-                            <div class="form-row">
-                                <label for="bullshit-rule-operator">Operator</label>
-                                <select id="bullshit-rule-operator" class="select">
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="bullshit-rule-operator">Operator</label>
+                                <select id="bullshit-rule-operator" class="select pf-select">
                                     <option value="contains">Contains</option>
                                     <option value="not_contains">Does not contain</option>
                                     <option value="equals">Equals</option>
                                     <option value="regex">Regex</option>
                                 </select>
                             </div>
-                            <div class="form-row">
-                                <label for="bullshit-rule-value">Value</label>
-                                <input type="text" id="bullshit-rule-value" placeholder="e.g. Black Friday" maxlength="500" required />
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="bullshit-rule-value">Value</label>
+                                <input class="pf-input" type="text" id="bullshit-rule-value" placeholder="e.g. Black Friday" maxlength="500" required />
                             </div>
                             <label class="settings-checkbox-row" for="bullshit-rule-enabled">
                                 <input type="checkbox" id="bullshit-rule-enabled" checked />
                                 <span>Enabled</span>
                             </label>
                             <div class="form-actions">
-                                <button type="submit" class="btn success" id="bullshit-rule-submit">+ Add rule</button>
-                                <button type="button" class="btn ghost" id="bullshit-rule-cancel">cancel</button>
+                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="bullshit-rule-submit">+ Add rule</button>
+                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="bullshit-rule-cancel">cancel</button>
                             </div>
-                            <div id="bullshit-rule-form-status" class="form-status"></div>
+                            <div id="bullshit-rule-form-status" class="form-status pf-status"></div>
                         </form>
                     </div>
 
                     <div class="settings-bullshit-content">
-                        <section class="card settings-bullshit-reprocess-card">
-                            <h3 class="title">Re-evaluate Articles</h3>
-                            <p class="teaser">Re-run all enabled local rules against existing articles.</p>
+                        <section class="card settings-bullshit-reprocess-card pf-panel">
+                            <h3 class="title pf-section-title">Re-evaluate Articles</h3>
+                            <p class="teaser pf-subtitle">Re-run all enabled local rules against existing articles.</p>
                             <div class="form-actions">
-                                <button type="button" class="btn" id="bullshit-rules-reevaluate">re-evaluate articles</button>
+                                <button type="button" class="btn pf-btn" id="bullshit-rules-reevaluate">re-evaluate articles</button>
                             </div>
-                            <div id="bullshit-rules-reevaluate-status" class="form-status"></div>
+                            <div id="bullshit-rules-reevaluate-status" class="form-status pf-status"></div>
                         </section>
-                        <div id="bullshit-rules-state" class="state">Loading…</div>
+                        <div id="bullshit-rules-state" class="state pf-status">Loading…</div>
                         <div id="bullshit-rules-list" class="list"></div>
                     </div>
                 </div>
 
                 <div id="settings-lists" class="settings-panel">
                     <div class="settings-lists-left">
-                        <form id="list-form" class="card form">
-                            <div class="form-row">
-                                <label for="list-name">Name</label>
-                                <input type="text" id="list-name" placeholder="e. g. Readinglist" required />
+                        <form id="list-form" class="card form pf-panel">
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="list-name">Name</label>
+                                <input class="pf-input" type="text" id="list-name" placeholder="e. g. Readinglist" required />
                             </div>
-                            <div class="form-row">
-                                <label for="list-description">Description</label>
-                                <input type="text" id="list-description" placeholder="optional" />
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="list-description">Description</label>
+                                <input class="pf-input" type="text" id="list-description" placeholder="optional" />
                             </div>
-                            <div class="form-row">
-                                <label for="list-color">Color</label>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="list-color">Color</label>
                                 <input type="color" class="color-picker" id="list-color" value="#1d1d1f" />
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success" id="list-submit">save list</button>
-                                <button type="button" class="btn ghost" id="list-cancel">cancel</button>
+                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="list-submit">save list</button>
+                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="list-cancel">cancel</button>
                             </div>
-                            <div id="list-form-status" class="form-status"></div>
+                            <div id="list-form-status" class="form-status pf-status"></div>
                         </form>
                     </div>
 
                     <div class="settings-lists-content">
-                        <div id="lists-state" class="state">Loading…</div>
+                        <div id="lists-state" class="state pf-status">Loading…</div>
                         <div id="lists-list" class="list"></div>
                     </div>
                 </div>
 
                 <div id="settings-digest" class="settings-panel settings-panel-single">
                     <div class="settings-digest-content">
-                        <section class="card settings-digest-card">
-                            <h3 class="title">Excluded RSS Feeds</h3>
-                            <p class="teaser">
+                        <section class="card settings-digest-card pf-panel">
+                            <h3 class="title pf-section-title">Excluded RSS Feeds</h3>
+                            <p class="teaser pf-subtitle">
                                 Selected feeds are ignored in Digest and will not appear in clustered results.
                             </p>
-                            <div id="digest-settings-feeds-state" class="form-status">Loading…</div>
+                            <div id="digest-settings-feeds-state" class="form-status pf-status">Loading…</div>
                             <div id="digest-settings-feeds-list" class="settings-digest-feed-list"></div>
                             <div class="form-actions">
-                                <button id="digest-settings-save-feeds" type="button" class="btn success">
+                                <button id="digest-settings-save-feeds" type="button" class="btn success pf-btn pf-btn-primary">
                                     save feed filter
                                 </button>
                             </div>
                         </section>
 
-                        <section class="card settings-digest-card">
-                            <h3 class="title">Blocked Words</h3>
-                            <p class="teaser">
+                        <section class="card settings-digest-card pf-panel">
+                            <h3 class="title pf-section-title">Blocked Words</h3>
+                            <p class="teaser pf-subtitle">
                                 Articles containing one of these words in title or teaser are excluded from Digest.
                             </p>
-                            <div class="form-row">
-                                <label for="digest-block-word-input">Word</label>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="digest-block-word-input">Word</label>
                                 <input
+                                    class="pf-input"
                                     type="text"
                                     id="digest-block-word-input"
                                     placeholder="z. B. promo, sponsored, football"
                                 />
                             </div>
                             <div class="form-actions">
-                                <button id="digest-block-word-add" type="button" class="btn success">add word</button>
+                                <button id="digest-block-word-add" type="button" class="btn success pf-btn pf-btn-primary">add word</button>
                             </div>
-                            <div id="digest-block-words-state" class="form-status">Loading…</div>
+                            <div id="digest-block-words-state" class="form-status pf-status">Loading…</div>
                             <div id="digest-block-words-list" class="settings-digest-block-list"></div>
                         </section>
                     </div>
@@ -424,101 +426,105 @@
 
                 <div id="settings-topics" class="settings-panel">
                     <div class="settings-topics-left">
-                        <form id="topic-form" class="card form">
-                            <div class="form-row">
-                                <label for="topic-slug">Slug</label>
-                                <input type="text" id="topic-slug" placeholder="e. g. ki" required />
+                        <form id="topic-form" class="card form pf-panel">
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topic-slug">Slug</label>
+                                <input class="pf-input" type="text" id="topic-slug" placeholder="e. g. ki" required />
                             </div>
-                            <div class="form-row">
-                                <label for="topic-label">Label</label>
-                                <input type="text" id="topic-label" placeholder="e. g. KI" required />
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topic-label">Label</label>
+                                <input class="pf-input" type="text" id="topic-label" placeholder="e. g. KI" required />
                             </div>
-                            <div class="form-row">
-                                <label for="topic-strong">Strong keywords (comma or newline)</label>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topic-strong">Strong keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-strong"
-                                    class="textarea"
+                                    class="textarea pf-textarea"
                                     rows="3"
                                     placeholder="chatgpt, openai, llm"
                                 ></textarea>
                             </div>
-                            <div class="form-row">
-                                <label for="topic-medium">Medium keywords (comma or newline)</label>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topic-medium">Medium keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-medium"
-                                    class="textarea"
+                                    class="textarea pf-textarea"
                                     rows="3"
                                     placeholder="copilot, prompting, gemini"
                                 ></textarea>
                             </div>
-                            <div class="form-row">
-                                <label for="topic-weak">Weak keywords (comma or newline)</label>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topic-weak">Weak keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-weak"
-                                    class="textarea"
+                                    class="textarea pf-textarea"
                                     rows="2"
                                     placeholder="modell, inferenz"
                                 ></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success" id="topic-submit">save topic</button>
-                                <button type="button" class="btn ghost" id="topic-cancel">cancel</button>
+                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="topic-submit">save topic</button>
+                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="topic-cancel">cancel</button>
                             </div>
-                            <div id="topic-form-status" class="form-status"></div>
+                            <div id="topic-form-status" class="form-status pf-status"></div>
                         </form>
 
-                        <section class="card settings-topics-json-card">
-                            <h3 class="title">Rules JSON</h3>
-                            <p class="teaser">Validate and save topic rules before they are applied.</p>
-                            <div class="form-row">
-                                <label for="topics-json-input">topics.rules.json</label>
+                        <section class="card settings-topics-json-card pf-panel">
+                            <h3 class="title pf-section-title">Rules JSON</h3>
+                            <p class="teaser pf-subtitle">Validate and save topic rules before they are applied.</p>
+                            <div class="form-row pf-field">
+                                <label class="pf-label" for="topics-json-input">topics.rules.json</label>
                                 <textarea
                                     id="topics-json-input"
-                                    class="textarea settings-topics-json-input"
+                                    class="textarea settings-topics-json-input pf-textarea"
                                     rows="13"
                                 ></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="button" class="btn" id="topics-json-validate">validate json</button>
-                                <button type="button" class="btn success" id="topics-json-save">save json</button>
+                                <button type="button" class="btn pf-btn" id="topics-json-validate">validate json</button>
+                                <button type="button" class="btn success pf-btn pf-btn-primary" id="topics-json-save">save json</button>
                             </div>
-                            <div id="topics-json-status" class="form-status"></div>
+                            <div id="topics-json-status" class="form-status pf-status"></div>
                         </section>
                     </div>
 
                     <div class="settings-topics-content">
-                        <section class="card settings-topics-reprocess-card">
-                            <h3 class="title">Reprocess Articles</h3>
-                            <p class="teaser">Re-run topic classification for all existing articles.</p>
+                        <section class="card settings-topics-reprocess-card pf-panel">
+                            <h3 class="title pf-section-title">Reprocess Articles</h3>
+                            <p class="teaser pf-subtitle">Re-run topic classification for all existing articles.</p>
                             <div class="form-actions">
-                                <button type="button" class="btn danger" id="topics-reprocess">
+                                <button type="button" class="btn danger pf-btn pf-btn-danger" id="topics-reprocess">
                                     re-run classification
                                 </button>
                             </div>
-                            <div id="topics-reprocess-status" class="form-status"></div>
+                            <div id="topics-reprocess-status" class="form-status pf-status"></div>
                         </section>
-                        <div id="topics-state" class="state">Loading…</div>
+                        <div id="topics-state" class="state pf-status">Loading…</div>
                         <div id="topics-list" class="list"></div>
                     </div>
                 </div>
 
                 <div id="settings-cosmetics" class="settings-panel settings-panel-single">
                     <div class="settings-cosmetics-content">
-                        <section class="card settings-cosmetics-card">
-                            <h3 class="title">Theme</h3>
-                            <p class="teaser">Switch between light and dark mode.</p>
+                        <section class="card settings-cosmetics-card pf-panel">
+                            <h3 class="title pf-section-title">Theme</h3>
+                            <p class="teaser pf-subtitle">Switch between light and dark mode.</p>
                             <div class="settings-cosmetics-actions">
-                                <button id="theme-toggle" class="btn toggle" type="button" aria-pressed="false">
-                                    <span class="toggle-track"></span>
-                                    <span class="toggle-label">Light</span>
-                                </button>
+                                <label class="pf-toggle settings-theme-toggle">
+                                    <span class="pf-toggle-copy">
+                                        <span class="pf-toggle-title">Dark mode</span>
+                                        <span id="theme-mode-label" class="pf-toggle-hint">Light</span>
+                                    </span>
+                                    <input id="theme-toggle" class="pf-toggle-input" type="checkbox" />
+                                    <span class="pf-toggle-track" aria-hidden="true"></span>
+                                </label>
                             </div>
                         </section>
-                        <section class="card settings-cosmetics-card">
-                            <h3 class="title">Web Version</h3>
-                            <p class="teaser">Open NO BULLSHIT RSS in your default browser.</p>
+                        <section class="card settings-cosmetics-card pf-panel">
+                            <h3 class="title pf-section-title">Web Version</h3>
+                            <p class="teaser pf-subtitle">Open NO BULLSHIT RSS in your default browser.</p>
                             <div class="settings-cosmetics-actions">
-                                <a class="btn settings-open-web" href="/" target="_blank" rel="noopener noreferrer">
+                                <a class="btn settings-open-web pf-btn" href="/" target="_blank" rel="noopener noreferrer">
                                     open web version
                                 </a>
                             </div>
@@ -534,9 +540,9 @@
         </main>
 
         <template id="article-card-template">
-            <article class="card feed-card" tabindex="0">
+            <article class="card feed-card pf-panel" tabindex="0">
                 <div class="meta">
-                    <button class="meta-source digest-source-chip" type="button">
+                    <button class="meta-source digest-source-chip pf-btn pf-btn-ghost" type="button">
                         <img class="source-logo digest-source-logo" alt="" />
                         <span class="source-name digest-source-name"></span>
                     </button>
@@ -544,14 +550,14 @@
                     <time class="meta-date"></time>
                 </div>
                 <div class="content">
-                    <h3 class="title"><button class="article-title-button btn-read" type="button"></button></h3>
-                    <p class="teaser"></p>
+                    <h3 class="title pf-section-title"><button class="article-title-button btn-read" type="button"></button></h3>
+                    <p class="teaser pf-subtitle"></p>
                 </div>
                 <div class="actions">
-                    <button class="btn article-save-btn" type="button">Save</button>
-                    <button class="btn ghost article-dismiss-btn" type="button">Dismiss</button>
+                    <button class="btn pf-btn article-save-btn" type="button">Save</button>
+                    <button class="btn ghost pf-btn pf-btn-ghost article-dismiss-btn" type="button">Dismiss</button>
                     <button
-                        class="btn ghost btn-icon article-action-btn btn-open-external"
+                        class="btn ghost btn-icon pf-icon-btn article-action-btn btn-open-external"
                         type="button"
                         title="Open external"
                         aria-label="Open article externally"
@@ -563,7 +569,7 @@
         </template>
 
         <template id="list-item-template">
-            <div class="list-item">
+            <div class="list-item pf-list-card">
                 <div>
                     <div class="list-title">
                         <span class="list-color-dot"></span>
@@ -572,59 +578,59 @@
                     <div class="list-meta"></div>
                 </div>
                 <div class="list-actions">
-                    <button class="btn ghost btn-edit">Edit</button>
-                    <button class="btn danger btn-delete">Delete</button>
+                    <button class="btn ghost pf-btn pf-btn-ghost btn-edit">Edit</button>
+                    <button class="btn danger pf-btn pf-btn-danger btn-delete">Delete</button>
                 </div>
             </div>
         </template>
 
         <div id="feed-import-backdrop" class="modal-backdrop" aria-hidden="true">
-            <div class="modal feed-import-modal" role="dialog" aria-modal="true" aria-labelledby="feed-import-title">
+            <div class="modal feed-import-modal pf-panel" role="dialog" aria-modal="true" aria-labelledby="feed-import-title">
                 <div class="modal-header">
-                    <div class="modal-title" id="feed-import-title">Import articles</div>
-                    <button class="btn ghost" id="feed-import-close" type="button" aria-label="Close import dialog">✕</button>
+                    <div class="modal-title pf-section-title" id="feed-import-title">Import articles</div>
+                    <button class="btn ghost pf-icon-btn" id="feed-import-close" type="button" aria-label="Close import dialog">✕</button>
                 </div>
                 <div class="modal-body">
-                    <p class="feed-import-help">Paste one article URL or one URL per line. You can also load a plain TXT link list.</p>
-                    <label for="feed-import-urls">Article links</label>
-                    <textarea id="feed-import-urls" class="textarea feed-import-textarea" rows="9" placeholder="https://example.com/article&#10;https://example.com/another-article"></textarea>
+                    <p class="feed-import-help pf-hint">Paste one article URL or one URL per line. You can also load a plain TXT link list.</p>
+                    <label class="pf-label" for="feed-import-urls">Article links</label>
+                    <textarea id="feed-import-urls" class="textarea feed-import-textarea pf-textarea" rows="9" placeholder="https://example.com/article&#10;https://example.com/another-article"></textarea>
                     <input id="feed-import-file" class="hide" type="file" accept=".txt,text/plain" />
                     <div class="feed-import-file-row">
-                        <button id="feed-import-choose-file" class="btn ghost" type="button">Choose TXT file</button>
+                        <button id="feed-import-choose-file" class="btn ghost pf-btn pf-btn-ghost" type="button">Choose TXT file</button>
                         <span id="feed-import-file-name">No file selected</span>
                     </div>
-                    <div id="feed-import-status" class="form-status" role="status" aria-live="polite"></div>
+                    <div id="feed-import-status" class="form-status pf-status" role="status" aria-live="polite"></div>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn ghost" id="feed-import-cancel" type="button">Cancel</button>
-                    <button class="btn success" id="feed-import-confirm" type="button">Import</button>
+                    <button class="btn ghost pf-btn pf-btn-ghost" id="feed-import-cancel" type="button">Cancel</button>
+                    <button class="btn success pf-btn pf-btn-primary" id="feed-import-confirm" type="button">Import</button>
                 </div>
             </div>
         </div>
 
         <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true">
-            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal pf-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
                 <div class="modal-header">
-                    <div class="modal-title" id="modal-title">Add to list</div>
-                    <button class="btn ghost" id="modal-close" type="button" aria-label="Close dialog">✕</button>
+                    <div class="modal-title pf-section-title" id="modal-title">Add to list</div>
+                    <button class="btn ghost pf-icon-btn" id="modal-close" type="button" aria-label="Close dialog">✕</button>
                 </div>
                 <div class="modal-body">
-                    <label for="modal-list-select">Choose list</label>
-                    <select id="modal-list-select" class="select"></select>
+                    <label class="pf-label" for="modal-list-select">Choose list</label>
+                    <select id="modal-list-select" class="select pf-select"></select>
                     <div class="modal-existing">
                         <div class="modal-existing-title">Already in:</div>
                         <div id="modal-existing-lists" class="modal-existing-list">—</div>
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn ghost" id="modal-cancel" type="button">Cancel</button>
-                    <button class="btn success" id="modal-confirm" type="button">Add</button>
+                    <button class="btn ghost pf-btn pf-btn-ghost" id="modal-cancel" type="button">Cancel</button>
+                    <button class="btn success pf-btn pf-btn-primary" id="modal-confirm" type="button">Add</button>
                 </div>
             </div>
         </div>
 
         <template id="feed-item-template">
-            <div class="list-item">
+            <div class="list-item pf-list-card">
                 <div>
                     <div class="list-title">
                         <img class="feed-logo" alt="" />
@@ -633,18 +639,18 @@
                     <div class="list-meta"></div>
                 </div>
                 <div class="list-actions">
-                    <button class="btn ghost btn-edit">Edit</button>
-                    <button class="btn danger btn-delete">Delete</button>
+                    <button class="btn ghost pf-btn pf-btn-ghost btn-edit">Edit</button>
+                    <button class="btn danger pf-btn pf-btn-danger btn-delete">Delete</button>
                 </div>
             </div>
         </template>
 
         <template id="digest-cluster-template">
-            <article class="card digest-cluster">
+            <article class="card digest-cluster pf-panel">
                 <div class="digest-cluster-header">
                     <div class="digest-cluster-main">
                         <span class="digest-cluster-count"></span>
-                        <h3 class="title digest-cluster-title"></h3>
+                        <h3 class="title digest-cluster-title pf-section-title"></h3>
                     </div>
                     <div class="digest-cluster-side">
                         <span class="digest-cluster-date"></span>
@@ -656,7 +662,7 @@
         </template>
 
         <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-        <button id="feed-back-to-top" class="feed-back-to-top hide" type="button" aria-label="Back to top" title="Back to top">
+        <button id="feed-back-to-top" class="feed-back-to-top pf-icon-btn hide" type="button" aria-label="Back to top" title="Back to top">
             ↑
         </button>
 

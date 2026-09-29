@@ -89,7 +89,7 @@ function renderFilterChips() {
     const filters = activeFilters();
     const fragment = document.createDocumentFragment();
     for (const [key, label] of filters) {
-        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'active-filter-chip';
+        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'active-filter-chip pf-badge pf-badge-muted';
         chip.dataset.filterKey = key; chip.textContent = `${label} ×`; chip.setAttribute('aria-label', `Remove ${label} filter`); fragment.appendChild(chip);
     }
     dom.feed.filterChips.replaceChildren(fragment);

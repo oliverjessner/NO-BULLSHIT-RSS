@@ -8,7 +8,9 @@ function createDigestItem(item, articleMap) {
     const url = normalizeArticleUrl(item?.url);
     const id = Number(item?.id);
     const validId = Number.isInteger(id) && id > 0;
-    card.className = url ? 'digest-item-card digest-item-card-link' : 'digest-item-card';
+    card.className = url
+        ? 'digest-item-card digest-item-card-link pf-list-card'
+        : 'digest-item-card pf-list-card';
     card.dataset.itemTitle = item?.title || 'Untitled';
     card.dataset.sourceName = item?.sourceName || 'Unknown source';
     if (url) { card.dataset.itemUrl = url; card.dataset.action = 'read'; card.role = 'link'; card.tabIndex = 0; }
@@ -29,7 +31,7 @@ function createDigestItem(item, articleMap) {
     const title = document.createElement('h4'); title.className = 'digest-item-title'; title.textContent = item?.title || 'Untitled';
     const teaser = document.createElement('p'); teaser.className = 'digest-item-teaser'; teaser.textContent = item?.teaser || item?.summary || item?.description || 'No description available.';
     content.append(title, teaser);
-    const open = document.createElement('button'); open.type = 'button'; open.className = 'btn ghost digest-item-open-btn'; open.textContent = 'Open link ↗'; open.dataset.action = 'external'; open.disabled = !url;
+    const open = document.createElement('button'); open.type = 'button'; open.className = 'btn ghost pf-btn pf-btn-ghost digest-item-open-btn'; open.textContent = 'Open link ↗'; open.dataset.action = 'external'; open.disabled = !url;
     if (url) open.dataset.itemUrl = url;
     if (validId) open.dataset.articleId = String(id);
     card.append(meta, content, open);
@@ -65,8 +67,8 @@ export function createDigestCluster(cluster, template, articleMap, activeTopic =
     const topicRow = document.createElement('div'); topicRow.className = 'digest-cluster-topics';
     for (const topic of collectTopics(items)) topicRow.appendChild(createTopicChip(topic, { digest: true, activeSlug: activeTopic }));
     const actions = document.createElement('div'); actions.className = 'digest-cluster-actions';
-    const save = document.createElement('button'); save.type = 'button'; save.className = 'btn ghost digest-cluster-add-btn'; save.textContent = 'Save story'; save.dataset.action = 'save';
-    const digested = document.createElement('button'); digested.type = 'button'; digested.className = 'btn ghost digest-cluster-digest-btn'; digested.textContent = 'Mark as digested'; digested.dataset.action = 'digest';
+    const save = document.createElement('button'); save.type = 'button'; save.className = 'btn ghost pf-btn pf-btn-ghost digest-cluster-add-btn'; save.textContent = 'Save story'; save.dataset.action = 'save';
+    const digested = document.createElement('button'); digested.type = 'button'; digested.className = 'btn ghost pf-btn pf-btn-ghost digest-cluster-digest-btn'; digested.textContent = 'Mark as digested'; digested.dataset.action = 'digest';
     if (ids.length) { const serialized = ids.join(','); root.dataset.articleIds = serialized; save.dataset.articleIds = serialized; digested.dataset.articleIds = serialized; }
     else { save.disabled = true; digested.disabled = true; }
     actions.append(save, digested); footer.append(topicRow, actions); root.appendChild(footer);

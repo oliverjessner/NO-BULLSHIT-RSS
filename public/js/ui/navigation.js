@@ -10,7 +10,12 @@ export function isViewActive(name) { return store.ui.activeView === name; }
 export async function navigate(name) {
     if (!dom.views[name]) return;
     store.ui.activeView = name;
-    dom.navLinks.forEach(link => link.classList.toggle('is-active', link.dataset.view === name));
+    dom.navLinks.forEach(link => {
+        const active = link.dataset.view === name;
+        link.classList.toggle('is-active', active);
+        link.classList.toggle('pf-is-active', active);
+        link.setAttribute('aria-pressed', String(active));
+    });
     Object.entries(dom.views).forEach(([key, view]) => view.classList.toggle('is-active', key === name));
     window.scrollTo(0, 0);
     updateStickyUi();

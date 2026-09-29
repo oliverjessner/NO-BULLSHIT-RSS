@@ -63,16 +63,16 @@ function renderLists() {
 function renderTopics() {
     const fragment = document.createDocumentFragment();
     for (const topic of store.reference.topics) {
-        const item = document.createElement('div'); item.className = 'list-item settings-topic-item'; item.dataset.topicSlug = topic.slug;
+        const item = document.createElement('div'); item.className = 'list-item settings-topic-item pf-list-card'; item.dataset.topicSlug = topic.slug;
         const main = document.createElement('div'); main.className = 'settings-topic-item-main';
         const title = document.createElement('div'); title.className = 'settings-topic-item-title';
         const label = document.createElement('span'); label.textContent = topic.label || topic.slug;
-        const slug = document.createElement('span'); slug.className = 'settings-topic-item-slug'; slug.textContent = topic.slug;
+        const slug = document.createElement('span'); slug.className = 'settings-topic-item-slug pf-badge pf-badge-muted'; slug.textContent = topic.slug;
         const meta = document.createElement('div'); meta.className = 'settings-topic-item-meta'; meta.textContent = `strong: ${(topic.strong || []).length} · medium: ${(topic.medium || []).length} · weak: ${(topic.weak || []).length}`;
         title.append(label, slug); main.append(title, meta);
         const actions = document.createElement('div'); actions.className = 'list-actions';
-        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn ghost'; edit.textContent = 'edit'; edit.dataset.action = 'edit-topic';
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger'; remove.textContent = 'remove'; remove.dataset.action = 'delete-topic';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn ghost pf-btn pf-btn-ghost'; edit.textContent = 'edit'; edit.dataset.action = 'edit-topic';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger pf-btn pf-btn-danger'; remove.textContent = 'remove'; remove.dataset.action = 'delete-topic';
         actions.append(edit, remove); item.append(main, actions); fragment.appendChild(item);
     }
     dom.settings.topicsList.replaceChildren(fragment);
@@ -86,7 +86,7 @@ const bullshitOperatorLabels = Object.freeze({ contains: 'Contains', not_contain
 function renderBullshitRules() {
     const fragment = document.createDocumentFragment();
     for (const rule of store.reference.bullshitRules) {
-        const item = document.createElement('div'); item.className = 'list-item settings-bullshit-item'; item.dataset.ruleId = String(rule.id);
+        const item = document.createElement('div'); item.className = 'list-item settings-bullshit-item pf-list-card'; item.dataset.ruleId = String(rule.id);
         const main = document.createElement('div');
         const title = document.createElement('div'); title.className = 'settings-bullshit-item-title'; title.textContent = rule.name;
         const meta = document.createElement('div'); meta.className = 'settings-bullshit-item-meta';
@@ -96,8 +96,8 @@ function renderBullshitRules() {
         const enabled = document.createElement('label'); enabled.className = 'settings-bullshit-enabled';
         const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = Boolean(rule.enabled); checkbox.dataset.action = 'toggle-bullshit-rule';
         const enabledText = document.createElement('span'); enabledText.textContent = 'Enabled'; enabled.append(checkbox, enabledText);
-        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn ghost'; edit.textContent = 'Edit'; edit.dataset.action = 'edit-bullshit-rule';
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger'; remove.textContent = 'Delete'; remove.dataset.action = 'delete-bullshit-rule';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn ghost pf-btn pf-btn-ghost'; edit.textContent = 'Edit'; edit.dataset.action = 'edit-bullshit-rule';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger pf-btn pf-btn-danger'; remove.textContent = 'Delete'; remove.dataset.action = 'delete-bullshit-rule';
         actions.append(enabled, edit, remove); item.append(main, actions); fragment.appendChild(item);
     }
     dom.settings.bullshitList.replaceChildren(fragment);
@@ -110,24 +110,24 @@ function renderDigestSettings() {
     const excluded = new Set(store.reference.digestSettings.excludedFeedIds.map(Number));
     const feeds = document.createDocumentFragment();
     for (const feed of store.reference.feeds) {
-        const row = document.createElement('label'); row.className = 'settings-digest-feed-item';
+        const row = document.createElement('label'); row.className = 'settings-digest-feed-item pf-list-card';
         const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.dataset.feedId = String(feed.id); checkbox.checked = excluded.has(Number(feed.id));
         const wrap = document.createElement('span'); wrap.className = 'settings-digest-feed-item-text';
         const title = document.createElement('span'); title.className = 'settings-digest-feed-item-title'; title.textContent = feed.name || 'Unnamed feed';
         const meta = document.createElement('span'); meta.className = 'settings-digest-feed-item-meta'; meta.textContent = feed.manual ? 'Imported links' : (feed.feedUrl || feed.websiteUrl || '');
         wrap.append(title, meta); row.append(checkbox, wrap); feeds.appendChild(row);
     }
-    if (!store.reference.feeds.length) { const empty = document.createElement('div'); empty.className = 'state'; empty.textContent = 'No feeds yet.'; feeds.appendChild(empty); }
+    if (!store.reference.feeds.length) { const empty = document.createElement('div'); empty.className = 'state pf-status'; empty.textContent = 'No feeds yet.'; feeds.appendChild(empty); }
     dom.settings.digestFeedsList.replaceChildren(feeds);
 
     const words = document.createDocumentFragment();
     for (const item of store.reference.digestSettings.blockedWords) {
-        const row = document.createElement('div'); row.className = 'settings-digest-word-item'; row.dataset.wordId = String(item.id);
+        const row = document.createElement('div'); row.className = 'settings-digest-word-item pf-list-card'; row.dataset.wordId = String(item.id);
         const label = document.createElement('span'); label.className = 'settings-digest-word-label'; label.textContent = item.word;
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger'; remove.textContent = 'remove'; remove.dataset.action = 'delete-word';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn danger pf-btn pf-btn-danger'; remove.textContent = 'remove'; remove.dataset.action = 'delete-word';
         row.append(label, remove); words.appendChild(row);
     }
-    if (!store.reference.digestSettings.blockedWords.length) { const empty = document.createElement('div'); empty.className = 'state'; empty.textContent = 'No blocked words yet.'; words.appendChild(empty); }
+    if (!store.reference.digestSettings.blockedWords.length) { const empty = document.createElement('div'); empty.className = 'state pf-status'; empty.textContent = 'No blocked words yet.'; words.appendChild(empty); }
     dom.settings.blockedWordsList.replaceChildren(words);
 }
 
@@ -203,7 +203,12 @@ function confirmDeletion(type, label) {
 function bindTabs() {
     dom.settings.tabs.addEventListener('click', event => {
         const tab = event.target.closest('.settings-tab[data-settings]'); if (!tab) return;
-        dom.settings.tabButtons.forEach(item => item.classList.toggle('is-active', item === tab));
+        dom.settings.tabButtons.forEach(item => {
+            const active = item === tab;
+            item.classList.toggle('is-active', active);
+            item.classList.toggle('pf-is-active', active);
+            item.setAttribute('aria-pressed', String(active));
+        });
         dom.settings.panels.forEach(panel => panel.classList.toggle('is-active', panel.id === `settings-${tab.dataset.settings}`));
     });
 }

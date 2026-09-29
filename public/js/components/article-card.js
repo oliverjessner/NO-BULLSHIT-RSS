@@ -20,7 +20,7 @@ export function createArticleCard(article, template, activeTopic = '') {
     if (article?.bullshit) {
         const ruleNames = Array.isArray(article?.bullshitRules) ? article.bullshitRules.filter(Boolean) : [];
         const chip = document.createElement('span');
-        chip.className = 'article-bullshit-chip';
+        chip.className = 'article-bullshit-chip pf-badge pf-badge-danger';
         chip.textContent = 'Bullshit';
         const reasons = ruleNames.length ? `Matched rules:\n- ${ruleNames.join('\n- ')}` : 'Matched by a bullshit rule';
         chip.title = reasons;

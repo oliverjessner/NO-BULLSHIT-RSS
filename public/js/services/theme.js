@@ -8,10 +8,8 @@ function render() {
     dom.feed.list.classList.toggle('is-list', store.ui.listLayout);
     setPressed(dom.feed.layoutOptions, option => option.dataset.layout === (store.ui.listLayout ? 'list' : 'cards'));
     if (dom.settings.themeToggle) {
-        dom.settings.themeToggle.classList.toggle('is-on', store.ui.darkTheme);
-        dom.settings.themeToggle.dataset.themeMode = store.ui.darkTheme ? 'dark' : 'light';
-        dom.settings.themeToggle.setAttribute('aria-pressed', String(store.ui.darkTheme));
-        const label = dom.settings.themeToggle.querySelector('.toggle-label');
+        dom.settings.themeToggle.checked = store.ui.darkTheme;
+        const label = document.getElementById('theme-mode-label');
         if (label) label.textContent = store.ui.darkTheme ? 'Dark' : 'Light';
     }
 }
@@ -24,8 +22,8 @@ export function initTheme() {
         localStorage.setItem(STORAGE_KEYS.layout, store.ui.listLayout ? 'list' : 'cards');
         render();
     });
-    dom.settings.themeToggle?.addEventListener('click', () => {
-        store.ui.darkTheme = !store.ui.darkTheme;
+    dom.settings.themeToggle?.addEventListener('change', event => {
+        store.ui.darkTheme = Boolean(event.currentTarget.checked);
         localStorage.setItem(STORAGE_KEYS.theme, store.ui.darkTheme ? 'dark' : 'light');
         render();
     });

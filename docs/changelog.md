@@ -1,3 +1,8 @@
+## 1.1.1
+
+- update all deps
+- addding --version as flag and showing the version in --help
+
 ## 1.1.0
 
 - Export feed with active search criteria and export digest

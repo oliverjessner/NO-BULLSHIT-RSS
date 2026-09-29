@@ -1,6 +1,6 @@
 import { queryArticles } from '../backend/services/article-queries.js';
 import { readStoredDigestPayload } from '../backend/services/digest-reader.js';
-import { parseCliArgs, getHelpText } from './lib/arguments.js';
+import { CLI_VERSION, parseCliArgs, getHelpText } from './lib/arguments.js';
 import { chooseArticle as chooseArticleInteractively } from './lib/choose.js';
 import { discoverDatabasePath } from './lib/database-path.js';
 import { readStoredFeeds } from './lib/feeds.js';
@@ -40,6 +40,10 @@ export async function runCli(
         const command = parseCliArgs(argv);
         if (command.command === 'help') {
             writeLine(stdout, getHelpText());
+            return exitCode;
+        }
+        if (command.command === 'version') {
+            writeLine(stdout, CLI_VERSION);
             return exitCode;
         }
 

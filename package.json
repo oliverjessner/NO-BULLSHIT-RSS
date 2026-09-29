@@ -1,6 +1,6 @@
 {
     "name": "no-bullshit-rss",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "type": "module",
     "description": "RSS-based news aggregator",
     "main": "electron/main.cjs",
@@ -19,7 +19,8 @@
     "scripts": {
         "start": "node backend/server.js",
         "electron": "electron .",
-        "dev": "node --watch backend/server.js",
+        "dev": "electron .",
+        "dev:server": "node --watch backend/server.js",
         "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js cli/*.test.js public/js/utils/*.test.js",
         "test:topics": "node --test backend/services/topics.test.js",
         "db:init": "node scripts/init-db.js",
@@ -47,8 +48,8 @@
     },
     "devDependencies": {
         "@electron/rebuild": "^4.0.4",
-        "electron": "^28.3.3",
-        "electron-builder": "^24.13.3"
+        "electron": "^44.4.5",
+        "electron-builder": "^26.15.3"
     },
     "build": {
         "directories": {

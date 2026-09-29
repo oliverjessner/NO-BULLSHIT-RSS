@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import sqlite3 from '@vscode/sqlite3';
-import { parseCliArgs } from './lib/arguments.js';
+import { CLI_VERSION, parseCliArgs } from './lib/arguments.js';
 import { chooseArticle } from './lib/choose.js';
 import { discoverDatabasePath, getElectronDatabasePath } from './lib/database-path.js';
 import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles } from './lib/output.js';
@@ -120,6 +120,8 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true } =
 }
 
 test('parses article projections and digest ranges', () => {
+    assert.deepEqual(parseCliArgs(['--version']), { command: 'version' });
+    assert.deepEqual(parseCliArgs(['-v']), { command: 'version' });
     assert.deepEqual(parseCliArgs(['rss']), { command: 'rss', rssUrl: false });
     assert.deepEqual(parseCliArgs(['rss', '--rss-url']), { command: 'rss', rssUrl: true });
     assert.deepEqual(parseCliArgs(['topics']), { command: 'topics' });
@@ -190,6 +192,22 @@ test('parses article projections and digest ranges', () => {
     assert.equal(parseCliArgs(['articles', 'digest', '5', '--daily']).variant, 'day');
     assert.equal(parseCliArgs(['articles', 'digest', '5', '--weekly']).variant, 'week');
     assert.equal(parseCliArgs(['articles', 'digest', '5', '--monthly']).variant, 'month');
+});
+
+test('prints the package version for version and help commands', async () => {
+    const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    const versionStdout = createCaptureStream();
+    const versionStderr = createCaptureStream();
+
+    assert.equal(await runCli(['--version'], { stdout: versionStdout, stderr: versionStderr }), 0);
+    assert.equal(versionStdout.read(), `${packageJson.version}\n`);
+    assert.equal(versionStderr.read(), '');
+    assert.equal(CLI_VERSION, packageJson.version);
+
+    const helpStdout = createCaptureStream();
+    assert.equal(await runCli(['--help'], { stdout: helpStdout, stderr: createCaptureStream() }), 0);
+    assert.equal(helpStdout.read().startsWith(`NO BULLSHIT RSS CLI v${packageJson.version}\n`), true);
+    assert.match(helpStdout.read(), /-v, --version\s+Show version/u);
 });
 
 test('rejects invalid counts, flags and multiple digest ranges', () => {

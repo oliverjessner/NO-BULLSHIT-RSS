@@ -1,4 +1,8 @@
-const HELP_TEXT = `NO BULLSHIT RSS CLI
+import { readFileSync } from 'node:fs';
+
+export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+
+const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 
 Usage:
   no-bullshit-rss rss [--rss-url]
@@ -27,6 +31,7 @@ Options:
   --daily                    Use today's digest (default)
   --weekly                   Use this week's digest
   --monthly                  Use this month's digest
+  -v, --version              Show version
   -h, --help                 Show this help
 
 When --url and --title are combined, each line is URL<TAB>TITLE.
@@ -77,6 +82,9 @@ export function parseCliArgs(argv) {
     const args = Array.isArray(argv) ? argv.map(value => String(value)) : [];
     if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
         return { command: 'help' };
+    }
+    if (args.includes('--version') || args.includes('-v')) {
+        return { command: 'version' };
     }
 
     const [resource, action, countValue, ...flags] = args;

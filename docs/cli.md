@@ -15,6 +15,7 @@ The command is then available in a new terminal without installing Node.js or ru
 
 ```bash
 no-bullshit-rss --help
+no-bullshit-rss --version
 ```
 
 ## Development setup

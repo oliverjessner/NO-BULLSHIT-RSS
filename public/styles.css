@@ -2220,6 +2220,8 @@ input::placeholder {
 }
 
 .settings-cosmetics-content {
+    display: grid;
+    gap: var(--space-24);
     max-inline-size: var(--size-settings-panel-column-max);
 }
 
@@ -2231,6 +2233,13 @@ input::placeholder {
     display: flex;
     align-items: center;
     justify-content: flex-start;
+}
+
+.settings-open-web {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
 }
 
 .settings-feeds-left .status-line {

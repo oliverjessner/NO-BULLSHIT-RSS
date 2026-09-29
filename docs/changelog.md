@@ -2,6 +2,7 @@
 
 - update all deps
 - addding --version as flag and showing the version in --help
+- move to pinefetch
 
 ## 1.1.0
 

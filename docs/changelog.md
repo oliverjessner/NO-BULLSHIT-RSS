@@ -4,6 +4,7 @@
 - addding --version as flag and showing the version in --help
 - move to pinefetch design system
 - removed the light mode
+- publish macOS Apple Silicon builds only
 - cleaning up all stuff
 
 ## 1.1.0

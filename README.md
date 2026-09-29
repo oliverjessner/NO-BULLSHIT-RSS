@@ -4,12 +4,12 @@ I vibe coded some electron slop.
 
 ![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact_1920.webp)
 
-No-Bullshit RSS is a minimal, open-source RSS reader that focuses on reading—not dashboards, upsells, or noise. It’s free, has no payments, and stores your feeds in a self-hosted database so you stay in control of your data.
+NO BULLSHIT RSS is a minimal, open-source desktop RSS reader that focuses on reading—not dashboards, upsells, or noise. It has no payments, subscriptions, or ads and stores feeds and articles locally in SQLite.
 
 ## Highlights
 
-- Self-hosted DB: your articles are stored in your own database
-- Open source and no payment / no subscription / no ads
+- Local SQLite database: your feeds and articles stay on your machine
+- Open source with no payments, subscriptions, or ads
 - Daily Digest: a clustered view that groups related articles for faster scanning
 - Local Topics: rule-based topic tagging (no external API) with editable JSON rules
 - Improved clustering: fuzzier matching with stronger logic and guardrails
@@ -47,13 +47,18 @@ Related articles from multiple sources are clustered into daily, weekly, and mon
 
 </details>
 
-also check out the [Landing page](https://oliverjessner.at/no-bullshit-rss/#promise).
+Also check out the [landing page](https://oliverjessner.at/no-bullshit-rss/#promise).
 
-## run as electron
+## Run locally
+
+Install the dependencies and start the Electron app:
 
 ```bash
-npm run electron
+npm install
+npm run dev
 ```
+
+To run only the local web server, use `npm start`.
 
 ## CLI
 
@@ -63,14 +68,29 @@ The macOS DMG includes a self-contained CLI launcher. After installing the app, 
 
 See the [CLI documentation](docs/cli.md) for setup, commands, output formats, and database discovery.
 
-## build for electron (mac, win, linux)
+## Platform support
+
+Prebuilt releases currently support macOS on Apple Silicon (M1 or newer) only. Intel Macs, Windows, and Linux are not release targets.
+
+## Build and publish
+
+Build the macOS ARM64 DMG:
 
 ```bash
-npm run build:all
+npm run dist:mac
 ```
 
-`build:all` runs the legacy all-platform flow:
+The artifact is written to `electron/dist`. Check the resolved release without making changes:
 
 ```bash
-npm run dist:all:workaround
+npm run publish -- --dry-run
 ```
+
+Create the release:
+
+```bash
+npm run publish
+```
+
+> [!IMPORTANT]
+> Publishing stages and commits pending changes, pushes the current branch, builds the DMG, creates and pushes the version tag, and creates the GitHub release.

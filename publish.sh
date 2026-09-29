@@ -11,7 +11,7 @@ PACKAGE_JSON_FILE="${PACKAGE_JSON_FILE:-package.json}"
 CHANGELOG_FILE="${CHANGELOG_FILE:-docs/changelog.md}"
 TAG_PREFIX="${TAG_PREFIX:-v}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
-BUILD_COMMAND="${BUILD_COMMAND:-npm run dist:all:workaround}"
+BUILD_COMMAND="${BUILD_COMMAND:-npm run dist:mac}"
 RELEASE_OUTPUT_DIR="${RELEASE_OUTPUT_DIR:-}"
 
 DRY_RUN=0
@@ -20,10 +20,11 @@ usage() {
     cat <<'EOF'
 Usage: ./publish.sh [--dry-run]
 
-Stages and commits pending changes, pushes the current branch, runs the release
-build, creates and pushes an annotated git tag from package.json.version and the
-first section in docs/changelog.md, then creates a GitHub release. If the working
-tree is clean, the current HEAD is released without creating an empty commit.
+Stages and commits pending changes, pushes the current branch, builds the macOS
+ARM64 DMG, creates and pushes an annotated git tag from package.json.version and
+the first section in docs/changelog.md, then creates a GitHub release. If the
+working tree is clean, the current HEAD is released without creating an empty
+commit.
 
 Options:
   --dry-run   Print the resolved commit, build, tag and release notes without writing anything
@@ -34,7 +35,7 @@ Environment:
   CHANGELOG_FILE     Override changelog path, defaults to "docs/changelog.md"
   TAG_PREFIX         Tag prefix, defaults to "v"
   GIT_REMOTE         Git remote used with --push, defaults to "origin"
-  BUILD_COMMAND      Release build command, defaults to "npm run dist:all:workaround"
+  BUILD_COMMAND      Release build command, defaults to "npm run dist:mac"
   RELEASE_OUTPUT_DIR Override release artifact directory, defaults to package.json build.directories.output
 EOF
 }
@@ -76,6 +77,9 @@ command -v gh >/dev/null 2>&1 || fail "gh CLI is required"
 gh auth status -h github.com >/dev/null 2>&1 || fail "gh is not authenticated for github.com"
 
 CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD) || fail "publish requires a checked out branch"
+
+[[ "$(uname -s)" == "Darwin" ]] || fail "publish supports macOS only"
+[[ "$(uname -m)" == "arm64" ]] || fail "publish supports Apple Silicon only"
 
 VERSION=$(
     node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (!pkg.version) process.exit(1); process.stdout.write(pkg.version);" \
@@ -175,7 +179,7 @@ collect_release_artifacts() {
         files+=("$file")
     done < <(
         find "$output_dir" -maxdepth 1 -type f \
-            \( -name "*${version}*.dmg" -o -name "*${version}*.exe" -o -name "*${version}*.AppImage" \) \
+            -name "*${version}*-arm64.dmg" \
             | LC_ALL=C sort
     )
 

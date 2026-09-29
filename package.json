@@ -27,12 +27,7 @@
         "db:backup": "node scripts/backup-db.js",
         "db:report": "node scripts/database-report.js",
         "benchmark:digest": "node scripts/benchmark-digest.js 8000",
-        "dist:mac": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --mac dmg --arm64",
-        "dist:win": "electron-builder --win nsis --x64",
-        "dist:linux": "electron-builder --linux AppImage --x64",
-        "dist:all": "electron-rebuild -f -w @vscode/sqlite3 && electron-builder --mac --win --linux",
-        "dist:all:workaround": "PYTHON=/opt/homebrew/opt/python@3.11/bin/python3.11 CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:all",
-        "build:all": "npm run dist:all:workaround",
+        "dist:mac": "PYTHON=/opt/homebrew/opt/python@3.11/bin/python3.11 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --arm64",
         "publish": "bash publish.sh"
     },
     "dependencies": {
@@ -48,7 +43,6 @@
         "rss-parser": "^3.13.0"
     },
     "devDependencies": {
-        "@electron/rebuild": "^4.0.4",
         "electron": "^44.4.5",
         "electron-builder": "^26.15.3"
     },

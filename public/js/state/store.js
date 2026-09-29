@@ -54,7 +54,6 @@ export const store = {
     ui: {
         activeView: 'main',
         listLayout: readStorage(STORAGE_KEYS.layout, 'cards') === 'list',
-        darkTheme: readStorage(STORAGE_KEYS.theme, 'dark') !== 'light',
         digestSort: readStorage(STORAGE_KEYS.digestSort, 'desc') === 'asc' ? 'asc' : 'desc',
         digestRange: ['day', 'week', 'month'].includes(readStorage(STORAGE_KEYS.digestRange, 'day'))
             ? readStorage(STORAGE_KEYS.digestRange, 'day')

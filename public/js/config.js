@@ -10,6 +10,5 @@ export const STORAGE_KEYS = Object.freeze({
     layout: 'fnnd.layout',
     digestSort: 'fnnd.digestSort',
     digestRange: 'fnnd.digestRange',
-    theme: 'fnnd.theme',
     viewerWidth: 'fnnd.viewerWidth',
 });

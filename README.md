@@ -14,7 +14,7 @@ No-Bullshit RSS is a minimal, open-source RSS reader that focuses on reading—n
 - Local Topics: rule-based topic tagging (no external API) with editable JSON rules
 - Improved clustering: fuzzier matching with stronger logic and guardrails
 - Instant search: highlight a word, right-click, and search it immediately
-- Dark mode
+- Dark-only interface
 - Storage visibility: settings now show how many articles are in your database
 
 ## Frontend

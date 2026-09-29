@@ -50,7 +50,6 @@ export const dom = Object.freeze({
         digestFeedsState: byId('digest-settings-feeds-state'), digestFeedsList: byId('digest-settings-feeds-list'),
         digestFeedsSave: byId('digest-settings-save-feeds'), blockedWordInput: byId('digest-block-word-input'),
         blockedWordAdd: byId('digest-block-word-add'), blockedWordsState: byId('digest-block-words-state'), blockedWordsList: byId('digest-block-words-list'),
-        themeToggle: byId('theme-toggle'),
     }),
     modal: Object.freeze({ backdrop: byId('modal-backdrop'), select: byId('modal-list-select'), close: byId('modal-close'), cancel: byId('modal-cancel'), confirm: byId('modal-confirm'), existing: byId('modal-existing-lists') }),
     feedImport: Object.freeze({

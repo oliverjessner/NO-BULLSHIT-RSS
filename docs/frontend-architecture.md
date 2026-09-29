@@ -12,7 +12,7 @@ public/js/api/client.js       the only HTTP API boundary
 public/js/state/store.js      shared state and indexed reference data
 public/js/views/              Feed, Digest, and Settings lifecycles
 public/js/components/         article cards, digest clusters, and chips
-public/js/services/           shared viewer, theme, and server-sent events
+public/js/services/           shared viewer, layout, and server-sent events
 public/js/ui/                 cached DOM, navigation, modal, and toast controllers
 public/js/utils/              DOM, formatting, and data helpers
 ```
@@ -66,7 +66,7 @@ Native modules add several small static-file requests on first load. This is an 
 - Node test suite: 32 passing tests, including five focused frontend utility tests.
 - Syntax checks pass for every frontend module.
 - `git diff --check` passes.
-- Browser regression paths covered Feed search/filter clearing, Cards/Compact layout, theme switching, Load More de-duplication, keyboard focus, lazy Digest and Settings activation, modal/viewer behavior, and Digest source/topic navigation.
+- Browser regression paths covered Feed search/filter clearing, Cards/Compact layout, dark-theme startup, Load More de-duplication, keyboard focus, lazy Digest and Settings activation, modal/viewer behavior, and Digest source/topic navigation.
 - Day-to-Week was verified with the Week button pressed and `Week · 934 stories · 1,061 sources` rendered.
 - Electron launches with its local backend healthy at `/api/health`.
 

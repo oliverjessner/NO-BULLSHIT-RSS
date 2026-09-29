@@ -2,7 +2,9 @@
 
 - update all deps
 - addding --version as flag and showing the version in --help
-- move to pinefetch
+- move to pinefetch design system
+- removed the light mode
+- cleaning up all stuff
 
 ## 1.1.0
 

@@ -1,7 +1,7 @@
 import { api } from './js/api/client.js';
 import { initArticleViewer } from './js/services/article-viewer.js';
 import { closeEvents, initEvents } from './js/services/events.js';
-import { initTheme } from './js/services/theme.js';
+import { initLayout } from './js/services/layout.js';
 import { setFeeds, setLists, setTopics, store } from './js/state/store.js';
 import { initModal } from './js/ui/modal.js';
 import { initNavigation } from './js/ui/navigation.js';
@@ -132,7 +132,7 @@ function setupLiveUpdates() {
 }
 
 async function init() {
-    initTheme();
+    initLayout();
     initArticleViewer();
     initNavigation(activate);
     initModal({

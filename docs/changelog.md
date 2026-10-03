@@ -1,4 +1,4 @@
-## 1.1.1
+# 1.1.1
 
 - update all deps
 - addding --version as flag and showing the version in --help
@@ -7,24 +7,24 @@
 - publish macOS Apple Silicon builds only
 - cleaning up all stuff
 
-## 1.1.0
+# 1.1.0
 
 - Export feed with active search criteria and export digest
 - Bullshit filter
 - import button
 
-## 1.0.2
+# 1.0.2
 
 - search in cli `no-bullshit-rss articles search 10 --title "nvidia"`
 - random in cli `no-bullshit-rss articles random`
 - security issues fixed with [ItWorksBut](https://github.com/oliverjessner/ItWorksBut)
 
-## 1.0.1
+# 1.0.1
 
 - improvements on the cli adding rss, topics, lists
 - bug fixes
 
-## 1.0.0
+# 1.0.0
 
 - UX overhaul
 - Adding CLI
@@ -33,21 +33,21 @@
 - updated many deps
 - improve CSS, JS, backend perf
 
-## 0.5.1
+# 0.5.1
 
 - fixed vibe coding problems with https://github.com/oliverjessner/ItWorksBut
 
-## 0.5.0
+# 0.5.0
 
 - ui overhaul, more hierarchy depth
 
-## 0.4.0
+# 0.4.0
 
 Features:
 
 - in-app viewer (browser) for the articles
 
-## 0.3.0
+# 0.3.0
 
 Features:
 
@@ -62,7 +62,7 @@ Minor Fixes
 - massive perf improvement on large databases
 - SQLite clean up
 
-## 0.2.0
+# 0.2.0
 
 Features:
 
@@ -78,7 +78,7 @@ Minor fixes:
 - Removed the remaining German text from a modal.
 - Improved button styling for clearer destructive/save actions.
 
-## 0.1.0
+# 0.1.0
 
 Features:
 

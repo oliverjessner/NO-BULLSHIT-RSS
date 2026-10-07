@@ -21,7 +21,7 @@
         "electron": "electron .",
         "dev": "electron .",
         "dev:server": "node --watch backend/server.js",
-        "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js cli/*.test.js public/js/utils/*.test.js",
+        "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js cli/*.test.js public/js/utils/*.test.js scripts/*.test.js",
         "test:topics": "node --test backend/services/topics.test.js",
         "db:init": "node scripts/init-db.js",
         "db:backup": "node scripts/backup-db.js",

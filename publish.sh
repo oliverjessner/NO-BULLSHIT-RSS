@@ -95,9 +95,9 @@ fi
 
 CHANGELOG_TITLE=$(
     awk '
-        /^##[[:space:]]+/ {
+        /^#[[:space:]]+/ {
             line = $0
-            sub(/^##[[:space:]]+/, "", line)
+            sub(/^#[[:space:]]+/, "", line)
             print line
             exit
         }
@@ -109,14 +109,14 @@ CHANGELOG_TITLE=$(
 if [[ "$CHANGELOG_TITLE" =~ ^[Vv]?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
     CHANGELOG_VERSION="${BASH_REMATCH[1]}"
 else
-    fail "top changelog title must be a version heading like '## 0.5.0', got '$CHANGELOG_TITLE'"
+    fail "top changelog title must be a version heading like '# 0.5.0', got '$CHANGELOG_TITLE'"
 fi
 
 [[ "$VERSION" == "$CHANGELOG_VERSION" ]] || fail "package.json version ($VERSION) does not match top changelog title ($CHANGELOG_VERSION)"
 
 CHANGELOG_BODY=$(
     awk '
-        /^##[[:space:]]+/ {
+        /^#[[:space:]]+/ {
             if (seen_heading) {
                 exit
             }

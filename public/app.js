@@ -5,6 +5,7 @@ import { initLayout } from './js/services/layout.js';
 import { setFeeds, setLists, setTopics, store } from './js/state/store.js';
 import { initModal } from './js/ui/modal.js';
 import { initNavigation } from './js/ui/navigation.js';
+import { initOJ } from './js/ui/design-system.js';
 import { toast } from './js/ui/toast.js';
 import {
     activateFeed,
@@ -23,6 +24,7 @@ const controllers = new Map([
 let activeController = 'main';
 let settingsModule = null;
 let activationId = 0;
+let cleanupDesignSystem = () => {};
 
 async function loadReferences() {
     const results = await Promise.allSettled([api.feeds(), api.lists(), api.topics()]);
@@ -132,6 +134,7 @@ function setupLiveUpdates() {
 }
 
 async function init() {
+    cleanupDesignSystem = initOJ();
     initLayout();
     initArticleViewer();
     initNavigation(activate);
@@ -156,6 +159,7 @@ async function init() {
 }
 
 function cleanup() {
+    cleanupDesignSystem();
     closeEvents();
     controllers.forEach(controller => controller.deactivate?.());
 }

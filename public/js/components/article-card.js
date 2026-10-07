@@ -20,7 +20,7 @@ export function createArticleCard(article, template, activeTopic = '') {
     if (article?.bullshit) {
         const ruleNames = Array.isArray(article?.bullshitRules) ? article.bullshitRules.filter(Boolean) : [];
         const chip = document.createElement('span');
-        chip.className = 'article-bullshit-chip pf-badge pf-badge-danger';
+        chip.className = 'article-bullshit-chip oj-badge oj-badge-danger';
         chip.textContent = 'Bullshit';
         const reasons = ruleNames.length ? `Matched rules:\n- ${ruleNames.join('\n- ')}` : 'Matched by a bullshit rule';
         chip.title = reasons;
@@ -62,7 +62,10 @@ export function createArticleCard(article, template, activeTopic = '') {
     }
     const save = fragment.querySelector('.article-save-btn');
     save.classList.toggle('is-saved', Boolean(article?.saved));
-    save.textContent = article?.saved ? 'Saved' : 'Save';
+    const saveIcon = document.createElement('i');
+    saveIcon.className = `${article?.saved ? 'fa-solid' : 'fa-regular'} fa-bookmark`;
+    saveIcon.setAttribute('aria-hidden', 'true');
+    save.replaceChildren(saveIcon, document.createTextNode(article?.saved ? ' Saved' : ' Save'));
     fragment.querySelector('.btn-open-external').setAttribute('aria-label', `Open ${article?.title || 'article'} externally`);
     return fragment;
 }

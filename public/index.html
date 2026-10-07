@@ -1,29 +1,29 @@
 <!doctype html>
-<html lang="de">
+<html lang="en" data-oj-theme="dark">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>NO BULL💩 RSS</title>
         <link rel="icon" href="/images/logo/logo_small.png" />
-        <link rel="stylesheet" href="/vendor/pinefetch.css" />
+        <link rel="stylesheet" href="/vendor/oj-designsystem/styles.css" />
         <link rel="stylesheet" href="/styles.css" />
     </head>
-    <body>
+    <body class="oj-app">
         <header class="topbar">
             <div class="brand">
                 <img class="brand-logo" src="/images/logo/logo.png" alt="No Bullshit RSS" />
             </div>
 
-            <nav class="nav pf-segmented">
-                <button class="nav-link pf-segmented-btn pf-is-active is-active" data-view="main" aria-pressed="true">Feed</button>
-                <button class="nav-link pf-segmented-btn" data-view="digest" aria-pressed="false">Digest</button>
-                <button class="nav-link pf-segmented-btn" data-view="settings" aria-pressed="false">Settings</button>
+            <nav class="nav oj-nav" aria-label="Main views">
+                <button class="nav-link oj-nav-link is-active" data-view="main" aria-pressed="true" aria-current="page">Feed</button>
+                <button class="nav-link oj-nav-link" data-view="digest" aria-pressed="false">Digest</button>
+                <button class="nav-link oj-nav-link" data-view="settings" aria-pressed="false">Settings</button>
             </nav>
         </header>
 
         <main class="container">
             <section id="view-main" class="view is-active">
-                <div class="toolbar">
+                <div class="toolbar oj-panel">
                     <div class="feed-heading">
                         <div>
                             <p class="eyebrow">News inbox</p>
@@ -32,72 +32,74 @@
                         <div class="feed-heading-meta">
                             <p id="feed-count" class="feed-count" aria-live="polite">Loading…</p>
                             <div class="feed-heading-actions">
-                                <details id="feed-export-menu" class="bulk-actions-menu">
-                                    <summary id="feed-export-trigger" class="btn ghost pf-btn pf-btn-ghost bulk-actions-trigger" aria-label="Feed actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
-                                    <div id="feed-export-popover" class="bulk-actions-popover export-popover pf-menu" role="menu">
-                                        <button id="feed-import-trigger" class="pf-menu-item" type="button" role="menuitem">Import articles</button>
-                                        <div class="action-menu-divider pf-menu-divider" role="presentation"></div>
-                                        <p class="export-popover-title pf-section-title">Export</p>
-                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
-                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
-                                        <button class="pf-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
+                                <div id="feed-export-menu" class="bulk-actions-menu oj-dropdown" data-oj-dropdown>
+                                    <button id="feed-export-trigger" class="bulk-actions-trigger oj-icon-button" type="button" data-oj-dropdown-trigger aria-label="Feed actions" data-oj-tooltip="Actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                                    <div id="feed-export-popover" class="bulk-actions-popover export-popover oj-menu" data-oj-dropdown-menu role="menu" aria-label="Article actions" hidden>
+                                        <button id="feed-import-trigger" class="oj-menu-item" type="button" role="menuitem">Import articles</button>
+                                        <div class="action-menu-divider oj-menu-divider" role="presentation"></div>
+                                        <p class="export-popover-title oj-heading-3">Export</p>
+                                        <button class="oj-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                        <button class="oj-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                        <button class="oj-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                        <button class="oj-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
                                     </div>
-                                </details>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="toolbar-actions">
-                        <input id="search-input" class="search-input pf-input" type="search" placeholder="Search articles…" />
-                        <select id="filter-topic" class="select pf-select" aria-label="Filter by topic">
+                        <label class="oj-sr-only" for="search-input">Search articles</label>
+                        <input id="search-input" class="search-input oj-input" type="search" placeholder="Search articles…" />
+                        <select id="filter-topic" class="select oj-select" aria-label="Filter by topic">
                             <option value="">Topic: All</option>
                         </select>
-                        <select id="filter-source" class="select pf-select" aria-label="Filter by source">
+                        <select id="filter-source" class="select oj-select" aria-label="Filter by source">
                             <option value="">Source: All</option>
                         </select>
-                        <select id="filter-list" class="select pf-select" aria-label="Filter by list">
+                        <select id="filter-list" class="select oj-select" aria-label="Filter by list">
                             <option value="">List: All</option>
                         </select>
-                        <select id="filter-bullshit" class="select pf-select" aria-label="Filter by bullshit status">
+                        <select id="filter-bullshit" class="select oj-select" aria-label="Filter by bullshit status">
                             <option value="all">Bullshit: All</option>
                             <option value="clean">Bullshit: Clean</option>
                             <option value="bullshit">Bullshit: Bullshit</option>
                         </select>
-                        <div id="toggle-layout" class="view-toggle pf-segmented" role="group" aria-label="Feed layout">
-                            <button class="view-toggle-option pf-segmented-btn" data-layout="list" type="button" aria-pressed="false">Compact</button>
-                            <button class="view-toggle-option pf-segmented-btn is-active" data-layout="cards" type="button" aria-pressed="true">Cards</button>
+                        <div id="toggle-layout" class="view-toggle" role="group" aria-label="Feed layout">
+                            <button class="view-toggle-option oj-button oj-button-ghost" data-layout="list" type="button" aria-pressed="false">Compact</button>
+                            <button class="view-toggle-option oj-button oj-button-ghost is-active" data-layout="cards" type="button" aria-pressed="true">Cards</button>
                         </div>
                     </div>
                     <div id="active-filter-row" class="active-filter-row hide">
                         <div id="active-filter-chips" class="active-filter-chips" aria-label="Active filters"></div>
-                        <button id="run-fetch" class="clear-filters pf-btn pf-btn-danger" type="button">Clear filters</button>
+                        <button id="run-fetch" class="clear-filters oj-button oj-button-danger" type="button">Clear filters</button>
                     </div>
                 </div>
                 <div id="dashboard-layout" class="dashboard-layout">
                     <div class="dashboard-primary">
                         <div id="loading-row" class="loading-row hide">
-                            <span class="spinner" aria-hidden="true"></span>
+                            <span class="oj-spinner" aria-hidden="true"></span>
+                            <span role="status">Loading articles…</span>
                         </div>
                         <div class="articles-scroll">
-                            <h2 id="articles-state" class="state pf-status">Loading…</h2>
+                            <h2 id="articles-state" class="state oj-status">Loading…</h2>
                             <div id="articles-list" class="cards"></div>
-                            <button id="articles-load-more" class="articles-load-more pf-btn pf-btn-ghost hide" type="button">
+                            <button id="articles-load-more" class="articles-load-more oj-button oj-button-ghost hide" type="button">
                                 Load more
                             </button>
                         </div>
                     </div>
-                    <aside id="article-viewer" class="article-viewer hide" aria-live="polite">
+                    <aside id="article-viewer" class="article-viewer oj-panel hide" aria-live="polite">
                         <div class="article-viewer-header">
-                            <h2 id="article-viewer-title" class="article-viewer-title pf-section-title">Article viewer</h2>
+                            <h2 id="article-viewer-title" class="article-viewer-title oj-heading-3">Article viewer</h2>
                             <div class="article-viewer-controls">
                                 <div
                                     id="article-viewer-width-toggle"
-                                    class="article-viewer-width-toggle pf-segmented"
+                                    class="article-viewer-width-toggle"
                                     role="group"
                                     aria-label="Viewer width"
                                 >
                                     <button
-                                        class="article-viewer-width-option pf-segmented-btn"
+                                        class="article-viewer-width-option oj-button oj-button-ghost"
                                         data-viewer-width="35"
                                         type="button"
                                         aria-pressed="false"
@@ -105,7 +107,7 @@
                                         35%
                                     </button>
                                     <button
-                                        class="article-viewer-width-option pf-segmented-btn"
+                                        class="article-viewer-width-option oj-button oj-button-ghost"
                                         data-viewer-width="50"
                                         type="button"
                                         aria-pressed="true"
@@ -113,7 +115,7 @@
                                         50%
                                     </button>
                                 </div>
-                                <button id="article-viewer-hide" class="btn ghost pf-btn pf-btn-ghost" type="button">Hide</button>
+                                <button id="article-viewer-hide" class="btn ghost oj-button oj-button-ghost" type="button">Hide</button>
                             </div>
                         </div>
                         <p id="article-viewer-message" class="article-viewer-message hide"></p>
@@ -128,17 +130,17 @@
                 </div>
             </section>
 
-            <section id="view-digest" class="view view-digest">
+            <section id="view-digest" class="view view-digest" hidden>
                 <div class="digest-scroll">
-                    <div class="digest-header">
+                    <div class="digest-header oj-panel">
                         <div
                             id="digest-range-toggle"
-                            class="digest-sort-toggle digest-range-toggle pf-segmented"
+                            class="digest-sort-toggle digest-range-toggle"
                             role="group"
                             aria-label="Digest range"
                         >
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
+                                class="digest-sort-option digest-control-option digest-range-option oj-button oj-button-ghost"
                                 data-digest-range="day"
                                 type="button"
                                 aria-pressed="true"
@@ -146,7 +148,7 @@
                                 Day
                             </button>
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
+                                class="digest-sort-option digest-control-option digest-range-option oj-button oj-button-ghost"
                                 data-digest-range="week"
                                 type="button"
                                 aria-pressed="false"
@@ -154,7 +156,7 @@
                                 Week
                             </button>
                             <button
-                                class="digest-sort-option digest-control-option digest-range-option pf-segmented-btn"
+                                class="digest-sort-option digest-control-option digest-range-option oj-button oj-button-ghost"
                                 data-digest-range="month"
                                 type="button"
                                 aria-pressed="false"
@@ -162,16 +164,16 @@
                                 Month
                             </button>
                         </div>
-                        <p id="digest-subtitle" class="digest-subtitle pf-subtitle">Loading…</p>
+                        <p id="digest-subtitle" class="digest-subtitle oj-muted">Loading…</p>
                         <div class="digest-header-meta">
                             <div
                                 id="digest-sort-toggle"
-                                class="digest-sort-toggle pf-segmented"
+                                class="digest-sort-toggle"
                                 role="group"
                                 aria-label="Sort clusters"
                             >
                                 <button
-                                    class="digest-sort-option digest-control-option pf-segmented-btn"
+                                    class="digest-sort-option digest-control-option oj-button oj-button-ghost"
                                     data-digest-sort="desc"
                                     type="button"
                                     aria-pressed="true"
@@ -179,7 +181,7 @@
                                     Newest
                                 </button>
                                 <button
-                                    class="digest-sort-option digest-control-option pf-segmented-btn"
+                                    class="digest-sort-option digest-control-option oj-button oj-button-ghost"
                                     data-digest-sort="asc"
                                     type="button"
                                     aria-pressed="false"
@@ -187,38 +189,38 @@
                                     Oldest
                                 </button>
                             </div>
-                            <details id="digest-bulk-menu" class="bulk-actions-menu">
-                                <summary id="digest-export-trigger" class="digest-control-option pf-segmented-btn bulk-actions-trigger" aria-label="Digest actions" aria-haspopup="menu" aria-expanded="false">•••</summary>
-                                <div id="digest-export-popover" class="bulk-actions-popover export-popover pf-menu" role="menu">
-                                    <button id="digest-mark-all" class="pf-menu-item" type="button" role="menuitem">Mark visible as digested</button>
-                                    <div class="action-menu-divider pf-menu-divider" role="presentation"></div>
-                                    <p class="export-popover-title pf-section-title">Export</p>
-                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
-                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
-                                    <button class="pf-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
+                            <div id="digest-bulk-menu" class="bulk-actions-menu oj-dropdown" data-oj-dropdown>
+                                <button id="digest-export-trigger" class="bulk-actions-trigger oj-icon-button" type="button" data-oj-dropdown-trigger aria-label="Digest actions" data-oj-tooltip="Actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                                <div id="digest-export-popover" class="bulk-actions-popover export-popover oj-menu" data-oj-dropdown-menu role="menu" aria-label="Article actions" hidden>
+                                    <button id="digest-mark-all" class="oj-menu-item" type="button" role="menuitem">Mark visible as digested</button>
+                                    <div class="action-menu-divider oj-menu-divider" role="presentation"></div>
+                                    <p class="export-popover-title oj-heading-3">Export</p>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
                                 </div>
-                            </details>
+                            </div>
                         </div>
                     </div>
 
                     <div id="digest-layout" class="dashboard-layout digest-layout">
                         <div class="dashboard-primary">
-                            <h2 id="digest-state" class="state pf-status">Loading…</h2>
+                            <h2 id="digest-state" class="state oj-status">Loading…</h2>
                             <div id="digest-list" class="digest-clusters"></div>
                         </div>
-                        <aside id="digest-article-viewer" class="article-viewer hide" aria-live="polite">
+                        <aside id="digest-article-viewer" class="article-viewer oj-panel hide" aria-live="polite">
                             <div class="article-viewer-header">
-                                <h2 id="digest-article-viewer-title" class="article-viewer-title pf-section-title">Article viewer</h2>
+                                <h2 id="digest-article-viewer-title" class="article-viewer-title oj-heading-3">Article viewer</h2>
                                 <div class="article-viewer-controls">
                                     <div
                                         id="digest-article-viewer-width-toggle"
-                                        class="article-viewer-width-toggle pf-segmented"
+                                        class="article-viewer-width-toggle"
                                         role="group"
                                         aria-label="Viewer width"
                                     >
                                         <button
-                                            class="article-viewer-width-option pf-segmented-btn"
+                                            class="article-viewer-width-option oj-button oj-button-ghost"
                                             data-viewer-width="35"
                                             type="button"
                                             aria-pressed="false"
@@ -226,7 +228,7 @@
                                             35%
                                         </button>
                                         <button
-                                            class="article-viewer-width-option pf-segmented-btn"
+                                            class="article-viewer-width-option oj-button oj-button-ghost"
                                             data-viewer-width="50"
                                             type="button"
                                             aria-pressed="true"
@@ -234,7 +236,7 @@
                                             50%
                                         </button>
                                     </div>
-                                    <button id="digest-article-viewer-hide" class="btn ghost pf-btn pf-btn-ghost" type="button">Hide</button>
+                                    <button id="digest-article-viewer-hide" class="btn ghost oj-button oj-button-ghost" type="button">Hide</button>
                                 </div>
                             </div>
                             <p id="digest-article-viewer-message" class="article-viewer-message hide"></p>
@@ -250,267 +252,267 @@
                 </div>
             </section>
 
-            <section id="view-settings" class="view view-settings">
+            <section id="view-settings" class="view view-settings oj-tabs" data-oj-tabs hidden>
                 <div class="settings-tabs-wrap">
-                    <div class="settings-tabs pf-segmented">
-                        <button class="settings-tab pf-segmented-btn pf-is-active is-active" data-settings="feeds" type="button" aria-pressed="true">
+                    <div class="settings-tabs oj-tab-list" role="tablist" aria-label="Settings sections">
+                        <button class="settings-tab oj-tab is-active" id="settings-feeds-tab" data-settings="feeds" type="button" role="tab" aria-selected="true" aria-controls="settings-feeds">
                             Add new RSS Feeds
                         </button>
-                        <button class="settings-tab pf-segmented-btn" data-settings="topics" type="button" aria-pressed="false">Topics</button>
-                        <button class="settings-tab pf-segmented-btn" data-settings="bullshit" type="button" aria-pressed="false">Bullshit Rules</button>
-                        <button class="settings-tab pf-segmented-btn" data-settings="lists" type="button" aria-pressed="false">Lists</button>
-                        <button class="settings-tab pf-segmented-btn" data-settings="digest" type="button" aria-pressed="false">Digest</button>
-                        <button class="settings-tab pf-segmented-btn" data-settings="cosmetics" type="button" aria-pressed="false">Cosmetics</button>
+                        <button class="settings-tab oj-tab" id="settings-topics-tab" data-settings="topics" type="button" role="tab" aria-selected="false" aria-controls="settings-topics">Topics</button>
+                        <button class="settings-tab oj-tab" id="settings-bullshit-tab" data-settings="bullshit" type="button" role="tab" aria-selected="false" aria-controls="settings-bullshit">Bullshit Rules</button>
+                        <button class="settings-tab oj-tab" id="settings-lists-tab" data-settings="lists" type="button" role="tab" aria-selected="false" aria-controls="settings-lists">Lists</button>
+                        <button class="settings-tab oj-tab" id="settings-digest-tab" data-settings="digest" type="button" role="tab" aria-selected="false" aria-controls="settings-digest">Digest</button>
+                        <button class="settings-tab oj-tab" id="settings-cosmetics-tab" data-settings="cosmetics" type="button" role="tab" aria-selected="false" aria-controls="settings-cosmetics">Cosmetics</button>
                     </div>
                 </div>
 
-                <div id="settings-feeds" class="settings-panel is-active">
+                <div id="settings-feeds" class="settings-panel is-active oj-tab-panel" role="tabpanel" aria-labelledby="settings-feeds-tab">
                     <div class="settings-feeds-left">
-                        <form id="feed-form" class="card form pf-panel">
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="feed-name">Feed name</label>
-                                <input class="pf-input" type="text" id="feed-name" placeholder="e.g. Business Insider Tech" required />
+                        <form id="feed-form" class="card form oj-panel">
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="feed-name">Feed name</label>
+                                <input class="oj-input" type="text" id="feed-name" placeholder="e.g. Business Insider Tech" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="feed-website">Website URL</label>
-                                <input class="pf-input" type="url" id="feed-website" placeholder="https://example.com" required />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="feed-website">Website URL</label>
+                                <input class="oj-input" type="url" id="feed-website" placeholder="https://example.com" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="feed-url">Feed URL</label>
-                                <input class="pf-input" type="url" id="feed-url" placeholder="https://example.com/feed.xml" required />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="feed-url">Feed URL</label>
+                                <input class="oj-input" type="url" id="feed-url" placeholder="https://example.com/feed.xml" required />
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="feed-submit">store feed</button>
-                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="feed-cancel">cancel</button>
-                                <button type="button" class="btn pf-btn" id="feed-test">test feed</button>
+                                <button type="submit" class="btn success oj-button oj-button-primary" id="feed-submit">store feed</button>
+                                <button type="button" class="btn ghost oj-button oj-button-ghost" id="feed-cancel">cancel</button>
+                                <button type="button" class="btn oj-button oj-button-secondary" id="feed-test">test feed</button>
                             </div>
-                            <div id="feed-form-status" class="form-status pf-status"></div>
+                            <div id="feed-form-status" class="form-status oj-status"></div>
                         </form>
-                        <div id="fetch-status" class="status-line pf-panel-soft pf-status">Last fetch: —</div>
-                        <div id="article-count-status" class="status-line pf-panel-soft pf-status">Saved articles: —</div>
+                        <div id="fetch-status" class="status-line oj-panel oj-soft oj-status">Last fetch: —</div>
+                        <div id="article-count-status" class="status-line oj-panel oj-soft oj-status">Saved articles: —</div>
                         <div class="form-actions">
-                            <button type="button" class="btn pf-btn" id="settings-fetch-now">fetch now</button>
+                            <button type="button" class="btn oj-button oj-button-secondary" id="settings-fetch-now">fetch now</button>
                         </div>
                     </div>
 
                     <div class="settings-feeds-content">
-                        <div id="feeds-state" class="state pf-status">Loading…</div>
-                        <div id="feeds-list" class="list"></div>
+                        <div id="feeds-state" class="state oj-status">Loading…</div>
+                        <div id="feeds-list" class="list oj-list"></div>
                     </div>
                 </div>
 
-                <div id="settings-bullshit" class="settings-panel">
+                <div id="settings-bullshit" class="settings-panel oj-tab-panel" role="tabpanel" aria-labelledby="settings-bullshit-tab" hidden>
                     <div class="settings-bullshit-left">
-                        <form id="bullshit-rule-form" class="card form pf-panel">
-                            <h3 class="title pf-section-title">Bullshit Rules</h3>
-                            <p class="teaser pf-subtitle">Automatically mark noisy or unwanted articles using local rules.</p>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="bullshit-rule-name">Name</label>
-                                <input class="pf-input" type="text" id="bullshit-rule-name" placeholder="e.g. Black Friday" maxlength="200" required />
+                        <form id="bullshit-rule-form" class="card form oj-panel">
+                            <h3 class="title oj-heading-3">Bullshit Rules</h3>
+                            <p class="teaser oj-muted">Automatically mark noisy or unwanted articles using local rules.</p>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="bullshit-rule-name">Name</label>
+                                <input class="oj-input" type="text" id="bullshit-rule-name" placeholder="e.g. Black Friday" maxlength="200" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="bullshit-rule-field">Field</label>
-                                <select id="bullshit-rule-field" class="select pf-select">
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="bullshit-rule-field">Field</label>
+                                <select id="bullshit-rule-field" class="select oj-select">
                                     <option value="title">Title</option>
                                     <option value="teaser">Teaser</option>
                                     <option value="url">URL</option>
                                     <option value="source">Source</option>
                                 </select>
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="bullshit-rule-operator">Operator</label>
-                                <select id="bullshit-rule-operator" class="select pf-select">
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="bullshit-rule-operator">Operator</label>
+                                <select id="bullshit-rule-operator" class="select oj-select">
                                     <option value="contains">Contains</option>
                                     <option value="not_contains">Does not contain</option>
                                     <option value="equals">Equals</option>
                                     <option value="regex">Regex</option>
                                 </select>
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="bullshit-rule-value">Value</label>
-                                <input class="pf-input" type="text" id="bullshit-rule-value" placeholder="e.g. Black Friday" maxlength="500" required />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="bullshit-rule-value">Value</label>
+                                <input class="oj-input" type="text" id="bullshit-rule-value" placeholder="e.g. Black Friday" maxlength="500" required />
                             </div>
                             <label class="settings-checkbox-row" for="bullshit-rule-enabled">
-                                <input type="checkbox" id="bullshit-rule-enabled" checked />
+                                <input type="checkbox" class="oj-checkbox" id="bullshit-rule-enabled" checked />
                                 <span>Enabled</span>
                             </label>
                             <div class="form-actions">
-                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="bullshit-rule-submit">+ Add rule</button>
-                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="bullshit-rule-cancel">cancel</button>
+                                <button type="submit" class="btn success oj-button oj-button-primary" id="bullshit-rule-submit">+ Add rule</button>
+                                <button type="button" class="btn ghost oj-button oj-button-ghost" id="bullshit-rule-cancel">cancel</button>
                             </div>
-                            <div id="bullshit-rule-form-status" class="form-status pf-status"></div>
+                            <div id="bullshit-rule-form-status" class="form-status oj-status"></div>
                         </form>
                     </div>
 
                     <div class="settings-bullshit-content">
-                        <section class="card settings-bullshit-reprocess-card pf-panel">
-                            <h3 class="title pf-section-title">Re-evaluate Articles</h3>
-                            <p class="teaser pf-subtitle">Re-run all enabled local rules against existing articles.</p>
+                        <section class="card settings-bullshit-reprocess-card oj-panel">
+                            <h3 class="title oj-heading-3">Re-evaluate Articles</h3>
+                            <p class="teaser oj-muted">Re-run all enabled local rules against existing articles.</p>
                             <div class="form-actions">
-                                <button type="button" class="btn pf-btn" id="bullshit-rules-reevaluate">re-evaluate articles</button>
+                                <button type="button" class="btn oj-button oj-button-secondary" id="bullshit-rules-reevaluate">re-evaluate articles</button>
                             </div>
-                            <div id="bullshit-rules-reevaluate-status" class="form-status pf-status"></div>
+                            <div id="bullshit-rules-reevaluate-status" class="form-status oj-status"></div>
                         </section>
-                        <div id="bullshit-rules-state" class="state pf-status">Loading…</div>
-                        <div id="bullshit-rules-list" class="list"></div>
+                        <div id="bullshit-rules-state" class="state oj-status">Loading…</div>
+                        <div id="bullshit-rules-list" class="list oj-list"></div>
                     </div>
                 </div>
 
-                <div id="settings-lists" class="settings-panel">
+                <div id="settings-lists" class="settings-panel oj-tab-panel" role="tabpanel" aria-labelledby="settings-lists-tab" hidden>
                     <div class="settings-lists-left">
-                        <form id="list-form" class="card form pf-panel">
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="list-name">Name</label>
-                                <input class="pf-input" type="text" id="list-name" placeholder="e. g. Readinglist" required />
+                        <form id="list-form" class="card form oj-panel">
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="list-name">Name</label>
+                                <input class="oj-input" type="text" id="list-name" placeholder="e. g. Readinglist" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="list-description">Description</label>
-                                <input class="pf-input" type="text" id="list-description" placeholder="optional" />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="list-description">Description</label>
+                                <input class="oj-input" type="text" id="list-description" placeholder="optional" />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="list-color">Color</label>
-                                <input type="color" class="color-picker" id="list-color" value="#1d1d1f" />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="list-color">Color</label>
+                                <input type="color" class="color-picker oj-input" id="list-color" value="#1d1d1f" />
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="list-submit">save list</button>
-                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="list-cancel">cancel</button>
+                                <button type="submit" class="btn success oj-button oj-button-primary" id="list-submit">save list</button>
+                                <button type="button" class="btn ghost oj-button oj-button-ghost" id="list-cancel">cancel</button>
                             </div>
-                            <div id="list-form-status" class="form-status pf-status"></div>
+                            <div id="list-form-status" class="form-status oj-status"></div>
                         </form>
                     </div>
 
                     <div class="settings-lists-content">
-                        <div id="lists-state" class="state pf-status">Loading…</div>
-                        <div id="lists-list" class="list"></div>
+                        <div id="lists-state" class="state oj-status">Loading…</div>
+                        <div id="lists-list" class="list oj-list"></div>
                     </div>
                 </div>
 
-                <div id="settings-digest" class="settings-panel settings-panel-single">
+                <div id="settings-digest" class="settings-panel settings-panel-single oj-tab-panel" role="tabpanel" aria-labelledby="settings-digest-tab" hidden>
                     <div class="settings-digest-content">
-                        <section class="card settings-digest-card pf-panel">
-                            <h3 class="title pf-section-title">Excluded RSS Feeds</h3>
-                            <p class="teaser pf-subtitle">
+                        <section class="card settings-digest-card oj-panel">
+                            <h3 class="title oj-heading-3">Excluded RSS Feeds</h3>
+                            <p class="teaser oj-muted">
                                 Selected feeds are ignored in Digest and will not appear in clustered results.
                             </p>
-                            <div id="digest-settings-feeds-state" class="form-status pf-status">Loading…</div>
+                            <div id="digest-settings-feeds-state" class="form-status oj-status">Loading…</div>
                             <div id="digest-settings-feeds-list" class="settings-digest-feed-list"></div>
                             <div class="form-actions">
-                                <button id="digest-settings-save-feeds" type="button" class="btn success pf-btn pf-btn-primary">
+                                <button id="digest-settings-save-feeds" type="button" class="btn success oj-button oj-button-primary">
                                     save feed filter
                                 </button>
                             </div>
                         </section>
 
-                        <section class="card settings-digest-card pf-panel">
-                            <h3 class="title pf-section-title">Blocked Words</h3>
-                            <p class="teaser pf-subtitle">
+                        <section class="card settings-digest-card oj-panel">
+                            <h3 class="title oj-heading-3">Blocked Words</h3>
+                            <p class="teaser oj-muted">
                                 Articles containing one of these words in title or teaser are excluded from Digest.
                             </p>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="digest-block-word-input">Word</label>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="digest-block-word-input">Word</label>
                                 <input
-                                    class="pf-input"
+                                    class="oj-input"
                                     type="text"
                                     id="digest-block-word-input"
                                     placeholder="z. B. promo, sponsored, football"
                                 />
                             </div>
                             <div class="form-actions">
-                                <button id="digest-block-word-add" type="button" class="btn success pf-btn pf-btn-primary">add word</button>
+                                <button id="digest-block-word-add" type="button" class="btn success oj-button oj-button-primary">add word</button>
                             </div>
-                            <div id="digest-block-words-state" class="form-status pf-status">Loading…</div>
+                            <div id="digest-block-words-state" class="form-status oj-status">Loading…</div>
                             <div id="digest-block-words-list" class="settings-digest-block-list"></div>
                         </section>
                     </div>
                 </div>
 
-                <div id="settings-topics" class="settings-panel">
+                <div id="settings-topics" class="settings-panel oj-tab-panel" role="tabpanel" aria-labelledby="settings-topics-tab" hidden>
                     <div class="settings-topics-left">
-                        <form id="topic-form" class="card form pf-panel">
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topic-slug">Slug</label>
-                                <input class="pf-input" type="text" id="topic-slug" placeholder="e. g. ki" required />
+                        <form id="topic-form" class="card form oj-panel">
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topic-slug">Slug</label>
+                                <input class="oj-input" type="text" id="topic-slug" placeholder="e. g. ki" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topic-label">Label</label>
-                                <input class="pf-input" type="text" id="topic-label" placeholder="e. g. KI" required />
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topic-label">Label</label>
+                                <input class="oj-input" type="text" id="topic-label" placeholder="e. g. KI" required />
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topic-strong">Strong keywords (comma or newline)</label>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topic-strong">Strong keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-strong"
-                                    class="textarea pf-textarea"
+                                    class="textarea oj-textarea"
                                     rows="3"
                                     placeholder="chatgpt, openai, llm"
                                 ></textarea>
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topic-medium">Medium keywords (comma or newline)</label>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topic-medium">Medium keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-medium"
-                                    class="textarea pf-textarea"
+                                    class="textarea oj-textarea"
                                     rows="3"
                                     placeholder="copilot, prompting, gemini"
                                 ></textarea>
                             </div>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topic-weak">Weak keywords (comma or newline)</label>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topic-weak">Weak keywords (comma or newline)</label>
                                 <textarea
                                     id="topic-weak"
-                                    class="textarea pf-textarea"
+                                    class="textarea oj-textarea"
                                     rows="2"
                                     placeholder="modell, inferenz"
                                 ></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn success pf-btn pf-btn-primary" id="topic-submit">save topic</button>
-                                <button type="button" class="btn ghost pf-btn pf-btn-ghost" id="topic-cancel">cancel</button>
+                                <button type="submit" class="btn success oj-button oj-button-primary" id="topic-submit">save topic</button>
+                                <button type="button" class="btn ghost oj-button oj-button-ghost" id="topic-cancel">cancel</button>
                             </div>
-                            <div id="topic-form-status" class="form-status pf-status"></div>
+                            <div id="topic-form-status" class="form-status oj-status"></div>
                         </form>
 
-                        <section class="card settings-topics-json-card pf-panel">
-                            <h3 class="title pf-section-title">Rules JSON</h3>
-                            <p class="teaser pf-subtitle">Validate and save topic rules before they are applied.</p>
-                            <div class="form-row pf-field">
-                                <label class="pf-label" for="topics-json-input">topics.rules.json</label>
+                        <section class="card settings-topics-json-card oj-panel">
+                            <h3 class="title oj-heading-3">Rules JSON</h3>
+                            <p class="teaser oj-muted">Validate and save topic rules before they are applied.</p>
+                            <div class="form-row oj-field">
+                                <label class="oj-label" for="topics-json-input">topics.rules.json</label>
                                 <textarea
                                     id="topics-json-input"
-                                    class="textarea settings-topics-json-input pf-textarea"
+                                    class="textarea settings-topics-json-input oj-textarea oj-mono"
                                     rows="13"
                                 ></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="button" class="btn pf-btn" id="topics-json-validate">validate json</button>
-                                <button type="button" class="btn success pf-btn pf-btn-primary" id="topics-json-save">save json</button>
+                                <button type="button" class="btn oj-button oj-button-secondary" id="topics-json-validate">validate json</button>
+                                <button type="button" class="btn success oj-button oj-button-primary" id="topics-json-save">save json</button>
                             </div>
-                            <div id="topics-json-status" class="form-status pf-status"></div>
+                            <div id="topics-json-status" class="form-status oj-status"></div>
                         </section>
                     </div>
 
                     <div class="settings-topics-content">
-                        <section class="card settings-topics-reprocess-card pf-panel">
-                            <h3 class="title pf-section-title">Reprocess Articles</h3>
-                            <p class="teaser pf-subtitle">Re-run topic classification for all existing articles.</p>
+                        <section class="card settings-topics-reprocess-card oj-panel">
+                            <h3 class="title oj-heading-3">Reprocess Articles</h3>
+                            <p class="teaser oj-muted">Re-run topic classification for all existing articles.</p>
                             <div class="form-actions">
-                                <button type="button" class="btn danger pf-btn pf-btn-danger" id="topics-reprocess">
+                                <button type="button" class="btn danger oj-button oj-button-danger" id="topics-reprocess">
                                     re-run classification
                                 </button>
                             </div>
-                            <div id="topics-reprocess-status" class="form-status pf-status"></div>
+                            <div id="topics-reprocess-status" class="form-status oj-status"></div>
                         </section>
-                        <div id="topics-state" class="state pf-status">Loading…</div>
-                        <div id="topics-list" class="list"></div>
+                        <div id="topics-state" class="state oj-status">Loading…</div>
+                        <div id="topics-list" class="list oj-list"></div>
                     </div>
                 </div>
 
-                <div id="settings-cosmetics" class="settings-panel settings-panel-single">
+                <div id="settings-cosmetics" class="settings-panel settings-panel-single oj-tab-panel" role="tabpanel" aria-labelledby="settings-cosmetics-tab" hidden>
                     <div class="settings-cosmetics-content">
-                        <section class="card settings-cosmetics-card pf-panel">
-                            <h3 class="title pf-section-title">Web Version</h3>
-                            <p class="teaser pf-subtitle">Open NO BULLSHIT RSS in your default browser.</p>
+                        <section class="card settings-cosmetics-card oj-panel">
+                            <h3 class="title oj-heading-3">Web Version</h3>
+                            <p class="teaser oj-muted">Open NO BULLSHIT RSS in your default browser.</p>
                             <div class="settings-cosmetics-actions">
-                                <a class="btn settings-open-web pf-btn" href="/" target="_blank" rel="noopener noreferrer">
+                                <a class="btn settings-open-web oj-button oj-button-secondary" href="/" target="_blank" rel="noopener noreferrer">
                                     open web version
                                 </a>
                             </div>
@@ -526,36 +528,36 @@
         </main>
 
         <template id="article-card-template">
-            <article class="card feed-card pf-panel" tabindex="0">
+            <article class="card feed-card oj-panel" tabindex="0">
                 <div class="meta">
-                    <button class="meta-source digest-source-chip pf-btn pf-btn-ghost" type="button">
+                    <button class="meta-source digest-source-chip oj-tag" type="button">
                         <img class="source-logo digest-source-logo" alt="" />
                         <span class="source-name digest-source-name"></span>
                     </button>
                     <span class="meta-separator" aria-hidden="true">·</span>
-                    <time class="meta-date"></time>
+                    <time class="meta-date oj-mono"></time>
                 </div>
                 <div class="content">
-                    <h3 class="title pf-section-title"><button class="article-title-button btn-read" type="button"></button></h3>
-                    <p class="teaser pf-subtitle"></p>
+                    <h3 class="title oj-heading-3"><button class="article-title-button btn-read" type="button"></button></h3>
+                    <p class="teaser oj-muted"></p>
                 </div>
                 <div class="actions">
-                    <button class="btn pf-btn article-save-btn" type="button">Save</button>
-                    <button class="btn ghost pf-btn pf-btn-ghost article-dismiss-btn" type="button">Dismiss</button>
+                    <button class="btn oj-button oj-button-secondary article-save-btn" type="button">Save</button>
+                    <button class="btn ghost oj-button oj-button-ghost article-dismiss-btn" type="button">Dismiss</button>
                     <button
-                        class="pf-btn pf-btn-ghost article-action-btn btn-open-external"
+                        class="oj-icon-button article-action-btn btn-open-external"
                         type="button"
-                        title="Open external"
+
                         aria-label="Open article externally"
                     >
-                        ↗
+                        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                     </button>
                 </div>
             </article>
         </template>
 
         <template id="list-item-template">
-            <div class="list-item pf-list-card">
+            <div class="list-item oj-list-item">
                 <div>
                     <div class="list-title">
                         <span class="list-color-dot"></span>
@@ -564,59 +566,55 @@
                     <div class="list-meta"></div>
                 </div>
                 <div class="list-actions">
-                    <button class="btn ghost pf-btn pf-btn-ghost btn-edit">Edit</button>
-                    <button class="btn danger pf-btn pf-btn-danger btn-delete">Delete</button>
+                    <button class="btn ghost oj-button oj-button-ghost btn-edit">Edit</button>
+                    <button class="btn danger oj-button oj-button-danger btn-delete">Delete</button>
                 </div>
             </div>
         </template>
 
-        <div id="feed-import-backdrop" class="modal-backdrop" aria-hidden="true">
-            <div class="modal feed-import-modal pf-panel" role="dialog" aria-modal="true" aria-labelledby="feed-import-title">
-                <div class="modal-header">
-                    <div class="modal-title pf-section-title" id="feed-import-title">Import articles</div>
-                    <button class="btn ghost pf-icon-btn" id="feed-import-close" type="button" aria-label="Close import dialog">✕</button>
-                </div>
-                <div class="modal-body">
-                    <p class="feed-import-help pf-hint">Paste one article URL or one URL per line. You can also load a plain TXT link list.</p>
-                    <label class="pf-label" for="feed-import-urls">Article links</label>
-                    <textarea id="feed-import-urls" class="textarea feed-import-textarea pf-textarea" rows="9" placeholder="https://example.com/article&#10;https://example.com/another-article"></textarea>
-                    <input id="feed-import-file" class="hide" type="file" accept=".txt,text/plain" />
-                    <div class="feed-import-file-row">
-                        <button id="feed-import-choose-file" class="btn ghost pf-btn pf-btn-ghost" type="button">Choose TXT file</button>
-                        <span id="feed-import-file-name">No file selected</span>
-                    </div>
-                    <div id="feed-import-status" class="form-status pf-status" role="status" aria-live="polite"></div>
-                </div>
-                <div class="modal-actions">
-                    <button class="btn ghost pf-btn pf-btn-ghost" id="feed-import-cancel" type="button">Cancel</button>
-                    <button class="btn success pf-btn pf-btn-primary" id="feed-import-confirm" type="button">Import</button>
-                </div>
+        <dialog id="feed-import-backdrop" class="modal feed-import-modal oj-dialog" data-oj-dialog aria-labelledby="feed-import-title" aria-describedby="feed-import-help">
+            <div class="modal-header oj-dialog-header">
+                <h2 class="modal-title oj-dialog-title" id="feed-import-title">Import articles</h2>
+                <button class="oj-icon-button" id="feed-import-close" type="button" aria-label="Close import dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
-        </div>
+            <div class="modal-body oj-dialog-body">
+                <p id="feed-import-help" class="feed-import-help oj-helper">Paste one article URL or one URL per line. You can also load a plain TXT link list.</p>
+                <label class="oj-label" for="feed-import-urls">Article links</label>
+                <textarea id="feed-import-urls" class="textarea feed-import-textarea oj-textarea oj-mono" autofocus aria-describedby="feed-import-help feed-import-status" rows="9" placeholder="https://example.com/article&#10;https://example.com/another-article"></textarea>
+                <input id="feed-import-file" class="hide" type="file" accept=".txt,text/plain" />
+                <div class="feed-import-file-row">
+                    <button id="feed-import-choose-file" class="btn ghost oj-button oj-button-ghost" type="button">Choose TXT file</button>
+                    <span id="feed-import-file-name">No file selected</span>
+                </div>
+                <div id="feed-import-status" class="form-status oj-status" role="status" aria-live="polite"></div>
+            </div>
+            <div class="modal-actions oj-dialog-footer">
+                <button class="btn ghost oj-button oj-button-ghost" id="feed-import-cancel" type="button">Cancel</button>
+                <button class="btn success oj-button oj-button-primary" id="feed-import-confirm" type="button">Import</button>
+            </div>
+        </dialog>
 
-        <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true">
-            <div class="modal pf-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-                <div class="modal-header">
-                    <div class="modal-title pf-section-title" id="modal-title">Add to list</div>
-                    <button class="btn ghost pf-icon-btn" id="modal-close" type="button" aria-label="Close dialog">✕</button>
-                </div>
-                <div class="modal-body">
-                    <label class="pf-label" for="modal-list-select">Choose list</label>
-                    <select id="modal-list-select" class="select pf-select"></select>
-                    <div class="modal-existing">
-                        <div class="modal-existing-title">Already in:</div>
-                        <div id="modal-existing-lists" class="modal-existing-list">—</div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button class="btn ghost pf-btn pf-btn-ghost" id="modal-cancel" type="button">Cancel</button>
-                    <button class="btn success pf-btn pf-btn-primary" id="modal-confirm" type="button">Add</button>
+        <dialog id="modal-backdrop" class="modal oj-dialog" data-oj-dialog aria-labelledby="modal-title">
+            <div class="modal-header oj-dialog-header">
+                <h2 class="modal-title oj-dialog-title" id="modal-title">Add to list</h2>
+                <button class="oj-icon-button" id="modal-close" type="button" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body oj-dialog-body">
+                <label class="oj-label" for="modal-list-select">Choose list</label>
+                <select id="modal-list-select" class="select oj-select" autofocus></select>
+                <div class="modal-existing">
+                    <div class="modal-existing-title">Already in:</div>
+                    <div id="modal-existing-lists" class="modal-existing-list">—</div>
                 </div>
             </div>
-        </div>
+            <div class="modal-actions oj-dialog-footer">
+                <button class="btn ghost oj-button oj-button-ghost" id="modal-cancel" type="button">Cancel</button>
+                <button class="btn success oj-button oj-button-primary" id="modal-confirm" type="button">Add</button>
+            </div>
+        </dialog>
 
         <template id="feed-item-template">
-            <div class="list-item pf-list-card">
+            <div class="list-item oj-list-item">
                 <div>
                     <div class="list-title">
                         <img class="feed-logo" alt="" />
@@ -625,21 +623,21 @@
                     <div class="list-meta"></div>
                 </div>
                 <div class="list-actions">
-                    <button class="btn ghost pf-btn pf-btn-ghost btn-edit">Edit</button>
-                    <button class="btn danger pf-btn pf-btn-danger btn-delete">Delete</button>
+                    <button class="btn ghost oj-button oj-button-ghost btn-edit">Edit</button>
+                    <button class="btn danger oj-button oj-button-danger btn-delete">Delete</button>
                 </div>
             </div>
         </template>
 
         <template id="digest-cluster-template">
-            <article class="card digest-cluster pf-panel">
+            <article class="card digest-cluster oj-panel">
                 <div class="digest-cluster-header">
                     <div class="digest-cluster-main">
                         <span class="digest-cluster-count"></span>
-                        <h3 class="title digest-cluster-title pf-section-title"></h3>
+                        <h3 class="title digest-cluster-title oj-heading-3"></h3>
                     </div>
                     <div class="digest-cluster-side">
-                        <span class="digest-cluster-date"></span>
+                        <span class="digest-cluster-date oj-mono"></span>
                         <div class="digest-cluster-sources"></div>
                     </div>
                 </div>
@@ -647,9 +645,8 @@
             </article>
         </template>
 
-        <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-        <button id="feed-back-to-top" class="feed-back-to-top pf-icon-btn hide" type="button" aria-label="Back to top" title="Back to top">
-            ↑
+        <button id="feed-back-to-top" class="feed-back-to-top oj-icon-button hide" type="button" aria-label="Back to top">
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
         </button>
 
         <script defer src="/app.js" type="module"></script>

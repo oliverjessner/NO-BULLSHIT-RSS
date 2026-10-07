@@ -116,7 +116,8 @@ export async function loadDigest({ force = false, silent = false } = {}) {
 async function markDigested(ids, button, { removeCluster = false } = {}) {
     const normalized = normalizeIds(ids); if (!normalized.length) return;
     const mutationRange = store.ui.digestRange;
-    const previous = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Marking…'; }
+    const previous = button ? [...button.childNodes].map(node => node.cloneNode(true)) : [];
+    if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Marking…'; }
     try {
         store.digest.pendingMutationEvents += 1;
         await api.markDigested(normalized, mutationRange);
@@ -130,8 +131,10 @@ async function markDigested(ids, button, { removeCluster = false } = {}) {
         toast.success(`${normalized.length === 1 ? 'Story' : `${normalized.length} sources`} marked as digested`, { actionLabel: 'Undo', onAction: async () => { await api.restoreDigested(normalized, mutationRange); store.digest.needsRefresh = true; await loadDigest({ force: true }); } });
     } catch (error) {
         store.digest.pendingMutationEvents = Math.max(0, store.digest.pendingMutationEvents - 1);
-        if (button) { button.disabled = false; button.textContent = previous; }
+        if (button) { button.disabled = false; button.replaceChildren(...previous); }
         toast.error(`Digested failed: ${error.message}`);
+    } finally {
+        button?.removeAttribute('aria-busy');
     }
 }
 
@@ -167,7 +170,8 @@ function bindEvents() {
         store.ui.digestSort = option.dataset.digestSort; localStorage.setItem(STORAGE_KEYS.digestSort, store.ui.digestSort); updateControls(); if (store.digest.payload) render(store.digest.payload, { force: true });
     });
     dom.digest.markAll.addEventListener('click', () => {
-        if (dom.digest.bulkMenu) dom.digest.bulkMenu.open = false;
+        const trigger = dom.digest.bulkMenu?.querySelector('[data-oj-dropdown-trigger]');
+        if (trigger?.getAttribute('aria-expanded') === 'true') trigger.click();
         const ids = (store.digest.payload?.clusters || []).flatMap(cluster => (cluster.items || []).map(item => item.id));
         void markDigested(ids, dom.digest.markAll);
     });
@@ -186,9 +190,13 @@ function bindEvents() {
     dom.digest.list.addEventListener('keydown', event => {
         if (!['Enter', ' '].includes(event.key)) return;
         const card = event.target.closest('.digest-item-card-link'); if (!card) return;
+        if (event.target !== card) return;
         event.preventDefault(); if (card.dataset.articleId) openArticle(card.dataset.articleId); else if (card.dataset.itemUrl) window.open(card.dataset.itemUrl, '_blank', 'noopener,noreferrer');
     });
-    window.addEventListener('keydown', event => { if (event.key === 'Escape' && store.ui.activeView === 'digest' && isViewerOpen()) { event.preventDefault(); closeViewer(); } });
+    window.addEventListener('keydown', event => {
+        if (event.defaultPrevented || document.querySelector('dialog[open], [data-oj-dropdown-trigger][aria-expanded="true"]')) return;
+        if (event.key === 'Escape' && store.ui.activeView === 'digest' && isViewerOpen()) { event.preventDefault(); closeViewer(); }
+    });
 }
 
 export async function initDigest() {

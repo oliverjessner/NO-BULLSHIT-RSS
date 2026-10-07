@@ -1,3 +1,7 @@
+# 1.1.2
+
+- moving to https://github.com/oliverjessner/oj-designsystem
+
 # 1.1.1
 
 - update all deps

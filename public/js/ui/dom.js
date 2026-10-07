@@ -28,6 +28,7 @@ export const dom = Object.freeze({
         widthOptions: document.querySelectorAll('.article-viewer-width-option'),
     }),
     settings: Object.freeze({
+        tabRoot: byId('view-settings'),
         tabs: document.querySelector('.settings-tabs'), tabButtons: document.querySelectorAll('.settings-tab'),
         panels: document.querySelectorAll('.settings-panel'), tabsWrap: document.querySelector('.settings-tabs-wrap'),
         feedForm: byId('feed-form'), feedName: byId('feed-name'), feedWebsite: byId('feed-website'), feedUrl: byId('feed-url'),
@@ -58,5 +59,4 @@ export const dom = Object.freeze({
         file: byId('feed-import-file'), chooseFile: byId('feed-import-choose-file'), fileName: byId('feed-import-file-name'),
         status: byId('feed-import-status'),
     }),
-    toastRegion: byId('toast-region'),
 });

@@ -20,8 +20,14 @@ NO BULLSHIT RSS is a minimal, open-source desktop RSS reader that focuses on rea
 ## Frontend
 
 Shared design tokens and UI primitives come from the
-[PineFetch Designsystem](https://github.com/oliverjessner/PineFetch-Designsystem)
-package. App-specific layout and responsive behavior remain in `public/styles.css`.
+[oj-designsystem](https://github.com/oliverjessner/oj-designsystem)
+package, pinned to version 0.1.0. It supplies Comfortaa for the interface,
+JetBrains Mono for technical data, local Font Awesome icons, form controls,
+panels, tags, keyboard-accessible settings tabs and action menus, native dialogs,
+and stacked notifications with app-owned Undo actions. Fonts, icons, CSS and
+browser modules are served locally from `/vendor/oj-designsystem/`; no CDN or
+frontend build step is required. The product accent is set with `--oj-accent`;
+app-specific layout and responsive behavior remain in `public/styles.css`.
 
 ## Digest
 

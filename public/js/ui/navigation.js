@@ -13,10 +13,14 @@ export async function navigate(name) {
     dom.navLinks.forEach(link => {
         const active = link.dataset.view === name;
         link.classList.toggle('is-active', active);
-        link.classList.toggle('pf-is-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
         link.setAttribute('aria-pressed', String(active));
     });
-    Object.entries(dom.views).forEach(([key, view]) => view.classList.toggle('is-active', key === name));
+    Object.entries(dom.views).forEach(([key, view]) => {
+        view.classList.toggle('is-active', key === name);
+        view.hidden = key !== name;
+    });
     window.scrollTo(0, 0);
     updateStickyUi();
     renderViewer();

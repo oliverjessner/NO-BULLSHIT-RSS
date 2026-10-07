@@ -1,41 +1,32 @@
 import { api } from '../api/client.js';
 import { dom } from '../ui/dom.js';
+import { closeDialog, openDialog } from '../ui/design-system.js';
 import { toast } from '../ui/toast.js';
 import { parseArticleImportText } from '../utils/import.js';
 
 const MAX_IMPORT_FILE_BYTES = 512 * 1024;
 let initialized = false;
-let previousFocus = null;
 let onImported = async () => {};
-
-function focusables() {
-    return [...dom.feedImport.backdrop.querySelectorAll('button:not([disabled]),textarea:not([disabled])')];
-}
 
 function setStatus(message) {
     dom.feedImport.status.textContent = message;
 }
 
-function close({ reset = true } = {}) {
-    dom.feedImport.backdrop.classList.remove('is-open');
-    dom.feedImport.backdrop.setAttribute('aria-hidden', 'true');
-    if (reset) {
-        dom.feedImport.urls.value = '';
-        dom.feedImport.file.value = '';
-        dom.feedImport.fileName.textContent = 'No file selected';
-        setStatus('');
-    }
-    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-    previousFocus = null;
+function reset() {
+    dom.feedImport.urls.value = '';
+    dom.feedImport.file.value = '';
+    dom.feedImport.fileName.textContent = 'No file selected';
+    setStatus('');
+}
+
+function close() {
+    closeDialog(dom.feedImport.backdrop);
 }
 
 function open() {
-    const actionMenu = dom.feedImport.trigger.closest('details');
-    previousFocus = actionMenu?.querySelector('summary') || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    actionMenu?.removeAttribute('open');
-    dom.feedImport.backdrop.classList.add('is-open');
-    dom.feedImport.backdrop.setAttribute('aria-hidden', 'false');
-    dom.feedImport.urls.focus({ preventScroll: true });
+    const menuTrigger = dom.feedImport.trigger.closest('[data-oj-dropdown]')?.querySelector('[data-oj-dropdown-trigger]');
+    if (menuTrigger?.getAttribute('aria-expanded') === 'true') menuTrigger.click();
+    openDialog(dom.feedImport.backdrop, { trigger: menuTrigger || dom.feedImport.trigger });
 }
 
 function summary(result, parsed) {
@@ -93,13 +84,10 @@ export function initFeedImport(options = {}) {
     dom.feedImport.chooseFile.addEventListener('click', () => dom.feedImport.file.click());
     dom.feedImport.file.addEventListener('change', () => void loadTextFile(dom.feedImport.file.files?.[0]));
     dom.feedImport.confirm.addEventListener('click', () => void importUrls());
-    dom.feedImport.backdrop.addEventListener('click', event => { if (event.target === dom.feedImport.backdrop) close(); });
-    dom.feedImport.backdrop.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { event.preventDefault(); close(); return; }
-        if (event.key !== 'Tab') return;
-        const nodes = focusables(); if (!nodes.length) return;
-        const [first, last] = [nodes[0], nodes.at(-1)];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    dom.feedImport.backdrop.addEventListener('close', reset);
+    dom.feedImport.backdrop.addEventListener('click', event => {
+        if (event.target !== dom.feedImport.backdrop) return;
+        const bounds = dom.feedImport.backdrop.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
     });
 }

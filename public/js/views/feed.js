@@ -89,8 +89,9 @@ function renderFilterChips() {
     const filters = activeFilters();
     const fragment = document.createDocumentFragment();
     for (const [key, label] of filters) {
-        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'active-filter-chip pf-badge pf-badge-muted';
-        chip.dataset.filterKey = key; chip.textContent = `${label} ×`; chip.setAttribute('aria-label', `Remove ${label} filter`); fragment.appendChild(chip);
+        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'active-filter-chip oj-tag';
+        const icon = document.createElement('i'); icon.className = 'fa-solid fa-xmark'; icon.setAttribute('aria-hidden', 'true');
+        chip.dataset.filterKey = key; chip.append(document.createTextNode(label), icon); chip.setAttribute('aria-label', `Remove ${label} filter`); fragment.appendChild(chip);
     }
     dom.feed.filterChips.replaceChildren(fragment);
     dom.feed.filterRow.classList.toggle('hide', filters.length === 0);
@@ -255,7 +256,8 @@ function bindEvents() {
     dom.feed.list.addEventListener('focusin', event => { const card = event.target.closest('.feed-card[data-article-id]'); if (card) focusArticle(card.dataset.articleId); });
     window.addEventListener('keydown', event => {
         const target = event.target;
-        if (event.defaultPrevented || store.ui.activeView !== 'main' || target?.matches?.('input,select,textarea') || target?.isContentEditable || event.metaKey || event.ctrlKey || event.altKey || dom.modal.backdrop.classList.contains('is-open')) return;
+        if (event.defaultPrevented || store.ui.activeView !== 'main' || target?.matches?.('input,select,textarea') || target?.isContentEditable || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open], [data-oj-dropdown-trigger][aria-expanded="true"]')) return;
+        if (event.key === 'Enter' && target?.closest?.('button, a')) return;
         const key = String(event.key).toLowerCase();
         if (key === 'j' || key === 'k') {
             event.preventDefault(); const list = cards(); if (!list.length) return;

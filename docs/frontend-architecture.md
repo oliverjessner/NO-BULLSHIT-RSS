@@ -4,7 +4,7 @@ This document records the architecture introduced by the native ES-module refact
 
 ## Architecture
 
-The frontend keeps its existing HTML, CSS, browser APIs, and Electron runtime. No framework, bundler, or runtime dependency was added.
+The frontend uses HTML, CSS, native browser modules, and the Electron runtime, without a framework or bundler. Shared UI comes from the pinned `oj-designsystem` package.
 
 ```text
 public/app.js                 bootstrap, view orchestration, live-update routing
@@ -13,7 +13,7 @@ public/js/state/store.js      shared state and indexed reference data
 public/js/views/              Feed, Digest, and Settings lifecycles
 public/js/components/         article cards, digest clusters, and chips
 public/js/services/           shared viewer, layout, and server-sent events
-public/js/ui/                 cached DOM, navigation, modal, and toast controllers
+public/js/ui/                 design system, cached DOM, navigation, and app actions
 public/js/utils/              DOM, formatting, and data helpers
 ```
 
@@ -25,7 +25,9 @@ The startup path initializes only shared services and Feed. Digest and Settings 
 
 - `article-card.js`, `digest-cluster.js`, and `chips.js` build external RSS data with DOM nodes and `textContent`; no untrusted feed value is inserted through `innerHTML`.
 - `article-viewer.js` is the one viewer controller used by Feed and Digest.
-- `modal.js` and `toast.js` own the shared interaction surfaces and accessibility state.
+- `design-system.js` imports OJ's public browser API from the locally served package distribution. `app.js` initializes its tabs, dropdowns, tooltips and dialogs once and retains the cleanup handle.
+- OJ owns shared control appearance, local fonts/icons, menu/tab keyboard behavior, native dialog focus and stacked toast announcements. `modal.js`, `toast.js` and `export-menu.js` retain list mutations, Undo callbacks and export/loading state. Notifications shown during a native dialog are mounted inside that dialog so they remain accessible.
+- Settings deletions use OJ's asynchronous confirmation dialog. Feed and Digest shortcuts defer to open menus/dialogs and native controls.
 - `dom.js` caches static document references once.
 - `client.js` owns every endpoint, response check, query-string conversion, and request option. Views do not call `fetch()` directly.
 - Data helpers centralize ID normalization, request/render fingerprints, safe HTTP(S) URLs, and search normalization. Formatting helpers centralize date and count presentation.
@@ -62,6 +64,10 @@ Native modules add several small static-file requests on first load. This is an 
 - The Digest range switch clears stale range content, exposes a range-specific loading state, disables the switch during the request, and rejects a response for a range other than the current selection.
 
 ## Verification
+
+The OJ migration was verified separately with 84 passing Node tests, syntax checks for all 27 frontend modules and `git diff --check`. Browser checks used an isolated fixture database and covered search/filter clearing, Cards/Compact layout, settings tab Arrow/Home/End navigation, switch keyboard activation, native dialog Escape/focus restoration, dialog-local feedback, stacked Undo notifications, deletion Cancel/Confirm, Digest ranges and JSON export. Feed, Digest and Settings had no page overflow at 390px; menus were checked at narrow widths and after scrolling. All distributed fonts/icons/styles/modules returned HTTP 200. An isolated Electron 44.4.5 renderer loaded the local assets and Feed and opened a native dialog with focus inside it, without renderer errors.
+
+The following measurements and checks describe the earlier ES-module refactor:
 
 - Node test suite: 32 passing tests, including five focused frontend utility tests.
 - Syntax checks pass for every frontend module.

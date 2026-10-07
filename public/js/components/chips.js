@@ -3,13 +3,14 @@ export function createTopicChip(topic, { digest = false, activeSlug = '' } = {})
     const label = String(topic?.label || slug || 'topic');
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = digest ? 'digest-topic-chip pf-badge' : 'article-topic-chip pf-badge';
+    chip.className = digest ? 'digest-topic-chip oj-tag' : 'article-topic-chip oj-tag';
     chip.textContent = label;
     chip.title = topic?.score == null ? (slug || label) : `${label} (${Number(topic.score || 0).toFixed(2)})`;
     chip.dataset.action = 'filter-topic';
     if (slug) {
         chip.dataset.topicSlug = slug;
         chip.classList.toggle('is-active', slug === activeSlug);
+        chip.setAttribute('aria-pressed', String(slug === activeSlug));
         if (digest) chip.classList.add('is-clickable');
     } else {
         chip.disabled = true;
@@ -21,8 +22,8 @@ export function createSourceChip({ name = 'Unknown source', logo = '', feedId = 
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = digest
-        ? 'digest-source-chip is-clickable pf-badge pf-badge-muted'
-        : 'meta-source digest-source-chip is-clickable pf-badge pf-badge-muted';
+        ? 'digest-source-chip is-clickable oj-tag'
+        : 'meta-source digest-source-chip is-clickable oj-tag';
     chip.dataset.action = 'filter-source';
     chip.dataset.sourceName = name;
     chip.setAttribute('aria-label', `Filter feed by ${name}`);

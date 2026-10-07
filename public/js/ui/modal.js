@@ -4,20 +4,14 @@ import { store } from '../state/store.js';
 import { clear, option } from '../utils/dom.js';
 import { normalizeIds } from '../utils/data.js';
 import { toast } from './toast.js';
+import { closeDialog, openDialog } from './design-system.js';
 
 let pendingIds = [];
-let previousFocus = null;
+let openRequest = 0;
 let onSaved = async () => {};
 
-function isOpen() { return dom.modal.backdrop?.classList.contains('is-open'); }
-function focusables() { return [...dom.modal.backdrop.querySelectorAll('button:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')]; }
-
 function close() {
-    pendingIds = [];
-    dom.modal.backdrop.classList.remove('is-open');
-    dom.modal.backdrop.setAttribute('aria-hidden', 'true');
-    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-    previousFocus = null;
+    closeDialog(dom.modal.backdrop, 'cancel');
 }
 
 async function renderExisting(lists) {
@@ -25,10 +19,11 @@ async function renderExisting(lists) {
     if (!lists.length) { dom.modal.existing.textContent = '—'; return; }
     const fragment = document.createDocumentFragment();
     for (const list of lists) {
-        const chip = document.createElement('span'); chip.className = 'modal-chip';
+        const chip = document.createElement('span'); chip.className = 'modal-chip oj-tag';
         const dot = document.createElement('span'); dot.className = 'modal-chip-dot'; dot.style.background = list.color || '#1d1d1f';
         const label = document.createElement('span'); label.textContent = list.name;
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'modal-chip-remove'; remove.textContent = '×';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'modal-chip-remove oj-icon-button';
+        const icon = document.createElement('i'); icon.className = 'fa-solid fa-xmark'; icon.setAttribute('aria-hidden', 'true'); remove.appendChild(icon);
         remove.dataset.action = 'remove-list'; remove.dataset.listId = String(list.id); remove.setAttribute('aria-label', `Remove ${list.name} from selected articles`);
         chip.append(dot, label, remove); fragment.appendChild(chip);
     }
@@ -38,7 +33,8 @@ async function renderExisting(lists) {
 export async function openListModal(ids) {
     const normalized = normalizeIds(Array.isArray(ids) ? ids : [ids]);
     if (!normalized.length) return;
-    if (!isOpen() && document.activeElement instanceof HTMLElement) previousFocus = document.activeElement;
+    const requestId = ++openRequest;
+    const opener = document.activeElement;
     pendingIds = normalized;
     clear(dom.modal.select); option(dom.modal.select, '', 'Choose list');
     let existing = [];
@@ -46,35 +42,33 @@ export async function openListModal(ids) {
         const payload = await api.articleLists(normalized);
         existing = normalized.length === 1 ? (payload?.listsByArticleId?.[String(normalized[0])] || []) : (payload?.commonLists || []);
     } catch { existing = []; }
+    if (requestId !== openRequest) return;
     const existingIds = new Set(existing.map(list => String(list.id)));
     for (const list of store.reference.lists) {
         const node = option(dom.modal.select, list.id, existingIds.has(String(list.id)) ? `${list.name} (already)` : list.name);
         node.disabled = existingIds.has(String(list.id));
     }
     await renderExisting(existing);
-    dom.modal.backdrop.classList.add('is-open'); dom.modal.backdrop.setAttribute('aria-hidden', 'false'); dom.modal.select.focus({ preventScroll: true });
+    openDialog(dom.modal.backdrop, { trigger: opener });
+    dom.modal.select.focus({ preventScroll: true });
 }
 
 export function initModal(options = {}) {
     onSaved = options.onSaved || onSaved;
-    dom.modal.backdrop.tabIndex = -1;
+    dom.modal.backdrop.addEventListener('close', () => { pendingIds = []; openRequest += 1; });
     dom.modal.close.addEventListener('click', close);
     dom.modal.cancel.addEventListener('click', close);
     dom.modal.backdrop.addEventListener('click', async event => {
-        if (event.target === dom.modal.backdrop) { close(); return; }
+        if (event.target === dom.modal.backdrop) {
+            const rect = dom.modal.backdrop.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close();
+            return;
+        }
         const remove = event.target.closest('[data-action="remove-list"]');
         if (!remove) return;
         remove.disabled = true;
         try { await api.removeFromList(remove.dataset.listId, pendingIds); await openListModal(pendingIds); }
         catch (error) { remove.disabled = false; toast.error(`Remove from list failed: ${error.message}`); }
-    });
-    dom.modal.backdrop.addEventListener('keydown', event => {
-        if (event.key === 'Escape') { event.preventDefault(); close(); return; }
-        if (event.key !== 'Tab') return;
-        const nodes = focusables(); if (!nodes.length) return;
-        const [first, last] = [nodes[0], nodes.at(-1)];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
     dom.modal.confirm.addEventListener('click', async () => {
         const listId = dom.modal.select.value;

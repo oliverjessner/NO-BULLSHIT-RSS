@@ -43,7 +43,7 @@ Environment:
 
 Requires Homebrew for cask validation. If the GitHub release succeeds but the tap
 update fails, retry only that step with npm run publish:brew.
-Keep the Electron app or local web server running for the screenshot step.
+The screenshot step starts a temporary local server from existing app data if needed.
 EOF
 }
 

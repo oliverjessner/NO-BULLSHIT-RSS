@@ -94,7 +94,7 @@ async function start() {
     app.listen(PORT, HOST, () => {
         console.log(msg);
         logLine(msg);
-        return startScheduler();
+        if (process.env.DISABLE_SCHEDULER !== '1') return startScheduler();
     });
 }
 

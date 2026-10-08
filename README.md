@@ -78,16 +78,16 @@ The cask requires macOS 13 (Ventura) or newer on Apple Silicon and automatically
 
 ## Generate screenshots
 
-With the Electron app or local web server running, generate five screenshots from its existing local data:
+Generate five screenshots from the existing local app data:
 
 ```bash
-npm run mockups:install # Install Chromium once after npm install
-npm run mockups
+npm run screenshots:install # Install Chromium once after npm install
+npm run screenshots
 ```
 
-The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_card.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load.
+The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_cards.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load. If the local app is not running, it automatically starts a temporary server using a SQLite snapshot of the existing app database, then stops it after capturing. The snapshot includes pending WAL data; automatic feed fetching is disabled. Set `DB_PATH` to choose a database; otherwise the installed Electron app's database is preferred, followed by the project's `data-v2.db`.
 
-For a different local server address, use `npm run mockups -- --url http://127.0.0.1:1378`.
+For a different server address, use `npm run screenshots -- --url http://127.0.0.1:1378`. Unavailable remote servers are not started automatically.
 
 ## CLI
 
@@ -115,7 +115,7 @@ The artifact is written to `electron/dist`. Check the resolved release without m
 npm run publish -- --dry-run
 ```
 
-With the Electron app or local web server running, regenerate all five screenshots and publish the GitHub release and Homebrew cask in one command:
+Regenerate all five screenshots and publish the GitHub release and Homebrew cask in one command. The screenshot server starts automatically when needed:
 
 ```bash
 npm run publish

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
+import { ensureMockupServer } from './lib/mockup-server.js';
 
 const projectDirectory = fileURLToPath(new URL('..', import.meta.url));
 const outputDirectory = path.join(projectDirectory, 'public', 'images', 'mockups');
@@ -33,19 +34,12 @@ async function capture(page, filename, errors) {
 }
 
 async function generateMockups(url) {
-    try {
-        const response = await fetch(new URL('/api/health', url), { signal: AbortSignal.timeout(5000) });
-        if (!response.ok || !(await response.json()).ok) throw new Error('Health check failed');
-    } catch (error) {
-        throw new Error(`App unavailable at ${url}. Start the Electron app or run npm start first.`, { cause: error });
-    }
-
     let browser;
     try {
         browser = await chromium.launch();
     } catch (error) {
         if (error.message.includes("Executable doesn't exist")) {
-            throw new Error('Chromium is missing. Run npm run mockups:install once before generating screenshots.');
+            throw new Error('Chromium is missing. Run npm run screenshots:install once before generating screenshots.');
         }
         throw error;
     }
@@ -146,13 +140,18 @@ async function main() {
     });
     if (values.help) {
         console.log(
-            'Usage: npm run mockups -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs using the running app and replaces public/images/mockups/.',
+            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs and replaces public/images/mockups/. Starts a temporary local server from existing app data when needed.',
         );
         return;
     }
     const url = new URL(values.url || `http://127.0.0.1:${process.env.PORT || 1377}`);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('--url must use http or https.');
-    await generateMockups(url);
+    const server = await ensureMockupServer({ url, projectDirectory });
+    try {
+        await generateMockups(server.url);
+    } finally {
+        await server.close();
+    }
 }
 
 main().catch(error => {

@@ -98,13 +98,18 @@ async function generateMockups(url) {
         await page.locator('[data-layout="cards"]').click();
         await page.locator('[data-layout="cards"][aria-pressed="true"]').waitFor({ state: 'visible' });
         await page.locator('#articles-list:not(.is-list)').waitFor({ state: 'attached' });
-        await capture(page, 'feed_card.webp', errors);
+        await capture(page, 'feed_cards.webp', errors);
 
         await page.locator('.nav-link[data-view="digest"]').click();
         await page.waitForFunction(() => {
             const subtitle = document.getElementById('digest-subtitle')?.textContent || '';
             const range = document.getElementById('digest-range-toggle');
-            return subtitle.startsWith('Month ·') && !subtitle.includes('Loading') && range && range.getAttribute('aria-busy') !== 'true';
+            return (
+                subtitle.startsWith('Month ·') &&
+                !subtitle.includes('Loading') &&
+                range &&
+                range.getAttribute('aria-busy') !== 'true'
+            );
         });
         await page.locator('[data-digest-range="month"][aria-pressed="true"]').waitFor({ state: 'visible' });
         await capture(page, 'digest_month.webp', errors);
@@ -114,7 +119,11 @@ async function generateMockups(url) {
         await page.locator('#settings-feeds').waitFor({ state: 'visible' });
         await page.waitForFunction(() => {
             const count = document.getElementById('article-count-status')?.textContent || '';
-            return count.startsWith('Saved articles: ') && !count.includes('—') && Boolean(document.getElementById('topics-json-input')?.value);
+            return (
+                count.startsWith('Saved articles: ') &&
+                !count.includes('—') &&
+                Boolean(document.getElementById('topics-json-input')?.value)
+            );
         });
         await capture(page, 'settings_rss_feeds.webp', errors);
 
@@ -136,7 +145,9 @@ async function main() {
         options: { url: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
     });
     if (values.help) {
-        console.log('Usage: npm run mockups -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs using the running app and replaces public/images/mockups/.');
+        console.log(
+            'Usage: npm run mockups -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs using the running app and replaces public/images/mockups/.',
+        );
         return;
     }
     const url = new URL(values.url || `http://127.0.0.1:${process.env.PORT || 1377}`);

@@ -27,6 +27,8 @@
         "db:backup": "node scripts/backup-db.js",
         "db:report": "node scripts/database-report.js",
         "benchmark:digest": "node scripts/benchmark-digest.js 8000",
+        "mockups": "node scripts/generate-mockups.js",
+        "mockups:install": "playwright install chromium",
         "dist:mac": "PYTHON=/opt/homebrew/opt/python@3.11/bin/python3.11 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --arm64",
         "publish": "bash publish.sh"
     },
@@ -44,7 +46,9 @@
     },
     "devDependencies": {
         "electron": "^44.4.5",
-        "electron-builder": "^26.15.3"
+        "electron-builder": "^26.15.3",
+        "playwright": "^1.64.0",
+        "sharp": "^0.35.5"
     },
     "build": {
         "directories": {

@@ -1,3 +1,7 @@
+# 1.1.3
+
+- automatich screenshots
+
 # 1.1.2
 
 - moving to https://github.com/oliverjessner/oj-designsystem

@@ -66,6 +66,19 @@ npm run dev
 
 To run only the local web server, use `npm start`.
 
+## Generate screenshots
+
+With the Electron app or local web server running, generate the four README screenshots from its existing local data:
+
+```bash
+npm run mockups:install # Install Chromium once after npm install
+npm run mockups
+```
+
+The script deletes and recreates `public/images/mockups/` before capturing the compact feed, monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with the existing README filename. It uses a separate browser session and waits for the views, fonts, and images to load.
+
+For a different local server address, use `npm run mockups -- --url http://127.0.0.1:1378`.
+
 ## CLI
 
 The CLI only reads data already stored by NO BULLSHIT RSS. It does not fetch or configure RSS feeds.

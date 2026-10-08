@@ -5,6 +5,7 @@ import { clear, option } from '../utils/dom.js';
 import { normalizeIds } from '../utils/data.js';
 import { toast } from './toast.js';
 import { closeDialog, openDialog } from './design-system.js';
+import { focusSelectDropdown, syncSelectDropdown } from './select-dropdown.js';
 
 let pendingIds = [];
 let openRequest = 0;
@@ -49,8 +50,9 @@ export async function openListModal(ids) {
         node.disabled = existingIds.has(String(list.id));
     }
     await renderExisting(existing);
+    syncSelectDropdown(dom.modal.select);
     openDialog(dom.modal.backdrop, { trigger: opener });
-    dom.modal.select.focus({ preventScroll: true });
+    focusSelectDropdown(dom.modal.select);
 }
 
 export function initModal(options = {}) {

@@ -1,5 +1,6 @@
-# 1.1.3
+# 1.1.4
 
+- smaller ui fixes
 - automatic screenshots
 - publish the Homebrew cask and bundled CLI with each release
 

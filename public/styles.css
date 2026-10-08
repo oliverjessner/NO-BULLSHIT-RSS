@@ -244,17 +244,58 @@ html {
     min-inline-size: max-content;
     max-inline-size: none;
     flex: 0 0 auto;
+    gap: var(--oj-space-2);
 }
 
-#toggle-layout .toggle-label {
-    display: inline-block;
-    inline-size: 5ch;
-    text-align: left;
+#feed-layout-slider {
+    inline-size: 3.5rem;
+    flex: 0 0 3.5rem;
+}
+
+.layout-slider-label {
+    color: var(--oj-text-muted);
+    font-size: var(--oj-text-sm);
+}
+
+.layout-slider-label.is-active {
+    color: var(--oj-accent-text);
 }
 
 .select {
     min-inline-size: 11.25rem;
     flex: 0 1 12rem;
+}
+
+.select-dropdown-trigger {
+    inline-size: 100%;
+    justify-content: space-between;
+    text-align: start;
+}
+
+.select-dropdown-value {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.select-dropdown-trigger > .fa-chevron-down {
+    flex: 0 0 auto;
+    font-size: var(--oj-text-xs);
+}
+
+.select-dropdown-check {
+    flex: 0 0 1em;
+    visibility: hidden;
+}
+
+.select-dropdown-menu [aria-checked="true"] {
+    background: var(--oj-accent-soft);
+    color: var(--oj-accent-text);
+}
+
+.select-dropdown-menu [aria-checked="true"] .select-dropdown-check {
+    visibility: visible;
 }
 
 /* Feed and article cards */
@@ -1476,9 +1517,10 @@ html {
     margin-inline-start: var(--space-2);
 }
 
-#modal-list-select {
+#modal-list-select-trigger, .modal-body > .select-dropdown {
     inline-size: 100%;
     min-inline-size: 0;
+    flex: 0 0 auto;
 }
 
 /* Utilities */

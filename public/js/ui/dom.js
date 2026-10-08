@@ -7,8 +7,8 @@ export const dom = Object.freeze({
     feed: Object.freeze({
         count: byId('feed-count'), search: byId('search-input'), topicFilter: byId('filter-topic'),
         sourceFilter: byId('filter-source'), listFilter: byId('filter-list'), bullshitFilter: byId('filter-bullshit'), filterRow: byId('active-filter-row'),
-        filterChips: byId('active-filter-chips'), clearFilters: byId('run-fetch'), layout: byId('toggle-layout'),
-        layoutOptions: document.querySelectorAll('#toggle-layout .view-toggle-option'), loading: byId('loading-row'),
+        filterChips: byId('active-filter-chips'), clearFilters: byId('run-fetch'), layoutSlider: byId('feed-layout-slider'),
+        layoutLabels: document.querySelectorAll('#toggle-layout .layout-slider-label'), loading: byId('loading-row'),
         state: byId('articles-state'), list: byId('articles-list'), loadMore: byId('articles-load-more'),
         scroll: document.querySelector('.articles-scroll'), backToTop: byId('feed-back-to-top'),
         dashboard: byId('dashboard-layout'), template: byId('article-card-template'), exportMenu: byId('feed-export-menu'),

@@ -2,6 +2,7 @@ import { api } from '../api/client.js';
 import { setBullshitRules, setDigestSettings, setFeeds, setLists, setTopics, store } from '../state/store.js';
 import { dom } from '../ui/dom.js';
 import { confirmDialog } from '../ui/design-system.js';
+import { setSelectValue } from '../ui/select-dropdown.js';
 import { toast } from '../ui/toast.js';
 import { formatDate } from '../utils/format.js';
 import { clear, hide, show, text } from '../utils/dom.js';
@@ -323,8 +324,8 @@ function bindBullshitRuleActions() {
         if (action.dataset.action === 'edit-bullshit-rule') {
             store.settings.bullshitRuleEditingId = id;
             dom.settings.bullshitName.value = rule.name;
-            dom.settings.bullshitField.value = rule.field;
-            dom.settings.bullshitOperator.value = rule.operator;
+            setSelectValue(dom.settings.bullshitField, rule.field);
+            setSelectValue(dom.settings.bullshitOperator, rule.operator);
             dom.settings.bullshitValue.value = rule.value;
             dom.settings.bullshitEnabled.checked = Boolean(rule.enabled);
             text(dom.settings.bullshitSubmit, 'Save changes');

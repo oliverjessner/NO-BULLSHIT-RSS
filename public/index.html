@@ -50,23 +50,24 @@
                     <div class="toolbar-actions">
                         <label class="oj-sr-only" for="search-input">Search articles</label>
                         <input id="search-input" class="search-input oj-input" type="search" placeholder="Search articles…" />
-                        <select id="filter-topic" class="select oj-select" aria-label="Filter by topic">
+                        <select id="filter-topic" data-oj-select-dropdown aria-label="Filter by topic">
                             <option value="">Topic: All</option>
                         </select>
-                        <select id="filter-source" class="select oj-select" aria-label="Filter by source">
+                        <select id="filter-source" data-oj-select-dropdown aria-label="Filter by source">
                             <option value="">Source: All</option>
                         </select>
-                        <select id="filter-list" class="select oj-select" aria-label="Filter by list">
+                        <select id="filter-list" data-oj-select-dropdown aria-label="Filter by list">
                             <option value="">List: All</option>
                         </select>
-                        <select id="filter-bullshit" class="select oj-select" aria-label="Filter by bullshit status">
+                        <select id="filter-bullshit" data-oj-select-dropdown aria-label="Filter by bullshit status">
                             <option value="all">Bullshit: All</option>
                             <option value="clean">Bullshit: Clean</option>
                             <option value="bullshit">Bullshit: Bullshit</option>
                         </select>
                         <div id="toggle-layout" class="view-toggle" role="group" aria-label="Feed layout">
-                            <button class="view-toggle-option oj-button oj-button-ghost" data-layout="list" type="button" aria-pressed="false">Compact</button>
-                            <button class="view-toggle-option oj-button oj-button-ghost is-active" data-layout="cards" type="button" aria-pressed="true">Cards</button>
+                            <span class="layout-slider-label" data-layout="list">Compact</span>
+                            <input id="feed-layout-slider" class="oj-range" type="range" min="0" max="1" step="1" value="1" aria-label="Feed layout" aria-valuetext="Cards" aria-controls="articles-list" />
+                            <span class="layout-slider-label is-active" data-layout="cards">Cards</span>
                         </div>
                     </div>
                     <div id="active-filter-row" class="active-filter-row hide">
@@ -312,7 +313,7 @@
                             </div>
                             <div class="form-row oj-field">
                                 <label class="oj-label" for="bullshit-rule-field">Field</label>
-                                <select id="bullshit-rule-field" class="select oj-select">
+                                <select id="bullshit-rule-field" data-oj-select-dropdown>
                                     <option value="title">Title</option>
                                     <option value="teaser">Teaser</option>
                                     <option value="url">URL</option>
@@ -321,7 +322,7 @@
                             </div>
                             <div class="form-row oj-field">
                                 <label class="oj-label" for="bullshit-rule-operator">Operator</label>
-                                <select id="bullshit-rule-operator" class="select oj-select">
+                                <select id="bullshit-rule-operator" data-oj-select-dropdown>
                                     <option value="contains">Contains</option>
                                     <option value="not_contains">Does not contain</option>
                                     <option value="equals">Equals</option>
@@ -601,7 +602,7 @@
             </div>
             <div class="modal-body oj-dialog-body">
                 <label class="oj-label" for="modal-list-select">Choose list</label>
-                <select id="modal-list-select" class="select oj-select" autofocus></select>
+                <select id="modal-list-select" data-oj-select-dropdown autofocus></select>
                 <div class="modal-existing">
                     <div class="modal-existing-title">Already in:</div>
                     <div id="modal-existing-lists" class="modal-existing-list">—</div>

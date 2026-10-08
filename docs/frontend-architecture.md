@@ -27,6 +27,7 @@ The startup path initializes only shared services and Feed. Digest and Settings 
 - `article-viewer.js` is the one viewer controller used by Feed and Digest.
 - `design-system.js` imports OJ's public browser API from the locally served package distribution. `app.js` initializes its tabs, dropdowns, tooltips and dialogs once and retains the cleanup handle.
 - OJ owns shared control appearance, local fonts/icons, menu/tab keyboard behavior, native dialog focus and stacked toast announcements. `modal.js`, `toast.js` and `export-menu.js` retain list mutations, Undo callbacks and export/loading state. Notifications shown during a native dialog are mounted inside that dialog so they remain accessible.
+- `select-dropdown.js` presents every selection field as an OJ dropdown with radio menu items. Hidden native selects retain values, options, disabled choices and form defaults; the adapter synchronizes their visible labels and checked states after data updates, programmatic selections and form resets. It also keeps keyboard-focused options visible in long menus.
 - Settings deletions use OJ's asynchronous confirmation dialog. Feed and Digest shortcuts defer to open menus/dialogs and native controls.
 - `dom.js` caches static document references once.
 - `client.js` owns every endpoint, response check, query-string conversion, and request option. Views do not call `fetch()` directly.

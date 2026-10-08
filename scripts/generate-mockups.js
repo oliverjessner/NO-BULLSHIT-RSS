@@ -81,7 +81,7 @@ async function generateMockups(url) {
             return count && count.textContent !== 'Loading…' && loading?.classList.contains('hide');
         });
         await page.locator('#articles-list.is-list').waitFor({ state: 'attached' });
-        await page.locator('[data-layout="list"][aria-pressed="true"]').waitFor({ state: 'visible' });
+        await page.locator('#feed-layout-slider[aria-valuetext="Compact"]').waitFor({ state: 'visible' });
         if (errors.length) throw new Error(errors.join('\n'));
 
         // Only delete the previous generation once the app and browser are ready.
@@ -89,8 +89,9 @@ async function generateMockups(url) {
         await mkdir(outputDirectory, { recursive: true });
         await capture(page, 'feed_compact.webp', errors);
 
-        await page.locator('[data-layout="cards"]').click();
-        await page.locator('[data-layout="cards"][aria-pressed="true"]').waitFor({ state: 'visible' });
+        await page.locator('#feed-layout-slider').focus();
+        await page.locator('#feed-layout-slider').press('End');
+        await page.locator('#feed-layout-slider[aria-valuetext="Cards"]').waitFor({ state: 'visible' });
         await page.locator('#articles-list:not(.is-list)').waitFor({ state: 'attached' });
         await capture(page, 'feed_cards.webp', errors);
 

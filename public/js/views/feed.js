@@ -8,6 +8,7 @@ import { openListModal } from '../ui/modal.js';
 import { navigate } from '../ui/navigation.js';
 import { toast } from '../ui/toast.js';
 import { bindExportMenu } from '../ui/export-menu.js';
+import { setSelectValue, syncSelectDropdown } from '../ui/select-dropdown.js';
 import { debounce, fingerprintArticles, isAbortError, normalizeSearch } from '../utils/data.js';
 import { clear, hide, option, show, text } from '../utils/dom.js';
 import { createFeedExport, downloadExport, fetchAllFeedArticles } from '../utils/export.js';
@@ -60,7 +61,7 @@ function renderFilterSelect(select, defaultLabel, values, label, value) {
     const selected = select.value;
     clear(select); option(select, '', defaultLabel);
     for (const item of values) option(select, value(item), label(item));
-    select.value = [...select.options].some(item => item.value === selected) ? selected : '';
+    setSelectValue(select, [...select.options].some(item => item.value === selected) ? selected : '');
 }
 
 export function refreshFeedReferences() {
@@ -86,6 +87,7 @@ function activeFilters() {
 }
 
 function renderFilterChips() {
+    [dom.feed.topicFilter, dom.feed.sourceFilter, dom.feed.listFilter, dom.feed.bullshitFilter].forEach(syncSelectDropdown);
     const filters = activeFilters();
     const fragment = document.createDocumentFragment();
     for (const [key, label] of filters) {
@@ -197,7 +199,7 @@ async function dismiss(id) {
 export async function applyTopicFilter(slug, { switchView = false } = {}) {
     const normalized = String(slug || '').trim().toLowerCase();
     if (![...dom.feed.topicFilter.options].some(item => item.value === normalized)) return;
-    dom.feed.topicFilter.value = normalized;
+    setSelectValue(dom.feed.topicFilter, normalized);
     if (switchView) await navigate('main');
     await loadArticles({ force: true });
 }
@@ -206,7 +208,7 @@ export async function applySourceFilter({ feedId, sourceName } = {}) {
     let id = String(feedId || '');
     if (!id) id = String(store.reference.feeds.find(feed => String(feed.name).toLowerCase() === String(sourceName).toLowerCase())?.id || '');
     if (!id) return;
-    dom.feed.sourceFilter.value = id;
+    setSelectValue(dom.feed.sourceFilter, id);
     await navigate('main');
     await loadArticles({ force: true });
 }
@@ -256,7 +258,7 @@ function bindEvents() {
     dom.feed.list.addEventListener('focusin', event => { const card = event.target.closest('.feed-card[data-article-id]'); if (card) focusArticle(card.dataset.articleId); });
     window.addEventListener('keydown', event => {
         const target = event.target;
-        if (event.defaultPrevented || store.ui.activeView !== 'main' || target?.matches?.('input,select,textarea') || target?.isContentEditable || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open], [data-oj-dropdown-trigger][aria-expanded="true"]')) return;
+        if (event.defaultPrevented || store.ui.activeView !== 'main' || target?.matches?.('input,select,textarea') || target?.closest?.('.select-dropdown') || target?.isContentEditable || event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open], [data-oj-dropdown-trigger][aria-expanded="true"]')) return;
         if (event.key === 'Enter' && target?.closest?.('button, a')) return;
         const key = String(event.key).toLowerCase();
         if (key === 'j' || key === 'k') {

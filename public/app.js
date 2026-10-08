@@ -6,6 +6,7 @@ import { setFeeds, setLists, setTopics, store } from './js/state/store.js';
 import { initModal } from './js/ui/modal.js';
 import { initNavigation } from './js/ui/navigation.js';
 import { initOJ } from './js/ui/design-system.js';
+import { initSelectDropdowns } from './js/ui/select-dropdown.js';
 import { toast } from './js/ui/toast.js';
 import {
     activateFeed,
@@ -134,7 +135,9 @@ function setupLiveUpdates() {
 }
 
 async function init() {
-    cleanupDesignSystem = initOJ();
+    const cleanupSelectDropdowns = initSelectDropdowns();
+    const cleanupOJ = initOJ();
+    cleanupDesignSystem = () => { cleanupOJ(); cleanupSelectDropdowns(); };
     initLayout();
     initArticleViewer();
     initNavigation(activate);

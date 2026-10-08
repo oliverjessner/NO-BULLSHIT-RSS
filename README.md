@@ -2,7 +2,7 @@
 
 I vibe coded some electron slop.
 
-![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact_1920.webp)
+![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact.webp)
 
 NO BULLSHIT RSS is a minimal, open-source desktop RSS reader that focuses on reading—not dashboards, upsells, or noise. It has no payments, subscriptions, or ads and stores feeds and articles locally in SQLite.
 
@@ -33,7 +33,7 @@ app-specific layout and responsive behavior remain in `public/styles.css`.
 
 Related articles from multiple sources are clustered into daily, weekly, and monthly stories.
 
-![NO BULLSHIT RSS monthly digest](public/images/mockups/digest_month_1920.webp)
+![NO BULLSHIT RSS monthly digest](public/images/mockups/digest_month.webp)
 
 ## Settings
 
@@ -41,7 +41,7 @@ Related articles from multiple sources are clustered into daily, weekly, and mon
 <summary>RSS feed management</summary>
 <br>
 
-![NO BULLSHIT RSS feed settings](public/images/mockups/settings_rss_feeds_1920.webp)
+![NO BULLSHIT RSS feed settings](public/images/mockups/settings_rss_feeds.webp)
 
 </details>
 
@@ -49,7 +49,7 @@ Related articles from multiple sources are clustered into daily, weekly, and mon
 <summary>Local topic rules</summary>
 <br>
 
-![NO BULLSHIT RSS topic settings](public/images/mockups/settings_topics_1920.webp)
+![NO BULLSHIT RSS topic settings](public/images/mockups/settings_topics.webp)
 
 </details>
 
@@ -85,7 +85,7 @@ npm run mockups:install # Install Chromium once after npm install
 npm run mockups
 ```
 
-The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_card_1920.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP. The existing README filenames are preserved. It uses a separate browser session and waits for the views, fonts, and images to load.
+The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_card.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load.
 
 For a different local server address, use `npm run mockups -- --url http://127.0.0.1:1378`.
 

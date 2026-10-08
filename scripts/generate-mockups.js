@@ -93,12 +93,12 @@ async function generateMockups(url) {
         // Only delete the previous generation once the app and browser are ready.
         await rm(outputDirectory, { recursive: true, force: true });
         await mkdir(outputDirectory, { recursive: true });
-        await capture(page, 'feed_compact_1920.webp', errors);
+        await capture(page, 'feed_compact.webp', errors);
 
         await page.locator('[data-layout="cards"]').click();
         await page.locator('[data-layout="cards"][aria-pressed="true"]').waitFor({ state: 'visible' });
         await page.locator('#articles-list:not(.is-list)').waitFor({ state: 'attached' });
-        await capture(page, 'feed_card_1920.webp', errors);
+        await capture(page, 'feed_card.webp', errors);
 
         await page.locator('.nav-link[data-view="digest"]').click();
         await page.waitForFunction(() => {
@@ -107,7 +107,7 @@ async function generateMockups(url) {
             return subtitle.startsWith('Month ·') && !subtitle.includes('Loading') && range && range.getAttribute('aria-busy') !== 'true';
         });
         await page.locator('[data-digest-range="month"][aria-pressed="true"]').waitFor({ state: 'visible' });
-        await capture(page, 'digest_month_1920.webp', errors);
+        await capture(page, 'digest_month.webp', errors);
 
         await page.locator('.nav-link[data-view="settings"]').click();
         await page.locator('#settings-feeds-tab').click();
@@ -116,11 +116,11 @@ async function generateMockups(url) {
             const count = document.getElementById('article-count-status')?.textContent || '';
             return count.startsWith('Saved articles: ') && !count.includes('—') && Boolean(document.getElementById('topics-json-input')?.value);
         });
-        await capture(page, 'settings_rss_feeds_1920.webp', errors);
+        await capture(page, 'settings_rss_feeds.webp', errors);
 
         await page.locator('#settings-topics-tab').click();
         await page.locator('#settings-topics').waitFor({ state: 'visible' });
-        await capture(page, 'settings_topics_1920.webp', errors);
+        await capture(page, 'settings_topics.webp', errors);
     } catch (error) {
         if (errors.length && !error.message.includes(errors.join('\n'))) {
             throw new Error(`${error.message}\n${errors.join('\n')}`, { cause: error });

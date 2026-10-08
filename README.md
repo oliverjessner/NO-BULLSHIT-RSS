@@ -68,14 +68,14 @@ To run only the local web server, use `npm start`.
 
 ## Generate screenshots
 
-With the Electron app or local web server running, generate the four README screenshots from its existing local data:
+With the Electron app or local web server running, generate five screenshots from its existing local data:
 
 ```bash
 npm run mockups:install # Install Chromium once after npm install
 npm run mockups
 ```
 
-The script deletes and recreates `public/images/mockups/` before capturing the compact feed, monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with the existing README filename. It uses a separate browser session and waits for the views, fonts, and images to load.
+The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_card_1920.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP. The existing README filenames are preserved. It uses a separate browser session and waits for the views, fonts, and images to load.
 
 For a different local server address, use `npm run mockups -- --url http://127.0.0.1:1378`.
 

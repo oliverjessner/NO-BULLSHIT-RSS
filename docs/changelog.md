@@ -1,6 +1,6 @@
 # 1.1.3
 
-- automatich screenshots
+- automatic screenshots
 
 # 1.1.2
 

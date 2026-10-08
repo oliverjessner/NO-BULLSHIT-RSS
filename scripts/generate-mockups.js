@@ -95,6 +95,11 @@ async function generateMockups(url) {
         await mkdir(outputDirectory, { recursive: true });
         await capture(page, 'feed_compact_1920.webp', errors);
 
+        await page.locator('[data-layout="cards"]').click();
+        await page.locator('[data-layout="cards"][aria-pressed="true"]').waitFor({ state: 'visible' });
+        await page.locator('#articles-list:not(.is-list)').waitFor({ state: 'attached' });
+        await capture(page, 'feed_card_1920.webp', errors);
+
         await page.locator('.nav-link[data-view="digest"]').click();
         await page.waitForFunction(() => {
             const subtitle = document.getElementById('digest-subtitle')?.textContent || '';
@@ -131,7 +136,7 @@ async function main() {
         options: { url: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
     });
     if (values.help) {
-        console.log('Usage: npm run mockups -- [--url http://127.0.0.1:1377]\nCreates four 1920 × 1080 WebPs using the running app and replaces public/images/mockups/.');
+        console.log('Usage: npm run mockups -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs using the running app and replaces public/images/mockups/.');
         return;
     }
     const url = new URL(values.url || `http://127.0.0.1:${process.env.PORT || 1377}`);

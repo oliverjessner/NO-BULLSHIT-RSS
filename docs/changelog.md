@@ -1,6 +1,7 @@
 # 1.1.3
 
 - automatic screenshots
+- publish the Homebrew cask and bundled CLI with each release
 
 # 1.1.2
 

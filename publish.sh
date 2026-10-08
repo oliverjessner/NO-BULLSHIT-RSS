@@ -13,6 +13,7 @@ TAG_PREFIX="${TAG_PREFIX:-v}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 BUILD_COMMAND="${BUILD_COMMAND:-npm run dist:mac}"
 RELEASE_OUTPUT_DIR="${RELEASE_OUTPUT_DIR:-}"
+export HOMEBREW_TAP_DIR="${HOMEBREW_TAP_DIR:-$SCRIPT_DIR/../homebrew-tap}"
 
 DRY_RUN=0
 
@@ -20,14 +21,15 @@ usage() {
     cat <<'EOF'
 Usage: ./publish.sh [--dry-run]
 
-Stages and commits pending changes, pushes the current branch, builds the macOS
-ARM64 DMG, creates and pushes an annotated git tag from package.json.version and
-the first section in docs/changelog.md, then creates a GitHub release. If the
-working tree is clean, the current HEAD is released without creating an empty
-commit.
+Regenerates the five mockup screenshots, stages and commits pending changes,
+pushes the current branch, builds the macOS ARM64 DMG, creates and pushes an
+annotated git tag from package.json.version and
+the first section in docs/changelog.md, then creates a GitHub release and updates
+the Homebrew cask in oliverjessner/homebrew-tap. If the working tree is clean,
+the current HEAD is released without creating an empty commit.
 
 Options:
-  --dry-run   Print the resolved commit, build, tag and release notes without writing anything
+  --dry-run   Preview screenshots, commit, build, tag and publishing steps without writing anything
   -h, --help  Show this help
 
 Environment:
@@ -37,6 +39,11 @@ Environment:
   GIT_REMOTE         Git remote used with --push, defaults to "origin"
   BUILD_COMMAND      Release build command, defaults to "npm run dist:mac"
   RELEASE_OUTPUT_DIR Override release artifact directory, defaults to package.json build.directories.output
+  HOMEBREW_TAP_DIR   Existing tap checkout, defaults to ../homebrew-tap from this project
+
+Requires Homebrew for cask validation. If the GitHub release succeeds but the tap
+update fails, retry only that step with npm run publish:brew.
+Keep the Electron app or local web server running for the screenshot step.
 EOF
 }
 
@@ -75,6 +82,7 @@ git rev-parse --git-dir >/dev/null 2>&1 || fail "this is not a git repository"
 git remote get-url "$GIT_REMOTE" >/dev/null 2>&1 || fail "git remote '$GIT_REMOTE' does not exist"
 command -v gh >/dev/null 2>&1 || fail "gh CLI is required"
 gh auth status -h github.com >/dev/null 2>&1 || fail "gh is not authenticated for github.com"
+command -v brew >/dev/null 2>&1 || fail "Homebrew is required for cask validation"
 
 CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD) || fail "publish requires a checked out branch"
 
@@ -199,6 +207,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
         RELEASE_ARTIFACTS+=("$artifact")
     done < <(collect_release_artifacts "$RELEASE_OUTPUT_DIR" "$VERSION" 0)
     printf 'Branch: %s\n' "$CURRENT_BRANCH"
+    printf 'Mockups: generate five WebP screenshots before the release commit\n'
     printf 'Commit message: %s\n\n' "$COMMIT_MESSAGE"
     printf 'Build command: %s\n\n' "$BUILD_COMMAND"
     printf 'Release output dir: %s\n' "$RELEASE_OUTPUT_DIR"
@@ -210,10 +219,15 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     fi
     printf '\n'
     printf 'Tag: %s\n\n' "$TAG_NAME"
+    printf 'Homebrew: update oliverjessner/homebrew-tap after the DMG upload\n\n'
+    printf 'Homebrew tap checkout: %s\n\n' "$HOMEBREW_TAP_DIR"
     printf 'Release notes:\n'
     cat "$TAG_MESSAGE_FILE"
     exit 0
 fi
+
+printf 'Generating mockup screenshots\n'
+node "$SCRIPT_DIR/scripts/generate-mockups.js"
 
 printf 'Staging release changes\n'
 git add -A
@@ -249,3 +263,6 @@ printf 'Uploading release artifacts\n'
 join_lines "${RELEASE_ARTIFACTS[@]}"
 gh release upload "$TAG_NAME" "${RELEASE_ARTIFACTS[@]}"
 printf 'Uploaded release artifacts for %s\n' "$TAG_NAME"
+
+printf 'Publishing Homebrew cask\n'
+node "$SCRIPT_DIR/scripts/publish-brew.js" --version "$VERSION"

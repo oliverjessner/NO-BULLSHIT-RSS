@@ -30,7 +30,8 @@
         "mockups": "node scripts/generate-mockups.js",
         "mockups:install": "playwright install chromium",
         "dist:mac": "PYTHON=/opt/homebrew/opt/python@3.11/bin/python3.11 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --arm64",
-        "publish": "bash publish.sh"
+        "publish": "bash publish.sh",
+        "publish:brew": "node scripts/publish-brew.js"
     },
     "dependencies": {
         "@biu/simhash": "^0.1.1",

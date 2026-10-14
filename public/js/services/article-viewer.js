@@ -3,8 +3,31 @@ import { store } from '../state/store.js';
 import { STORAGE_KEYS } from '../config.js';
 import { hide, setPressed, show, text } from '../utils/dom.js';
 import { normalizeArticleUrl } from '../utils/format.js';
+import { createViewerSync, invokeDesktop, isDesktop, openBrowser } from './desktop.js';
 
 const viewerState = { open: false, url: null, articleId: null, title: 'Article viewer', message: '' };
+const syncNative = createViewerSync(payload => invokeDesktop('sync_article_viewer', payload));
+let syncScheduled = false;
+
+function scheduleNativeViewer() {
+    if (!isDesktop || syncScheduled) return;
+    syncScheduled = true;
+    // WebKit can suspend rAF in the main view when a child webview overlaps it.
+    // A microtask also updates modal visibility before the next browser paint.
+    queueMicrotask(() => {
+        syncScheduled = false;
+        const context = store.ui.activeView === 'main' ? dom.viewer.feed : dom.viewer.digest;
+        const rect = context.frame.getBoundingClientRect();
+        const visible = viewerState.open && viewerState.url && ['main', 'digest'].includes(store.ui.activeView)
+            && !document.querySelector('dialog[open]') && !context.panel.classList.contains('hide');
+        const x = Math.max(0, rect.left), y = Math.max(0, rect.top);
+        const width = Math.min(window.innerWidth, rect.right) - x;
+        const height = Math.min(window.innerHeight, rect.bottom) - y;
+        void syncNative(visible && width > 0 && height > 0
+            ? { url: viewerState.url, bounds: { x, y, width, height } }
+            : { url: null, bounds: null });
+    });
+}
 
 function articleById(id) {
     const normalized = Number(id);
@@ -32,7 +55,7 @@ export function renderViewer() {
         show(context.panel);
         if (viewerState.url) {
             if (context.frame.dataset.loadedUrl !== viewerState.url) {
-                context.frame.src = viewerState.url;
+                if (!isDesktop) context.frame.src = viewerState.url;
                 context.frame.dataset.loadedUrl = viewerState.url;
             }
             hide(context.message); show(context.frame);
@@ -43,6 +66,7 @@ export function renderViewer() {
     }
     setPressed(dom.viewer.widthOptions, option => option.dataset.viewerWidth === store.ui.viewerWidth);
     setActiveCards();
+    scheduleNativeViewer();
 }
 
 export function openArticle(id) {
@@ -59,7 +83,7 @@ export function openArticle(id) {
 export function openExternal(id, fallbackUrl = '') {
     const article = articleById(id);
     const url = normalizeArticleUrl(article?.url || fallbackUrl);
-    if (url) { window.open(url, '_blank', 'noopener,noreferrer'); return; }
+    if (url) { void openBrowser(url).catch(console.error); return; }
     viewerState.open = true; viewerState.articleId = Number(article?.id) || null; viewerState.url = null;
     viewerState.title = article?.title || 'Untitled'; viewerState.message = 'This article has no valid URL to open externally.';
     renderViewer();
@@ -73,6 +97,17 @@ export function closeViewer() {
 export function isViewerOpen() { return viewerState.open; }
 
 export function initArticleViewer() {
+    if (isDesktop) {
+        for (const context of [dom.viewer.feed, dom.viewer.digest]) {
+            context.frame.removeAttribute('src');
+            context.frame.style.pointerEvents = 'none';
+            context.frame.style.visibility = 'hidden';
+        }
+        new ResizeObserver(scheduleNativeViewer).observe(document.body);
+        new MutationObserver(scheduleNativeViewer).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open', 'class'] });
+        window.addEventListener('resize', scheduleNativeViewer);
+        document.addEventListener('scroll', scheduleNativeViewer, true);
+    }
     [dom.viewer.feed.hide, dom.viewer.digest.hide].forEach(button => button?.addEventListener('click', closeViewer));
     dom.viewer.widthOptions.forEach(option => option.addEventListener('click', () => {
         const width = ['35', '50'].includes(option.dataset.viewerWidth) ? option.dataset.viewerWidth : '50';

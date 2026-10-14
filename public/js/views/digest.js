@@ -147,7 +147,7 @@ async function exportDigest(format) {
         if (!payload || payload.variant !== store.ui.digestRange) throw new Error('The selected digest is not available.');
         const clusters = sortedClusters(payload);
         const artifact = createDigestExport(format, { variant: payload.variant, clusters });
-        downloadExport(artifact);
+        if (!await downloadExport(artifact)) return;
         toast.success(`Exported ${clusters.length.toLocaleString('en-US')} ${clusters.length === 1 ? 'story' : 'stories'}.`);
     } catch (error) {
         toast.error(`Export failed: ${error.message}`);

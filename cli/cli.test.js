@@ -7,7 +7,7 @@ import test from 'node:test';
 import sqlite3 from '@vscode/sqlite3';
 import { CLI_VERSION, parseCliArgs } from './lib/arguments.js';
 import { chooseArticle } from './lib/choose.js';
-import { discoverDatabasePath, getElectronDatabasePath } from './lib/database-path.js';
+import { discoverDatabasePath, getDesktopDatabasePath } from './lib/database-path.js';
 import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles } from './lib/output.js';
 import { runCli } from './main.js';
 import { getDigestPeriodDefinition } from '../backend/services/digest-periods.js';
@@ -357,7 +357,7 @@ test('rejects interactive selection without a TTY', async () => {
     await assert.rejects(chooseArticle([{ id: 1 }], { input: {}, output: {} }), /interactive terminal/u);
 });
 
-test('discovers DB_PATH, repository and Electron databases in priority order', async t => {
+test('discovers DB_PATH, repository and desktop databases in priority order', async t => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'no-bullshit-rss-cli-path-'));
     t.after(() => rm(directory, { recursive: true, force: true }));
 
@@ -373,10 +373,10 @@ test('discovers DB_PATH, repository and Electron databases in priority order', a
     assert.equal(await discoverDatabasePath({ cwd: nested, env: {} }), path.join(repository, 'data-v2.db'));
 
     const homeDir = path.join(directory, 'home');
-    const electronPath = getElectronDatabasePath({ platform: 'linux', env: {}, homeDir });
-    await mkdir(path.dirname(electronPath), { recursive: true });
-    await writeFile(electronPath, 'fixture');
-    assert.equal(await discoverDatabasePath({ cwd: directory, env: {}, platform: 'linux', homeDir }), electronPath);
+    const desktopPath = getDesktopDatabasePath({ platform: 'linux', env: {}, homeDir });
+    await mkdir(path.dirname(desktopPath), { recursive: true });
+    await writeFile(desktopPath, 'fixture');
+    assert.equal(await discoverDatabasePath({ cwd: directory, env: {}, platform: 'linux', homeDir }), desktopPath);
 
     await assert.rejects(
         discoverDatabasePath({ cwd: directory, env: { DB_PATH: path.join(directory, 'missing.db') } }),

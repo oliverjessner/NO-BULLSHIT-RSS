@@ -4,7 +4,7 @@ This document records the architecture introduced by the native ES-module refact
 
 ## Architecture
 
-The frontend uses HTML, CSS, native browser modules, and the Electron runtime, without a framework or bundler. Shared UI comes from the pinned `oj-designsystem` package.
+The frontend uses HTML, CSS, native browser modules, and Tauri's system WebKit runtime, without a framework or frontend bundler. Shared UI comes from the pinned `oj-designsystem` package.
 
 ```text
 public/app.js                 bootstrap, view orchestration, live-update routing
@@ -25,6 +25,8 @@ The startup path initializes only shared services and Feed. Digest and Settings 
 
 - `article-card.js`, `digest-cluster.js`, and `chips.js` build external RSS data with DOM nodes and `textContent`; no untrusted feed value is inserted through `innerHTML`.
 - `article-viewer.js` is the one viewer controller used by Feed and Digest.
+- `desktop.js` adapts browser links, selection search and native article-viewer requests to Tauri. Viewer requests are serialized so delayed navigation cannot reopen a hidden panel. Resize, scroll, view switches and dialogs update the native child webview's visible bounds. Browser mode uses a sandboxed iframe.
+- `src-tauri/src/backend.rs` owns the bundled Node child, waits for readiness from that exact process and retains Electron's existing database/rules directory. Child stdin provides crash cleanup; Tauri terminates the child when quitting. Native capabilities cover only the `main` webview at a loopback origin; navigation is restricted to the configured backend origin. Article webviews have no native permissions.
 - `design-system.js` imports OJ's public browser API from the locally served package distribution. `app.js` initializes its tabs, dropdowns, tooltips and dialogs once and retains the cleanup handle.
 - OJ owns shared control appearance, local fonts/icons, menu/tab keyboard behavior, native dialog focus and stacked toast announcements. `modal.js`, `toast.js` and `export-menu.js` retain list mutations, Undo callbacks and export/loading state. Notifications shown during a native dialog are mounted inside that dialog so they remain accessible.
 - `select-dropdown.js` presents every selection field as an OJ dropdown with radio menu items. Hidden native selects retain values, options, disabled choices and form defaults; the adapter synchronizes their visible labels and checked states after data updates, programmatic selections and form resets. It also keeps keyboard-focused options visible in long menus.
@@ -65,6 +67,21 @@ Native modules add several small static-file requests on first load. This is an 
 - The Digest range switch clears stale range content, exposes a range-specific loading state, disables the switch during the request, and rejects a response for a range other than the current selection.
 
 ## Verification
+
+The Tauri 1.3.0 port was checked with 122 passing Node tests and two Rust tests.
+The desktop tests cover serialized viewer navigation, symlinked CLI launchers,
+startup readiness, port conflicts and parent-process cleanup. Native macOS smoke
+checks used isolated data and covered the Feed, Settings and Digest views,
+article navigation, 35%/50% widths, dialog visibility and restoration, denial of
+native commands from article pages, a real JSON export and single-instance
+activation without a second backend. Both the main page and articles are native
+child webviews of one window; the browser server retains an iframe fallback.
+
+The signed release bundle was started independently using fresh isolated data.
+Its local backend, assets, packaged SQLite module and CLI were verified, including
+backend cleanup after the parent exits. `dist:mac` now repeats signature, SQLite
+and CLI-version checks after Tauri signs the app. The local DMG is ad-hoc signed;
+Apple notarization and publication were not performed.
 
 The OJ migration was verified separately with 84 passing Node tests, syntax checks for all 27 frontend modules and `git diff --check`. Browser checks used an isolated fixture database and covered search/filter clearing, Cards/Compact layout, settings tab Arrow/Home/End navigation, switch keyboard activation, native dialog Escape/focus restoration, dialog-local feedback, stacked Undo notifications, deletion Cancel/Confirm, Digest ranges and JSON export. Feed, Digest and Settings had no page overflow at 390px; menus were checked at narrow widths and after scrolling. All distributed fonts/icons/styles/modules returned HTTP 200. An isolated Electron 44.4.5 renderer loaded the local assets and Feed and opened a native dialog with focus inside it, without renderer errors.
 

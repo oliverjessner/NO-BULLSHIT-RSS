@@ -16,17 +16,18 @@ done
 LAUNCHER_DIR=$(CDPATH= cd -P -- "$(dirname -- "$SOURCE")" && pwd)
 RESOURCES_DIR=$(CDPATH= cd -- "$LAUNCHER_DIR/.." && pwd)
 CONTENTS_DIR=$(CDPATH= cd -- "$RESOURCES_DIR/.." && pwd)
-ELECTRON_BIN="$CONTENTS_DIR/MacOS/NO BULLSHIT RSS"
-CLI_ENTRY="$RESOURCES_DIR/app.asar/cli/no-bullshit-rss.js"
+NODE_BIN="$CONTENTS_DIR/MacOS/rss-node"
+CLI_ENTRY="$RESOURCES_DIR/runtime/cli/no-bullshit-rss.js"
 
-if [ ! -x "$ELECTRON_BIN" ]; then
-    printf 'Error: NO BULLSHIT RSS executable not found at %s\n' "$ELECTRON_BIN" >&2
+if [ ! -x "$NODE_BIN" ]; then
+    printf 'Error: bundled Node runtime not found at %s\n' "$NODE_BIN" >&2
     exit 1
 fi
 
-if [ ! -f "$RESOURCES_DIR/app.asar" ]; then
-    printf 'Error: NO BULLSHIT RSS application archive not found at %s\n' "$RESOURCES_DIR/app.asar" >&2
+if [ ! -f "$CLI_ENTRY" ]; then
+    printf 'Error: NO BULLSHIT RSS CLI not found at %s\n' "$CLI_ENTRY" >&2
     exit 1
 fi
 
-ELECTRON_RUN_AS_NODE=1 exec "$ELECTRON_BIN" "$CLI_ENTRY" "$@"
+unset NODE_OPTIONS NODE_PATH
+exec "$NODE_BIN" "$CLI_ENTRY" "$@"

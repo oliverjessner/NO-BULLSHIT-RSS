@@ -91,10 +91,16 @@ async function start() {
     const msg = `Server running at http://${HOST}:${PORT}`;
     await initDatabase();
 
-    app.listen(PORT, HOST, () => {
+    const server = app.listen(PORT, HOST);
+    server.once('listening', () => {
         console.log(msg);
         logLine(msg);
+        if (process.env.DESKTOP_PARENT_WATCHDOG === '1') console.log('NBS_DESKTOP_READY');
         if (process.env.DISABLE_SCHEDULER !== '1') return startScheduler();
+    });
+    server.on('error', error => {
+        console.error('Server listen failed:', error);
+        process.exit(1);
     });
 }
 
@@ -147,6 +153,11 @@ app.use(handleUnhandledError);
 
 logLine(getStartMessage());
 registerProcessHandlers();
+// The desktop shell owns stdin. Closing it also stops the backend after a shell crash.
+if (process.env.DESKTOP_PARENT_WATCHDOG === '1') {
+    process.stdin.resume();
+    process.stdin.once('end', () => process.exit(0));
+}
 start().catch(err => {
     console.error('Failed to start server:', err);
     logLine(`Failed to start server: ${err?.stack || err?.message || String(err)}`);

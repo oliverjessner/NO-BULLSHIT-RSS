@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getElectronDatabasePath } from '../../cli/lib/database-path.js';
+import { getDesktopDatabasePath } from '../../cli/lib/database-path.js';
 
 async function healthy(url) {
     try {
@@ -19,7 +19,7 @@ async function databasePath(projectDirectory, env) {
     const configured = String(env.DB_PATH || '').trim();
     const candidates = configured
         ? [path.resolve(projectDirectory, configured)]
-        : [getElectronDatabasePath({ env }), path.join(projectDirectory, 'data-v2.db')];
+        : [getDesktopDatabasePath({ env }), path.join(projectDirectory, 'data-v2.db')];
     for (const candidate of candidates) {
         const info = await stat(candidate).catch(() => null);
         if (info?.isFile() && info.size > 0) return candidate;

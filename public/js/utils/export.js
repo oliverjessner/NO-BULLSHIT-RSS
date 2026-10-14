@@ -1,3 +1,5 @@
+import { invokeDesktop, isDesktop } from '../services/desktop.js';
+
 const FEED_EXPORT_PAGE_SIZE = 250;
 
 const FORMAT_CONFIG = Object.freeze({
@@ -246,7 +248,8 @@ export function createDigestExport(format, { variant = 'day', clusters = [], exp
     };
 }
 
-export function downloadExport({ content, mimeType, filename }) {
+export async function downloadExport({ content, mimeType, filename }) {
+    if (isDesktop) return invokeDesktop('save_export', { content, filename });
     const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -256,4 +259,5 @@ export function downloadExport({ content, mimeType, filename }) {
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
+    return true;
 }

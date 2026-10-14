@@ -50,7 +50,7 @@ async function exportFeed(format) {
     try {
         const articles = await fetchAllFeedArticles(params => api.articles(params.toString()), snapshot.params);
         const artifact = createFeedExport(format, { articles, filters: snapshot.filters, filterLabels: snapshot.filterLabels });
-        downloadExport(artifact);
+        if (!await downloadExport(artifact)) return;
         toast.success(`Exported ${articles.length.toLocaleString('en-US')} ${articles.length === 1 ? 'article' : 'articles'}.`);
     } catch (error) {
         toast.error(`Export failed: ${error.message}`);

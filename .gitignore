@@ -12,9 +12,12 @@ data.db
 *.sqlite-shm
 dist
 build/
-!electron/build/
-!electron/build/icons/
-!electron/build/icons/**
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/resources/
+src-tauri/gen/
+electron/build/
+.desktop-cache/
 .next/
 coverage/
 *.log

@@ -1,4 +1,5 @@
 import { api } from './js/api/client.js';
+import { initDesktop } from './js/services/desktop.js';
 import { initArticleViewer } from './js/services/article-viewer.js';
 import { closeEvents, initEvents } from './js/services/events.js';
 import { initLayout } from './js/services/layout.js';
@@ -135,6 +136,7 @@ function setupLiveUpdates() {
 }
 
 async function init() {
+    initDesktop();
     const cleanupSelectDropdowns = initSelectDropdowns();
     const cleanupOJ = initOJ();
     cleanupDesignSystem = () => { cleanupOJ(); cleanupSelectDropdowns(); };

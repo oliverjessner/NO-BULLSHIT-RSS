@@ -1,3 +1,7 @@
+# 1.3.0
+
+- tauri
+
 # 1.1.4
 
 - smaller ui fixes

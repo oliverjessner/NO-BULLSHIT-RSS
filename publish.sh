@@ -38,7 +38,7 @@ Environment:
   TAG_PREFIX         Tag prefix, defaults to "v"
   GIT_REMOTE         Git remote used with --push, defaults to "origin"
   BUILD_COMMAND      Release build command, defaults to "npm run dist:mac"
-  RELEASE_OUTPUT_DIR Override release artifact directory, defaults to package.json build.directories.output
+  RELEASE_OUTPUT_DIR Override release artifact directory, defaults to dist
   HOMEBREW_TAP_DIR   Existing tap checkout, defaults to ../homebrew-tap from this project
 
 Requires Homebrew for cask validation. If the GitHub release succeeds but the tap
@@ -96,8 +96,7 @@ VERSION=$(
 
 if [[ -z "$RELEASE_OUTPUT_DIR" ]]; then
     RELEASE_OUTPUT_DIR=$(
-        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); process.stdout.write((pkg.build && pkg.build.directories && pkg.build.directories.output) || 'dist');" \
-            "$PACKAGE_JSON_FILE"
+        printf '%s' 'dist'
     ) || fail "could not read build output directory from $PACKAGE_JSON_FILE"
 fi
 

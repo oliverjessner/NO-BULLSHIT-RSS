@@ -1,0 +1,22 @@
+import { execFileSync } from 'node:child_process';
+import { copyFile, mkdir, readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { runtimeTarget, verifyRuntime } from './prepare-desktop.js';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+const target = runtimeTarget(process.platform, process.arch);
+const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+execFileSync(path.join(root, 'node_modules', '.bin', 'tauri'), ['build', '--target', target, '--bundles', 'app,dmg'], { cwd: root, stdio: 'inherit' });
+const application = path.join(root, 'src-tauri', 'target', target, 'release', 'bundle', 'macos', 'NO BULLSHIT RSS.app');
+execFileSync('codesign', ['--verify', '--deep', '--strict', application], { stdio: 'inherit' });
+verifyRuntime(path.join(application, 'Contents', 'MacOS', 'rss-node'), path.join(application, 'Contents', 'Resources', 'runtime'));
+const bundledVersion = execFileSync(path.join(application, 'Contents', 'Resources', 'bin', 'no-bullshit-rss'), ['--version'], { encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' } }).trim();
+if (bundledVersion !== pkg.version) throw new Error(`Bundled CLI version ${bundledVersion} does not match ${pkg.version}`);
+const bundleDir = path.join(root, 'src-tauri', 'target', target, 'release', 'bundle', 'dmg');
+const candidates = (await readdir(bundleDir)).filter(name => name.endsWith(`_${pkg.version}_aarch64.dmg`));
+if (candidates.length !== 1) throw new Error(`Expected one Tauri DMG for ${pkg.version}, found ${candidates.length}`);
+await mkdir(path.join(root, 'dist'), { recursive: true });
+const artifact = path.join(root, 'dist', `NO.BULLSHIT.RSS-${pkg.version}-arm64.dmg`);
+await copyFile(path.join(bundleDir, candidates[0]), artifact);
+console.log(`Release artifact: ${artifact}`);

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NO BULLSHIT RSS",
+  "version": "../package.json",
+  "identifier": "com.oliverjessner.no-bullshit-rss",
+  "build": {
+    "beforeDevCommand": "npm run desktop:prepare",
+    "beforeBuildCommand": "npm run desktop:prepare",
+    "devUrl": "http://127.0.0.1:1377",
+    "frontendDist": "../public"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": { "capabilities": ["desktop"] }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "externalBin": ["binaries/rss-node"],
+    "resources": {
+      "resources/runtime/": "runtime/",
+      "../cli/launchers/macos/no-bullshit-rss": "bin/no-bullshit-rss"
+    },
+    "macOS": { "minimumSystemVersion": "13.0", "signingIdentity": "-", "entitlements": "Entitlements.plist" }
+  }
+}

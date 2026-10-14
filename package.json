@@ -1,9 +1,8 @@
 {
     "name": "no-bullshit-rss",
-    "version": "1.1.4",
+    "version": "1.3.0",
     "type": "module",
     "description": "RSS-based news aggregator",
-    "main": "electron/main.cjs",
     "bin": {
         "no-bullshit-rss": "./cli/no-bullshit-rss.js"
     },
@@ -18,8 +17,10 @@
     "homepage": "https://oliverjessner.at/NO-BULLSHIT-RSS",
     "scripts": {
         "start": "node backend/server.js",
-        "electron": "electron .",
-        "dev": "electron .",
+        "tauri": "tauri",
+        "dev": "tauri dev --no-dev-server-wait",
+        "desktop:prepare": "node scripts/prepare-desktop.js",
+        "test:desktop": "node --test scripts/desktop.test.js && cargo test --manifest-path src-tauri/Cargo.toml",
         "dev:server": "node --watch backend/server.js",
         "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js cli/*.test.js public/js/utils/*.test.js scripts/*.test.js",
         "test:topics": "node --test backend/services/topics.test.js",
@@ -29,7 +30,7 @@
         "benchmark:digest": "node scripts/benchmark-digest.js 8000",
         "screenshots": "node scripts/generate-mockups.js",
         "screenshots:install": "playwright install chromium",
-        "dist:mac": "PYTHON=/opt/homebrew/opt/python@3.11/bin/python3.11 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --arm64",
+        "dist:mac": "node scripts/build-desktop.js",
         "publish": "bash publish.sh",
         "publish:brew": "node scripts/publish-brew.js"
     },
@@ -45,47 +46,12 @@
         "oj-designsystem": "0.1.0",
         "rss-parser": "^3.13.0"
     },
+    "allowScripts": {
+        "@vscode/sqlite3": true
+    },
     "devDependencies": {
-        "electron": "^44.4.5",
-        "electron-builder": "^26.15.3",
+        "@tauri-apps/cli": "2.12.2",
         "playwright": "^1.64.0",
         "sharp": "^0.35.5"
-    },
-    "build": {
-        "directories": {
-            "output": "electron/dist",
-            "buildResources": "electron/build"
-        },
-        "afterPack": "scripts/afterPack-adhoc-sign.cjs",
-        "appId": "com.oliverjessner.no-bullshit-rss",
-        "productName": "NO BULLSHIT RSS",
-        "files": [
-            "electron/**",
-            "!electron/dist/**",
-            "!electron/package/**",
-            "cli/**",
-            "backend/**",
-            "migrations/**",
-            "public/**",
-            "backend/database/**",
-            "scripts/**",
-            "scripts/sources.json",
-            "package.json",
-            "electron/build/icons/**",
-            "node_modules/**"
-        ],
-        "icon": "electron/build/icons/icon.icns",
-        "asarUnpack": [
-            "node_modules/@vscode/sqlite3/**"
-        ],
-        "mac": {
-            "icon": "electron/build/icons/icon.icns",
-            "extraResources": [
-                {
-                    "from": "cli/launchers/macos/no-bullshit-rss",
-                    "to": "bin/no-bullshit-rss"
-                }
-            ]
-        }
     }
 }

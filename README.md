@@ -1,6 +1,6 @@
 # NO BULLSHIT RSS 💩
 
-I vibe coded some electron slop.
+Built with Tauri, vanilla JavaScript and a local Node.js backend.
 
 ![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact.webp)
 
@@ -57,7 +57,7 @@ Also check out the [landing page](https://oliverjessner.at/no-bullshit-rss/#prom
 
 ## Run locally
 
-Install the dependencies and start the Electron app:
+On macOS Apple Silicon, install Node.js, Rust 1.93 or newer and Xcode Command Line Tools, then start the Tauri app:
 
 ```bash
 npm install
@@ -65,6 +65,36 @@ npm run dev
 ```
 
 To run only the local web server, use `npm start`.
+
+Tauri uses the system WebKit view and starts a bundled Node.js 24.22.0 runtime for
+the existing RSS, SQLite and digest backend. End users do not need Node.js.
+The first desktop run downloads the official Node archive and checks its SHA-256;
+subsequent builds use `.desktop-cache/`. Preparation copies application files
+and installed production dependencies into generated resources and verifies a
+real SQLite query with the bundled runtime.
+
+The desktop app keeps the existing `~/Library/Application Support/NO-BULLSHIT-RSS/`
+directory, including `data-v2.db`, its WAL files and `topics.rules.json`. No database
+copy or conversion is needed when upgrading from Electron. WebKit stores interface
+preferences separately from Chromium, so local layout preferences start with their
+defaults on the first Tauri launch. For an isolated development run, set
+`RSS_DATA_DIR=/path/to/test-data RSS_PORT=1378 DISABLE_SCHEDULER=1 npm run dev`.
+
+The local server binds to `127.0.0.1:1377` by default; `RSS_PORT` selects another
+port explicitly. Stop an existing web-server instance
+before launching the desktop app; a port conflict is reported instead of opening
+an unrelated server. Quitting Tauri stops the backend, and the backend also exits
+if its parent process crashes. The app supports a single instance and reopening
+its main window from the Dock.
+
+Articles open in a native child webview positioned within the reader panel. They
+receive no native permissions. The browser-only server uses a sandboxed iframe;
+sites that prohibit embedding can be opened using the browser action. Native
+menus retain selection search, editing, About, support and developer tools.
+Feed and digest exports use a native Save dialog in the desktop app.
+
+Run backend/frontend/CLI tests with `npm test`, and Rust checks with
+`npm run test:desktop` after `npm run desktop:prepare`.
 
 ## Homebrew
 
@@ -85,7 +115,7 @@ npm run screenshots:install # Install Chromium once after npm install
 npm run screenshots
 ```
 
-The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_cards.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load. If the local app is not running, it automatically starts a temporary server using a SQLite snapshot of the existing app database, then stops it after capturing. The snapshot includes pending WAL data; automatic feed fetching is disabled. Set `DB_PATH` to choose a database; otherwise the installed Electron app's database is preferred, followed by the project's `data-v2.db`.
+The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_cards.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load. If the local app is not running, it automatically starts a temporary server using a SQLite snapshot of the existing app database, then stops it after capturing. The snapshot includes pending WAL data; automatic feed fetching is disabled. Set `DB_PATH` to choose a database; otherwise the installed desktop app's database is preferred, followed by the project's `data-v2.db`.
 
 For a different server address, use `npm run screenshots -- --url http://127.0.0.1:1378`. Unavailable remote servers are not started automatically.
 
@@ -109,7 +139,13 @@ Build the macOS ARM64 DMG:
 npm run dist:mac
 ```
 
-The artifact is written to `electron/dist`. Check the resolved release without making changes:
+The release DMG is written to `dist/NO.BULLSHIT.RSS-<version>-arm64.dmg`.
+Tauri's app bundle and original DMG are under `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
+The local build uses ad-hoc signing with JIT and native-module entitlements for
+Node/V8 and SQLite. It checks the sealed app signature, runs a SQLite query using
+the signed bundled runtime and checks the bundled CLI version before copying the
+release DMG into `dist/`. Distribution notarization requires your Apple
+signing credentials. Check the resolved release without making changes:
 
 ```bash
 npm run publish -- --dry-run

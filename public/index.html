@@ -120,13 +120,14 @@
                             </div>
                         </div>
                         <p id="article-viewer-message" class="article-viewer-message hide"></p>
-                        <webview
+                        <iframe
                             id="article-viewer-frame"
                             class="article-viewer-frame hide"
                             title="In-app article viewer"
                             src="about:blank"
-                            partition="persist:article-viewer"
-                        ></webview>
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                            referrerpolicy="no-referrer"
+                        ></iframe>
                     </aside>
                 </div>
             </section>
@@ -241,13 +242,14 @@
                                 </div>
                             </div>
                             <p id="digest-article-viewer-message" class="article-viewer-message hide"></p>
-                            <webview
+                            <iframe
                                 id="digest-article-viewer-frame"
                                 class="article-viewer-frame hide"
                                 title="In-app article viewer"
                                 src="about:blank"
-                                partition="persist:article-viewer"
-                            ></webview>
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                                referrerpolicy="no-referrer"
+                            ></iframe>
                         </aside>
                     </div>
                 </div>

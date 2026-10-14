@@ -152,7 +152,7 @@ The CLI resolves the existing database in this order:
 
 1. An existing file specified by `DB_PATH`.
 2. `data-v2.db` in the current NO-BULLSHIT-RSS repository.
-3. The installed Electron app's `NO-BULLSHIT-RSS/data-v2.db` user-data directory on macOS, Windows, or Linux.
+3. The installed desktop app's `NO-BULLSHIT-RSS/data-v2.db` user-data directory on macOS, Windows, or Linux. The Tauri app preserves the directory used by Electron.
 
 If no existing database is found, the CLI exits with an error. It never creates an empty database.
 

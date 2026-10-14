@@ -32,7 +32,7 @@ async function findRepositoryDatabase(cwd) {
     }
 }
 
-export function getElectronDatabasePath({ platform = process.platform, env = process.env, homeDir = os.homedir() } = {}) {
+export function getDesktopDatabasePath({ platform = process.platform, env = process.env, homeDir = os.homedir() } = {}) {
     if (platform === 'darwin') {
         return path.join(homeDir, 'Library', 'Application Support', 'NO-BULLSHIT-RSS', 'data-v2.db');
     }
@@ -60,12 +60,12 @@ export async function discoverDatabasePath({ cwd = process.cwd(), env = process.
         return repositoryDatabase;
     }
 
-    const electronDatabase = getElectronDatabasePath({ platform, env, homeDir });
-    if (await isFile(electronDatabase)) {
-        return electronDatabase;
+    const desktopDatabase = getDesktopDatabasePath({ platform, env, homeDir });
+    if (await isFile(desktopDatabase)) {
+        return desktopDatabase;
     }
 
     throw new Error(
-        `NO BULLSHIT RSS database not found. Start the app at least once or set the existing DB_PATH environment variable. Checked: ${electronDatabase}`,
+        `NO BULLSHIT RSS database not found. Start the app at least once or set the existing DB_PATH environment variable. Checked: ${desktopDatabase}`,
     );
 }

@@ -1,0 +1,106 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { copyFile, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { createViewerSync } from '../public/js/services/desktop.js';
+import { runtimeTarget } from './prepare-desktop.js';
+
+test('article navigation is serialized and the latest hide wins during an in-flight request', async () => {
+    const sent = [];
+    let finish;
+    const sync = createViewerSync(async payload => {
+        sent.push(payload);
+        if (sent.length === 1) await new Promise(resolve => { finish = resolve; });
+    });
+    const running = sync({ url: 'https://example.com/first' });
+    await sync({ url: 'https://example.com/second' });
+    await sync({ url: null, bounds: null });
+    finish();
+    await running;
+    assert.deepEqual(sent, [{ url: 'https://example.com/first' }, { url: null, bounds: null }]);
+});
+
+test('unsupported desktop targets fail before downloading or copying files', () => {
+    assert.equal(runtimeTarget('darwin', 'arm64'), 'aarch64-apple-darwin');
+    for (const target of [['darwin', 'x64'], ['win32', 'arm64'], ['linux', 'x64']]) {
+        assert.throws(() => runtimeTarget(...target), /Apple Silicon/);
+    }
+});
+
+test('bundled CLI follows symlinks, forwards arguments and clears Node injection variables', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-tauri-cli-'));
+    try {
+        const resources = path.join(directory, 'NO BULLSHIT RSS.app', 'Contents', 'Resources');
+        const macos = path.join(resources, '..', 'MacOS');
+        await mkdir(path.join(resources, 'bin'), { recursive: true });
+        await mkdir(path.join(resources, 'runtime', 'cli'), { recursive: true });
+        await mkdir(macos);
+        const launcher = path.join(resources, 'bin', 'no-bullshit-rss');
+        await copyFile(new URL('../cli/launchers/macos/no-bullshit-rss', import.meta.url), launcher);
+        const entry = path.join(resources, 'runtime', 'cli', 'no-bullshit-rss.js');
+        await writeFile(entry, '');
+        await writeFile(path.join(macos, 'rss-node'), '#!/bin/sh\nprintf "entry=%s\\narg=%s\\noptions=%s\\npath=%s\\n" "$1" "$2" "${NODE_OPTIONS-}" "${NODE_PATH-}"\n', { mode: 0o755 });
+        const link = path.join(directory, 'rss');
+        await symlink(launcher, link);
+        const child = spawn('sh', [link, 'a quoted argument'], { env: { ...process.env, NODE_OPTIONS: '--invalid', NODE_PATH: '/invalid' } });
+        let stdout = '';
+        child.stdout.on('data', chunk => { stdout += chunk; });
+        const [code] = await once(child, 'exit');
+        assert.equal(code, 0);
+        assert.equal(stdout, `entry=${await realpath(entry)}\narg=a quoted argument\noptions=\npath=\n`);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+async function managedServer(t, port) {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-tauri-backend-'));
+    const child = spawn(process.execPath, [new URL('../backend/server.js', import.meta.url).pathname], {
+        env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), DB_PATH: path.join(directory, 'data-v2.db'), TOPIC_RULES_FILE_PATH: path.join(directory, 'topics.rules.json'), DISABLE_SCHEDULER: '1', DESKTOP_PARENT_WATCHDOG: '1' },
+        stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let output = '';
+    child.stdout.on('data', chunk => { output += chunk; });
+    child.stderr.on('data', chunk => { output += chunk; });
+    const exited = once(child, 'exit');
+    t.after(async () => {
+        if (child.exitCode === null) child.kill();
+        await exited;
+        await rm(directory, { recursive: true, force: true });
+    });
+    return { child, exited, output: () => output };
+}
+
+test('managed backend announces readiness, serves the app and exits when its desktop parent closes', { timeout: 15000 }, async t => {
+    const socket = createServer();
+    socket.listen(0, '127.0.0.1');
+    await once(socket, 'listening');
+    const port = socket.address().port;
+    await new Promise(resolve => socket.close(resolve));
+    const server = await managedServer(t, port);
+    const ready = new Promise(resolve => server.child.stdout.on('data', () => { if (server.output().includes('NBS_DESKTOP_READY')) resolve(); }));
+    await Promise.race([ready, server.exited.then(() => { throw new Error(server.output()); })]);
+    const base = `http://127.0.0.1:${port}`;
+    assert.deepEqual(await (await fetch(`${base}/api/health`)).json(), { ok: true });
+    assert.match(await (await fetch(base)).text(), /NO BULLSHIT RSS/);
+    assert.equal((await fetch(`${base}/vendor/oj-designsystem/styles.css`)).status, 200);
+    const feeds = await (await fetch(`${base}/api/feeds`)).json();
+    assert.ok(feeds.length > 0);
+    server.child.stdin.end();
+    const [code] = await server.exited;
+    assert.equal(code, 0);
+});
+
+test('port collisions fail startup without announcing another process as ready', { timeout: 15000 }, async t => {
+    const socket = createServer();
+    socket.listen(0, '127.0.0.1');
+    await once(socket, 'listening');
+    t.after(() => new Promise(resolve => socket.close(resolve)));
+    const server = await managedServer(t, socket.address().port);
+    const [code] = await server.exited;
+    assert.equal(code, 1);
+    assert.match(server.output(), /EADDRINUSE/);
+    assert.doesNotMatch(server.output(), /NBS_DESKTOP_READY/);
+});

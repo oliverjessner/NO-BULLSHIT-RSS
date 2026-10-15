@@ -1198,23 +1198,6 @@ html {
     font-size: var(--font-size-sm);
 }
 
-.settings-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-block-start: var(--space-40);
-    padding-block: var(--space-24);
-    padding-inline: var(--padding-page-inline);
-    border-block-start: var(--border-width-default) solid var(--color-border-default);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-}
-
-.settings-footer a {
-    color: var(--color-text-primary);
-    text-decoration: none;
-}
-
 .list {
     display: flex;
     flex-direction: column;

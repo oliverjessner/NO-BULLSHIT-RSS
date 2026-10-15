@@ -1,3 +1,7 @@
+# 1.3.3
+
+- new logo
+
 # 1.3.2
 
 - move https://github.com/oliverjessner/fetchary/ to extract the favicon

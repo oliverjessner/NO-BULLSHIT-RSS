@@ -1,6 +1,6 @@
 [package]
 name = "no-bullshit-rss"
-version = "1.3.2"
+version = "1.3.3"
 description = "Local RSS reader"
 authors = ["Oliver Jessner"]
 edition = "2021"

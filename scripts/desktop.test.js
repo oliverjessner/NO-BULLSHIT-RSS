@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { copyFile, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { createViewerSync } from '../public/js/services/desktop.js';
-import { runtimeTarget } from './prepare-desktop.js';
+import { runtimeTarget, stageDesktopResources } from './prepare-desktop.js';
 
 test('article navigation is serialized and the latest hide wins during an in-flight request', async () => {
     const sent = [];
@@ -29,6 +29,52 @@ test('unsupported desktop targets fail before downloading or copying files', () 
     for (const target of [['darwin', 'x64'], ['win32', 'arm64'], ['linux', 'x64']]) {
         assert.throws(() => runtimeTarget(...target), /Apple Silicon/);
     }
+});
+
+test('failed resource preparation keeps the complete previous runtime available', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-resource-stage-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const resources = path.join(directory, 'resources', 'runtime');
+    const cache = path.join(directory, 'cache');
+    const dependency = path.join(resources, 'node_modules', 'minipass', 'package.json');
+    await mkdir(path.dirname(dependency), { recursive: true });
+    await writeFile(dependency, '{"name":"minipass"}');
+    await assert.rejects(stageDesktopResources(resources, cache, async staged => {
+        await writeFile(path.join(staged, 'partial.js'), 'incomplete');
+        assert.equal(await readFile(dependency, 'utf8'), '{"name":"minipass"}');
+        throw new Error('simulated copy failure');
+    }), /simulated copy failure/);
+    assert.equal(await readFile(dependency, 'utf8'), '{"name":"minipass"}');
+    assert.deepEqual(await readdir(cache), []);
+});
+
+test('publishes a complete new runtime and removes stale files only after preparation succeeds', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-resource-publish-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const resources = path.join(directory, 'runtime');
+    const cache = path.join(directory, 'cache');
+    await mkdir(resources);
+    await writeFile(path.join(resources, 'stale.js'), 'old');
+    await stageDesktopResources(resources, cache, async staged => {
+        await mkdir(path.join(staged, 'node_modules', 'minipass'), { recursive: true });
+        await writeFile(path.join(staged, 'node_modules', 'minipass', 'package.json'), '{"name":"minipass"}');
+        assert.equal(await readFile(path.join(resources, 'stale.js'), 'utf8'), 'old');
+    });
+    assert.deepEqual(await readdir(resources), ['node_modules']);
+    assert.equal(await readFile(path.join(resources, 'node_modules', 'minipass', 'package.json'), 'utf8'), '{"name":"minipass"}');
+    assert.deepEqual(await readdir(cache), []);
+});
+
+test('restores the previous runtime if publishing the staged tree fails', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-resource-rollback-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const resources = path.join(directory, 'runtime');
+    const cache = path.join(directory, 'cache');
+    await mkdir(resources);
+    await writeFile(path.join(resources, 'previous.js'), 'old');
+    await assert.rejects(stageDesktopResources(resources, cache, staged => rm(staged, { recursive: true })), { code: 'ENOENT' });
+    assert.equal(await readFile(path.join(resources, 'previous.js'), 'utf8'), 'old');
+    assert.deepEqual(await readdir(cache), []);
 });
 
 test('bundled CLI follows symlinks, forwards arguments and clears Node injection variables', async () => {

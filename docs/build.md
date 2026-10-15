@@ -6,6 +6,11 @@ Build the macOS ARM64 DMG:
 npm run dist:mac
 ```
 
+Desktop preparation assembles and verifies the runtime in a staging directory
+before replacing the generated resources. Preparation and Cargo's resource copy
+share a filesystem lock, so they cannot read and replace the tree simultaneously.
+If preparation fails, the previous complete runtime remains available.
+
 The release DMG is written to `dist/NO.BULLSHIT.RSS-<version>-arm64.dmg`.
 Tauri's app bundle and original DMG are under `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
 The local build uses ad-hoc signing with JIT and native-module entitlements for

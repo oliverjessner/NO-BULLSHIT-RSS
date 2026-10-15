@@ -843,6 +843,11 @@ export async function getArticleTopics(articleId) {
 export async function reprocessTopicClassificationForAllArticles() {
     const definitions = await getTopicDefinitions({ force: true });
     const classificationVersion = await getActiveTopicRulesVersion();
+    const staleCondition = "classificationStatus <> 'ready' OR classificationVersion IS NULL OR classificationVersion <> ?";
+    const { count: totalToProcess } = await get(
+        `SELECT COUNT(*) AS count FROM articles WHERE ${staleCondition}`,
+        [classificationVersion],
+    );
 
     const counters = {
         processed: 0,
@@ -856,7 +861,7 @@ export async function reprocessTopicClassificationForAllArticles() {
         const articles = await all(
             [
                 'SELECT id, title, teaser, content FROM articles',
-                "WHERE id > ? AND (classificationStatus <> 'ready' OR classificationVersion IS NULL OR classificationVersion <> ?)",
+                `WHERE id > ? AND (${staleCondition})`,
                 'ORDER BY id ASC LIMIT 250',
             ].join(' '),
             [lastArticleId, classificationVersion],
@@ -882,7 +887,7 @@ export async function reprocessTopicClassificationForAllArticles() {
             if (counters.processed % 250 === 0) {
                 logInfo('Topic reprocess progress', {
                     processed: counters.processed,
-                    total: allArticles.length,
+                    total: totalToProcess,
                 });
             }
         }

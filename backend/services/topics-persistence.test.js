@@ -56,3 +56,65 @@ test('topic config persists and reprocessing assigns only eligible topics', asyn
     assert.equal(result.topicAssignments, 1);
     assert.deepEqual(assignments.map(row => row.topicSlug), ['ai']);
 });
+
+test('reprocessing completes across multiple batches and skips current classifications', async t => {
+    await database.initSchema();
+    await database.run('DELETE FROM articles');
+    await topics.saveTopicsFromDefinitions([
+        { slug: 'ai', label: 'AI', strong: ['openai', 'chatgpt'], minMatches: 2 },
+    ]);
+    const classificationVersion = await topics.getActiveTopicRulesVersion();
+    const source = await database.run(
+        `INSERT INTO sources (name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+         VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+        ['Batch test feed', 'https://batch.example.test', 'https://batch.example.test/'],
+    );
+    const feed = await database.run(
+        "INSERT INTO feeds (sourceId, feedUrl, createdAt, updatedAt) VALUES (?, ?, datetime('now'), datetime('now'))",
+        [source.lastID, 'https://batch.example.test/feed'],
+    );
+    let currentArticleId;
+    await database.transaction(async () => {
+        for (let index = 0; index < 502; index += 1) {
+            const current = index === 501;
+            const status = current || index === 1 || index === 2 ? 'ready' : index === 0 ? 'failed' : 'pending';
+            const version = current ? classificationVersion : index === 1 ? 'outdated-version' : null;
+            const article = await database.run(
+                `INSERT INTO articles (feedId, externalId, title, contentHash, classificationStatus, classificationVersion,
+                                       publishedAt, fetchedAt, createdAt, updatedAt)
+                 VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'), datetime('now'))`,
+                [feed.lastID, `batch-${index}`, 'OpenAI updates ChatGPT', `batch-hash-${index}`, status, version],
+            );
+            if (current) currentArticleId = article.lastID;
+        }
+    });
+    const log = t.mock.method(console, 'log', () => {});
+
+    const result = await topics.reprocessTopicClassificationForAllArticles();
+
+    assert.deepEqual(result, {
+        processed: 501,
+        assignedArticles: 501,
+        topicAssignments: 501,
+        failed: 0,
+        totalArticles: 502,
+        topicCount: 1,
+    });
+    assert.equal((await database.get('SELECT COUNT(*) AS count FROM article_topics')).count, 501);
+    assert.equal((await database.get(
+        "SELECT COUNT(*) AS count FROM articles WHERE classificationStatus = 'ready' AND classificationVersion = ?",
+        [classificationVersion],
+    )).count, 502);
+    assert.deepEqual(await topics.getArticleTopics(currentArticleId), []);
+    assert.deepEqual(
+        log.mock.calls
+            .map(call => call.arguments[0])
+            .filter(message => message.startsWith('[INFO] Topic reprocess progress '))
+            .map(message => JSON.parse(message.slice('[INFO] Topic reprocess progress '.length))),
+        [{ processed: 250, total: 501 }, { processed: 500, total: 501 }],
+    );
+
+    const repeated = await topics.reprocessTopicClassificationForAllArticles();
+    assert.equal(repeated.processed, 0);
+    assert.equal(repeated.failed, 0);
+});

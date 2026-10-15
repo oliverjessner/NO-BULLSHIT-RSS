@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const NODE_VERSION = '24.22.0';
+const NODE_VERSION = '26.11.1';
 
 export function runtimeTarget(platform, arch) {
     if (platform !== 'darwin' || arch !== 'arm64') {
@@ -15,7 +15,22 @@ export function runtimeTarget(platform, arch) {
 }
 
 export function verifyRuntime(binary, directory) {
-    execFileSync(binary, ['--input-type=module', '-e', "import sqlite3 from '@vscode/sqlite3'; const db = new sqlite3.Database(':memory:'); db.get('SELECT 42 AS answer', (error, row) => { if (error || row.answer !== 42) throw error || new Error('SQLite smoke failed'); db.close(); });"], { cwd: directory, stdio: 'inherit', env: { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' } });
+    execFileSync(binary, ['--input-type=module', '-e', `
+        import sqlite3 from '@vscode/sqlite3';
+        import { extractFavicon } from 'fetchary';
+        const db = new sqlite3.Database(':memory:');
+        db.get('SELECT 42 AS answer', (error, row) => {
+            if (error || row.answer !== 42) throw error || new Error('SQLite smoke failed');
+            db.close();
+        });
+        const result = await extractFavicon('https://example.com/', {
+            mode: 'http',
+            fetch: async url => new Response(url.endsWith('/favicon.ico')
+                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>'
+                : '<html></html>'),
+        });
+        if (result.image.contentType !== 'image/svg+xml') throw new Error('Fetchary smoke failed');
+    `], { cwd: directory, stdio: 'inherit', env: { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' } });
 }
 
 async function download(url, destination) {
@@ -84,7 +99,7 @@ export async function prepareDesktop() {
         if (!relative.startsWith('node_modules/')) throw new Error(`Dependency outside project: ${relative}`);
         await cp(dependency, path.join(resources, relative), { recursive: true, dereference: true });
     }
-    // A real SQLite operation catches ABI/runtime mistakes before a DMG is built.
+    // Exercise SQLite and HTTP icon extraction with the bundled runtime.
     verifyRuntime(bundledNode, resources);
     console.log(`Prepared Node ${NODE_VERSION}, SQLite and ${dependencies.length} production packages for ${target}.`);
 }

@@ -6,6 +6,7 @@ import { logInfo, logWarn, logError } from '../utils/logger.js';
 import { publish } from './events.js';
 import { decodeBuffer, detectEncoding } from '../utils/encoding.js';
 import { MANUAL_IMPORT_FEED_PREFIX } from './article-import.js';
+import { refreshAllFeedLogos } from './logo.js';
 
 const parser = new Parser({ timeout: 8000 });
 
@@ -102,6 +103,7 @@ export async function updateAllFeeds() {
                 });
             }
         }
+        await refreshAllFeedLogos({ missingOnly: true });
         await ensureRebuildWindowDigestPeriods();
         await generateDirtyDigestPeriods();
     } catch (err) {

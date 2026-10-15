@@ -1,104 +1,92 @@
+import { extractFavicon } from 'fetchary';
 import { all, run } from '../database/datenbank.js';
 import { logInfo, logWarn } from '../utils/logger.js';
+import { publish } from './events.js';
 
 const MAX_LOGO_BYTES = 200 * 1024;
+const MAX_PAGE_BYTES = 2 * 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 8000;
+const DISCOVERY_TIMEOUT_MS = 20_000;
 
-function resolveUrl(href, baseUrl) {
+async function readBoundedResponse(url, options, maxBytes, deadline) {
+    const signal = AbortSignal.any([options.signal, deadline, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]);
+    signal.throwIfAborted();
+    const response = await fetch(url, { ...options, signal });
+    const reader = response.body?.getReader();
     try {
-        return new URL(href, baseUrl).toString();
-    } catch {
-        return null;
-    }
-}
-
-function extractIconHref(html) {
-    if (!html) return null;
-    const linkRegex = /<link\s+[^>]*rel=["']?([^"'>]+)["']?[^>]*>/gi;
-    let match;
-    while ((match = linkRegex.exec(html)) !== null) {
-        const rel = match[1].toLowerCase();
-        if (!rel.includes('icon')) continue;
-        const tag = match[0];
-        const hrefMatch = tag.match(/href=["']?([^"'>\s]+)["']?/i);
-        if (hrefMatch && hrefMatch[1]) return hrefMatch[1];
-    }
-    return null;
-}
-
-async function fetchWithTimeout(url, timeoutMs) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-        const res = await fetch(url, { signal: controller.signal });
-        return res;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (Number(response.headers.get('content-length')) > maxBytes) throw new Error('Logo resource is too large');
+        const chunks = [];
+        let length = 0;
+        if (reader) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                length += value.byteLength;
+                if (length > maxBytes) throw new Error('Logo resource is too large');
+                chunks.push(Buffer.from(value));
+            }
+        }
+        const buffer = Buffer.concat(chunks, length);
+        const copy = new Response(buffer, { status: response.status, headers: response.headers });
+        // Fetchary resolves relative links against the final response URL.
+        Object.defineProperty(copy, 'url', { value: response.url || String(url) });
+        return { response: copy, buffer };
     } finally {
-        clearTimeout(timeout);
+        await reader?.cancel().catch(() => {});
     }
 }
 
 export async function fetchSiteLogo(websiteUrl) {
-    let iconUrl = null;
-
     try {
-        const res = await fetchWithTimeout(websiteUrl, 6000);
-        if (res.ok && res.headers.get('content-type')?.includes('text/html')) {
-            const html = await res.text();
-            const href = extractIconHref(html);
-
-            iconUrl = href ? resolveUrl(href, websiteUrl) : null;
-        }
+        const url = new URL(websiteUrl);
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
+        const deadline = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS);
+        const resources = new Map();
+        let isPage = true;
+        const result = await extractFavicon(url.href, {
+            mode: 'http',
+            timeout: REQUEST_TIMEOUT_MS,
+            userAgent: 'no-bullshit-rss',
+            fetch: async (resourceUrl, options) => {
+                const page = isPage;
+                isPage = false;
+                const resource = await readBoundedResponse(resourceUrl, options, page ? MAX_PAGE_BYTES : MAX_LOGO_BYTES, deadline);
+                if (!page) resources.set(resource.response.url, resource.buffer);
+                return resource.response;
+            },
+        });
+        const buffer = resources.get(result.image.url);
+        const mime = result.image.contentType;
+        // Reuse the bytes Fetchary inspected, including icons served as octet-stream.
+        return buffer?.length && mime?.startsWith('image/') ? { buffer, mime } : null;
     } catch (err) {
-        logWarn('Website HTML fetch failed', { websiteUrl, error: err.message });
-    }
-
-    if (!iconUrl) {
-        try {
-            const origin = new URL(websiteUrl).origin;
-            iconUrl = `${origin}/favicon.ico`;
-        } catch {
-            return null;
-        }
-    }
-
-    try {
-        const res = await fetchWithTimeout(iconUrl, 8000);
-        if (!res.ok) return null;
-        const mime = res.headers.get('content-type') || '';
-        if (!mime.startsWith('image/')) return null;
-        const contentLength = Number(res.headers.get('content-length') || 0);
-        if (contentLength && contentLength > MAX_LOGO_BYTES) return null;
-        const arrayBuffer = await res.arrayBuffer();
-        if (arrayBuffer.byteLength > MAX_LOGO_BYTES) return null;
-        return { buffer: Buffer.from(arrayBuffer), mime };
-    } catch (err) {
-        logWarn('Logo fetch failed', { iconUrl, error: err.message });
+        logWarn('Logo fetch failed', { websiteUrl, error: err.message });
         return null;
     }
 }
 
-export async function refreshAllFeedLogos() {
-    const feeds = await all('SELECT id, websiteUrl FROM feeds ORDER BY id');
+export async function refreshAllFeedLogos({ missingOnly = false } = {}) {
+    const sources = await all(`SELECT id, websiteUrl FROM sources
+        WHERE EXISTS (SELECT 1 FROM feeds WHERE feeds.sourceId = sources.id)
+        ${missingOnly ? 'AND (logo IS NULL OR logoMime IS NULL)' : ''}
+        ORDER BY id`);
     let updated = 0;
 
-    for (const feed of feeds) {
-        const logo = await fetchSiteLogo(feed.websiteUrl);
-
-        if (!logo) {
-            logWarn('Logo not found', { feedId: feed.id });
-            continue;
-        }
-
-        await run("UPDATE feeds SET logo = ?, logoMime = ?, updatedAt = datetime('now') WHERE id = ?", [
+    for (const source of sources) {
+        const logo = await fetchSiteLogo(source.websiteUrl);
+        if (!logo) continue;
+        const result = await run(`UPDATE sources SET logo = ?, logoMime = ?, updatedAt = datetime('now')
+            WHERE id = ? AND websiteUrl = ? ${missingOnly ? 'AND (logo IS NULL OR logoMime IS NULL)' : ''}`, [
             logo.buffer,
             logo.mime,
-            feed.id,
+            source.id,
+            source.websiteUrl,
         ]);
-
-        updated += 1;
-
-        logInfo('Logo updated', { feedId: feed.id });
+        updated += result.changes;
     }
 
-    return logInfo('Logo refresh finished', { updated, total: feeds.length });
+    if (updated) publish('feeds.updated', { logosUpdated: updated });
+    logInfo('Logo refresh finished', { updated, total: sources.length });
+    return { updated, total: sources.length };
 }

@@ -1,41 +1,49 @@
 # NO BULLSHIT RSS 💩
 
-Built with Tauri, vanilla JavaScript and a local Node.js backend.
+A free, open-source desktop RSS reader. Follow your sources, find relevant stories,
+and keep your feeds and articles on your machine. No subscriptions or ads.
 
 ![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact.webp)
 
-NO BULLSHIT RSS is a minimal, open-source desktop RSS reader that focuses on reading—not dashboards, upsells, or noise. It has no payments, subscriptions, or ads and stores feeds and articles locally in SQLite.
+## Features
 
-## Highlights
+- **Compact and card layouts:** choose how you browse your articles in a dark interface.
+- **Daily, weekly, and monthly digests:** group related articles from multiple sources into stories.
+- **Local topics:** automatically tag articles with your own keyword rules.
+- **Search and filters:** find articles by text, source, topic, or reading list. Select a word and search it from the context menu.
+- **Bullshit rules:** flag unwanted content with custom rules and filter it out of your feed.
+- **Reading lists:** save articles for later and dismiss stories you have finished.
+- **Import and export:** add article URLs directly or from a text file; export feeds and digests as TXT, CSV, or JSON.
+- **Website icons:** recognize your sources at a glance with automatically fetched icons.
+- **CLI:** access stored articles, feeds, lists, topics, and digests from your terminal. [See commands](docs/cli.md).
 
-- Local SQLite database: your feeds and articles stay on your machine
-- Open source with no payments, subscriptions, or ads
-- Daily Digest: a clustered view that groups related articles for faster scanning
-- Local Topics: rule-based topic tagging (no external API) with editable JSON rules
-- Improved clustering: fuzzier matching with stronger logic and guardrails
-- Instant search: highlight a word, right-click, and search it immediately
-- Dark-only interface
-- Storage visibility: settings now show how many articles are in your database
+## Install
 
-## Frontend
+Requires **macOS 13 (Ventura) or newer** on **Apple Silicon (M1 or newer)**.
 
-Shared design tokens and UI primitives come from the
-[oj-designsystem](https://github.com/oliverjessner/oj-designsystem)
-package, pinned to version 0.1.0. It supplies Comfortaa for the interface,
-JetBrains Mono for technical data, local Font Awesome icons, form controls,
-panels, tags, keyboard-accessible settings tabs and action menus, native dialogs,
-and stacked notifications with app-owned Undo actions. Fonts, icons, CSS and
-browser modules are served locally from `/vendor/oj-designsystem/`; no CDN or
-frontend build step is required. The product accent is set with `--oj-accent`;
-app-specific layout and responsive behavior remain in `public/styles.css`.
+### Homebrew
 
-## Digest
+```bash
+brew install --cask oliverjessner/tap/no-bullshit-rss
+```
 
-Related articles from multiple sources are clustered into daily, weekly, and monthly stories.
+This installs the app and the `no-bullshit-rss` command.
+
+### Download
+
+1. Download the `.dmg` from the [latest release](https://github.com/oliverjessner/NO-BULLSHIT-RSS/releases/latest).
+2. Open it and drag **NO BULLSHIT RSS** into **Applications**.
+3. Launch the app and add your RSS feeds in **Settings**.
+
+## Screenshots
+
+<details>
+<summary>Monthly digest</summary>
+<br>
 
 ![NO BULLSHIT RSS monthly digest](public/images/mockups/digest_month.webp)
 
-## Settings
+</details>
 
 <details>
 <summary>RSS feed management</summary>
@@ -52,130 +60,3 @@ Related articles from multiple sources are clustered into daily, weekly, and mon
 ![NO BULLSHIT RSS topic settings](public/images/mockups/settings_topics.webp)
 
 </details>
-
-Also check out the [landing page](https://oliverjessner.at/no-bullshit-rss/#promise).
-
-## Run locally
-
-On macOS Apple Silicon, install Node.js, Rust 1.93 or newer and Xcode Command Line Tools, then start the Tauri app:
-
-```bash
-npm install
-npm run dev
-```
-
-To run only the local web server, use `npm start`.
-
-Tauri uses the system WebKit view and starts a bundled Node.js 24.22.0 runtime for
-the existing RSS, SQLite and digest backend. End users do not need Node.js.
-The first desktop run downloads the official Node archive and checks its SHA-256;
-subsequent builds use `.desktop-cache/`. Preparation copies application files
-and installed production dependencies into generated resources and verifies a
-real SQLite query with the bundled runtime.
-
-The desktop app keeps the existing `~/Library/Application Support/NO-BULLSHIT-RSS/`
-directory, including `data-v2.db`, its WAL files and `topics.rules.json`. No database
-copy or conversion is needed when upgrading from Electron. WebKit stores interface
-preferences separately from Chromium, so local layout preferences start with their
-defaults on the first Tauri launch. For an isolated development run, set
-`RSS_DATA_DIR=/path/to/test-data RSS_PORT=1378 DISABLE_SCHEDULER=1 npm run dev`.
-
-The local server binds to `127.0.0.1:1377` by default; `RSS_PORT` selects another
-port explicitly. Stop an existing web-server instance
-before launching the desktop app; a port conflict is reported instead of opening
-an unrelated server. Quitting Tauri stops the backend, and the backend also exits
-if its parent process crashes. The app supports a single instance and reopening
-its main window from the Dock.
-
-Articles open in a native child webview positioned within the reader panel. They
-receive no native permissions. The browser-only server uses a sandboxed iframe;
-sites that prohibit embedding can be opened using the browser action. Native
-menus retain selection search, editing, About, support and developer tools.
-Feed and digest exports use a native Save dialog in the desktop app.
-
-Run backend/frontend/CLI tests with `npm test`, and Rust checks with
-`npm run test:desktop` after `npm run desktop:prepare`.
-
-## Homebrew
-
-The release script publishes a cask to [oliverjessner/tap](https://github.com/oliverjessner/homebrew-tap). After the first tap publication, install the desktop app and its bundled CLI with:
-
-```bash
-brew install --cask oliverjessner/tap/no-bullshit-rss
-```
-
-The cask requires macOS 13 (Ventura) or newer on Apple Silicon and automatically links the `no-bullshit-rss` command.
-
-## Generate screenshots
-
-Generate five screenshots from the existing local app data:
-
-```bash
-npm run screenshots:install # Install Chromium once after npm install
-npm run screenshots
-```
-
-The script deletes and recreates `public/images/mockups/` before capturing the compact feed, card feed (`feed_cards.webp`), monthly digest, RSS feed settings, and topic settings. Each image is a 1920 × 1080 WebP with no resolution suffix in its filename. It uses a separate browser session and waits for the views, fonts, and images to load. If the local app is not running, it automatically starts a temporary server using a SQLite snapshot of the existing app database, then stops it after capturing. The snapshot includes pending WAL data; automatic feed fetching is disabled. Set `DB_PATH` to choose a database; otherwise the installed desktop app's database is preferred, followed by the project's `data-v2.db`.
-
-For a different server address, use `npm run screenshots -- --url http://127.0.0.1:1378`. Unavailable remote servers are not started automatically.
-
-## CLI
-
-The CLI only reads data already stored by NO BULLSHIT RSS. It does not fetch or configure RSS feeds.
-
-The macOS DMG includes a self-contained CLI launcher. Homebrew links `no-bullshit-rss` automatically. After a manual DMG installation, link it once to make the command available in the terminal; no separate Node.js installation is required.
-
-See the [CLI documentation](docs/cli.md) for setup, commands, output formats, and database discovery.
-
-## Platform support
-
-Prebuilt releases currently support macOS on Apple Silicon (M1 or newer) only. Intel Macs, Windows, and Linux are not release targets.
-
-## Build and publish
-
-Build the macOS ARM64 DMG:
-
-```bash
-npm run dist:mac
-```
-
-The release DMG is written to `dist/NO.BULLSHIT.RSS-<version>-arm64.dmg`.
-Tauri's app bundle and original DMG are under `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
-The local build uses ad-hoc signing with JIT and native-module entitlements for
-Node/V8 and SQLite. It checks the sealed app signature, runs a SQLite query using
-the signed bundled runtime and checks the bundled CLI version before copying the
-release DMG into `dist/`. Distribution notarization requires your Apple
-signing credentials. Check the resolved release without making changes:
-
-```bash
-npm run publish -- --dry-run
-```
-
-Regenerate all five screenshots and publish the GitHub release and Homebrew cask in one command. The screenshot server starts automatically when needed:
-
-```bash
-npm run publish
-```
-
-> [!IMPORTANT]
-> Publishing regenerates the screenshots, stages and commits pending changes, pushes the current branch, builds the DMG, creates and pushes the version tag, creates the GitHub release, and commits and pushes the cask update to `oliverjessner/homebrew-tap`.
-
-The Homebrew step uses the existing local `../homebrew-tap` checkout (`../../homebrew-tap` relative to `scripts/`). It requires `brew`, `git`, and an authenticated `gh` account with push access to the tap. The checkout must be clean and on its default branch, with `origin` pointing to `oliverjessner/homebrew-tap`. The script fetches and fast-forwards it, downloads the uploaded release DMG, computes SHA-256, checks the GitHub asset digest when available, and validates the generated cask with `brew style`. It updates and commits only `Casks/no-bullshit-rss.rb` and the tap README. Dry-run validates in a temporary directory without changing the local tap.
-
-Override the checkout location with `HOMEBREW_TAP_DIR=/path/to/homebrew-tap npm run publish`, or use `npm run publish:brew -- --tap-path /path/to/homebrew-tap` for the separate Homebrew step.
-
-Preview the cask for an already published release without committing or pushing:
-
-```bash
-npm run publish:brew -- --dry-run
-# To preview a specific published version:
-npm run publish:brew -- --dry-run --version 1.1.2
-```
-
-Publish or retry the Homebrew step for the current `package.json` version after its GitHub release is available:
-
-```bash
-npm run publish:brew
-```
-
-If the tap update fails after the GitHub release succeeds, retry `publish:brew` instead of rerunning the entire release. The command skips the commit when the cask and README are already up to date.

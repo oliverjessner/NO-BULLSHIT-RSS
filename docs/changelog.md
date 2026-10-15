@@ -1,3 +1,8 @@
+# 1.3.1
+
+- move https://github.com/oliverjessner/fetchary/ to extract the favicon
+- small cosmetics in the settings
+
 # 1.3.0
 
 - tauri

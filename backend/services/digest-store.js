@@ -6,6 +6,7 @@ import { loadTopicsByArticleIds } from './article-queries.js';
 import { getDigestPeriodDefinition, getDigestTimezone, isPeriodInsideRebuildWindow } from './digest-periods.js';
 import { getRebuildWindow } from './digest-periods.js';
 import { getActiveTopicRulesVersion } from './topics.js';
+import { loadActiveClusters } from './digest-reader.js';
 
 function hash(value) {
     return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -90,12 +91,7 @@ async function loadGenerationInput(periodId) {
          JOIN sources ON sources.id = feeds.sourceId
          WHERE digest_period_articles.digestPeriodId = ?
            AND NOT EXISTS (SELECT 1 FROM digest_excluded_feeds WHERE digest_excluded_feeds.feedId = articles.feedId)
-           AND NOT EXISTS (
-             SELECT 1 FROM digest_blocked_words
-             WHERE length(trim(digest_blocked_words.word)) > 0
-               AND instr(lower(coalesce(articles.title, '') || ' ' || coalesce(articles.teaser, '')),
-                         lower(trim(digest_blocked_words.word))) > 0
-           )
+           AND NOT EXISTS (SELECT 1 FROM article_bullshit_matches WHERE article_bullshit_matches.articleId = articles.id)
          ORDER BY articles.publishedAt DESC, articles.id DESC`,
         [periodId],
     );
@@ -228,59 +224,10 @@ export async function generateDirtyDigestPeriods({ limit = 12 } = {}) {
     return results;
 }
 
-async function loadActiveClusters(period, database = { all }) {
-    if (!period?.activeGenerationId) return [];
-    const rows = await database.all(
-        `SELECT digest_clusters.id AS clusterId, digest_clusters.clusterKey, digest_clusters.title AS clusterTitle,
-                digest_clusters.articleCount AS clusterCount, digest_clusters.displayPosition,
-                digest_cluster_articles.position, digest_cluster_articles.isRepresentative,
-                articles.id, articles.feedId, articles.title, articles.teaser, articles.url, articles.publishedAt,
-                articles.externalId AS guidOrHash,
-                COALESCE(NULLIF(feeds.name, ''), sources.name) AS sourceName,
-                sources.logo IS NOT NULL AS hasSourceLogo,
-                digest_cluster_state.readAt, digest_cluster_state.dismissedAt, digest_cluster_state.completedAt
-         FROM digest_clusters
-         JOIN digest_cluster_articles ON digest_cluster_articles.digestClusterId = digest_clusters.id
-         JOIN articles ON articles.id = digest_cluster_articles.articleId
-         JOIN feeds ON feeds.id = articles.feedId
-         JOIN sources ON sources.id = feeds.sourceId
-         LEFT JOIN digest_cluster_state ON digest_cluster_state.digestPeriodId = ?
-              AND digest_cluster_state.clusterKey = digest_clusters.clusterKey
-         WHERE digest_clusters.digestGenerationId = ?
-           AND digest_cluster_state.dismissedAt IS NULL AND digest_cluster_state.completedAt IS NULL
-         ORDER BY digest_clusters.displayPosition, digest_cluster_articles.position`,
-        [period.id, period.activeGenerationId],
-    );
-    const articleIds = rows.map(row => Number(row.id));
-    const topicsByArticleId = await loadTopicsByArticleIds(articleIds, { all: database.all });
-    const clusters = new Map();
-    for (const row of rows) {
-        if (!clusters.has(row.clusterId)) {
-            clusters.set(row.clusterId, {
-                clusterKey: row.clusterKey,
-                clusterTitle: row.clusterTitle,
-                clusterCount: Number(row.clusterCount),
-                representative: null,
-                items: [],
-            });
-        }
-        const article = {
-            id: Number(row.id), feedId: Number(row.feedId), title: row.title, teaser: row.teaser, url: row.url,
-            publishedAt: row.publishedAt, guidOrHash: row.guidOrHash, sourceName: row.sourceName,
-            sourceLogoDataUrl: row.hasSourceLogo ? `/api/feeds/${encodeURIComponent(row.feedId)}/logo` : null,
-            topics: topicsByArticleId.get(Number(row.id)) || [],
-        };
-        const cluster = clusters.get(row.clusterId);
-        cluster.items.push(article);
-        if (row.isRepresentative) cluster.representative = article;
-    }
-    return Array.from(clusters.values()).map(cluster => ({ ...cluster, representative: cluster.representative || cluster.items[0] }));
-}
-
 export async function getStoredDigestPayload(type = 'day', referenceDate = new Date()) {
     const definition = getDigestPeriodDefinition(type, referenceDate, getDigestTimezone());
     const period = await ensurePeriodDefinition(definition);
-    const clusters = await loadActiveClusters(period);
+    const clusters = await loadActiveClusters(period, { all });
     const totalArticles = clusters.reduce((sum, cluster) => sum + cluster.items.length, 0);
     return {
         variant: definition.type,

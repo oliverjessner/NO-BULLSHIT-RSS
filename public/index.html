@@ -10,9 +10,9 @@
     </head>
     <body class="oj-app">
         <header class="topbar">
-            <div class="brand">
+            <button id="statistics-trigger" class="brand brand-button" type="button" aria-label="Show statistics" aria-haspopup="dialog" aria-controls="statistics-dialog" title="Statistics">
                 <img class="brand-logo" src="/images/logo/logo.png" alt="No Bullshit RSS" />
-            </div>
+            </button>
 
             <nav class="nav oj-nav" aria-label="Main views">
                 <button class="nav-link oj-nav-link is-active" data-view="main" aria-pressed="true" aria-current="page">Feed</button>
@@ -264,7 +264,6 @@
                         <button class="settings-tab oj-tab" id="settings-topics-tab" data-settings="topics" type="button" role="tab" aria-selected="false" aria-controls="settings-topics">Topics</button>
                         <button class="settings-tab oj-tab" id="settings-bullshit-tab" data-settings="bullshit" type="button" role="tab" aria-selected="false" aria-controls="settings-bullshit">Bullshit Rules</button>
                         <button class="settings-tab oj-tab" id="settings-lists-tab" data-settings="lists" type="button" role="tab" aria-selected="false" aria-controls="settings-lists">Lists</button>
-                        <button class="settings-tab oj-tab" id="settings-digest-tab" data-settings="digest" type="button" role="tab" aria-selected="false" aria-controls="settings-digest">Digest</button>
                         <button class="settings-tab oj-tab" id="settings-cosmetics-tab" data-settings="cosmetics" type="button" role="tab" aria-selected="false" aria-controls="settings-cosmetics">Cosmetics</button>
                     </div>
                 </div>
@@ -308,7 +307,7 @@
                     <div class="settings-bullshit-left">
                         <form id="bullshit-rule-form" class="card form oj-panel">
                             <h3 class="title oj-heading-3">Bullshit Rules</h3>
-                            <p class="teaser oj-muted">Automatically mark noisy or unwanted articles using local rules.</p>
+                            <p class="teaser oj-muted">Matching articles are excluded from Digest. Use the Clean filter in Feed to hide them there.</p>
                             <div class="form-row oj-field">
                                 <label class="oj-label" for="bullshit-rule-name">Name</label>
                                 <input class="oj-input" type="text" id="bullshit-rule-name" placeholder="e.g. Black Friday" maxlength="200" required />
@@ -359,6 +358,13 @@
                         <div id="bullshit-rules-state" class="state oj-status">Loading…</div>
                         <div id="bullshit-rules-list" class="list oj-list"></div>
                     </div>
+
+                    <section class="card settings-digest-card oj-panel" aria-labelledby="excluded-rss-title">
+                        <h3 id="excluded-rss-title" class="title oj-heading-3">Excluded RSS</h3>
+                        <p class="teaser oj-muted">Enable a switch to exclude a feed from Digest.</p>
+                        <div id="digest-settings-feeds-state" class="form-status oj-status" role="status">Loading…</div>
+                        <div id="digest-settings-feeds-list" class="settings-digest-feed-list"></div>
+                    </section>
                 </div>
 
                 <div id="settings-lists" class="settings-panel oj-tab-panel" role="tabpanel" aria-labelledby="settings-lists-tab" hidden>
@@ -387,45 +393,6 @@
                     <div class="settings-lists-content">
                         <div id="lists-state" class="state oj-status">Loading…</div>
                         <div id="lists-list" class="list oj-list"></div>
-                    </div>
-                </div>
-
-                <div id="settings-digest" class="settings-panel settings-panel-single oj-tab-panel" role="tabpanel" aria-labelledby="settings-digest-tab" hidden>
-                    <div class="settings-digest-content">
-                        <section class="card settings-digest-card oj-panel">
-                            <h3 class="title oj-heading-3">Excluded RSS Feeds</h3>
-                            <p class="teaser oj-muted">
-                                Selected feeds are ignored in Digest and will not appear in clustered results.
-                            </p>
-                            <div id="digest-settings-feeds-state" class="form-status oj-status">Loading…</div>
-                            <div id="digest-settings-feeds-list" class="settings-digest-feed-list"></div>
-                            <div class="form-actions">
-                                <button id="digest-settings-save-feeds" type="button" class="btn success oj-button oj-button-primary">
-                                    save feed filter
-                                </button>
-                            </div>
-                        </section>
-
-                        <section class="card settings-digest-card oj-panel">
-                            <h3 class="title oj-heading-3">Blocked Words</h3>
-                            <p class="teaser oj-muted">
-                                Articles containing one of these words in title or teaser are excluded from Digest.
-                            </p>
-                            <div class="form-row oj-field">
-                                <label class="oj-label" for="digest-block-word-input">Word</label>
-                                <input
-                                    class="oj-input"
-                                    type="text"
-                                    id="digest-block-word-input"
-                                    placeholder="z. B. promo, sponsored, football"
-                                />
-                            </div>
-                            <div class="form-actions">
-                                <button id="digest-block-word-add" type="button" class="btn success oj-button oj-button-primary">add word</button>
-                            </div>
-                            <div id="digest-block-words-state" class="form-status oj-status">Loading…</div>
-                            <div id="digest-block-words-list" class="settings-digest-block-list"></div>
-                        </section>
                     </div>
                 </div>
 
@@ -574,6 +541,43 @@
                 </div>
             </div>
         </template>
+
+        <dialog id="statistics-dialog" class="modal statistics-dialog oj-dialog" data-oj-dialog aria-labelledby="statistics-title">
+            <div class="modal-header oj-dialog-header">
+                <h2 id="statistics-title" class="modal-title oj-dialog-title">Statistics</h2>
+                <button id="statistics-close" class="oj-icon-button" type="button" aria-label="Close statistics"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body oj-dialog-body">
+                <p class="statistics-help oj-muted">All articles stored in your library.</p>
+                <div id="statistics-status" class="oj-status" role="status" aria-live="polite"></div>
+                <div id="statistics-content" hidden>
+                    <dl class="statistics-totals">
+                        <div class="statistics-metric oj-panel oj-soft">
+                            <dt>Articles</dt>
+                            <dd id="statistics-total" class="oj-mono"></dd>
+                        </div>
+                        <div class="statistics-metric oj-panel oj-soft">
+                            <dt>Found Bullshit Articles</dt>
+                            <dd id="statistics-bullshit" class="oj-mono"></dd>
+                        </div>
+                    </dl>
+                    <div class="statistics-rankings">
+                        <section aria-labelledby="statistics-feeds-title">
+                            <h3 id="statistics-feeds-title" class="oj-heading-3">Top 10 Feeds</h3>
+                            <ol id="statistics-feeds" class="statistics-ranking" role="list"></ol>
+                        </section>
+                        <section aria-labelledby="statistics-topics-title">
+                            <h3 id="statistics-topics-title" class="oj-heading-3">Top 10 Topics</h3>
+                            <ol id="statistics-topics" class="statistics-ranking" role="list"></ol>
+                        </section>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions oj-dialog-footer">
+                <button id="statistics-refresh" class="btn ghost oj-button oj-button-ghost" type="button">Refresh</button>
+                <button id="statistics-done" class="btn oj-button oj-button-secondary" type="button">Close</button>
+            </div>
+        </dialog>
 
         <dialog id="feed-import-backdrop" class="modal feed-import-modal oj-dialog" data-oj-dialog aria-labelledby="feed-import-title" aria-describedby="feed-import-help">
             <div class="modal-header oj-dialog-header">

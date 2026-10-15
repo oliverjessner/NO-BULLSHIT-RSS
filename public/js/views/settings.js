@@ -11,6 +11,7 @@ let initialized = false;
 let onReferencesChanged = async () => {};
 let onFeedChanged = async () => {};
 let onDigestChanged = () => {};
+let savingExcludedFeed = false;
 
 function actionButton(label, action, icon, variant = 'ghost') {
     const button = document.createElement('button');
@@ -125,25 +126,19 @@ function renderDigestSettings() {
     const excluded = new Set(store.reference.digestSettings.excludedFeedIds.map(Number));
     const feeds = document.createDocumentFragment();
     for (const feed of store.reference.feeds) {
-        const row = document.createElement('label'); row.className = 'settings-digest-feed-item oj-list-item oj-check';
-        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'oj-checkbox'; checkbox.dataset.feedId = String(feed.id); checkbox.checked = excluded.has(Number(feed.id));
+        const row = document.createElement('label'); row.className = 'settings-digest-feed-item oj-list-item oj-switch';
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.role = 'switch'; checkbox.dataset.feedId = String(feed.id); checkbox.checked = excluded.has(Number(feed.id)); checkbox.disabled = savingExcludedFeed;
+        checkbox.setAttribute('aria-label', `Exclude ${feed.name || 'Unnamed feed'} from Digest`);
+        const track = document.createElement('span'); track.className = 'oj-switch-track'; track.setAttribute('aria-hidden', 'true');
         const wrap = document.createElement('span'); wrap.className = 'settings-digest-feed-item-text';
         const title = document.createElement('span'); title.className = 'settings-digest-feed-item-title'; title.textContent = feed.name || 'Unnamed feed';
         const meta = document.createElement('span'); meta.className = 'settings-digest-feed-item-meta oj-muted oj-mono'; meta.textContent = feed.manual ? 'Imported links' : (feed.feedUrl || feed.websiteUrl || '');
-        wrap.append(title, meta); row.append(checkbox, wrap); feeds.appendChild(row);
+        meta.title = meta.textContent;
+        wrap.append(title, meta); row.append(wrap, checkbox, track); feeds.appendChild(row);
     }
     if (!store.reference.feeds.length) { const empty = document.createElement('div'); empty.className = 'state oj-empty-state'; empty.textContent = 'No feeds yet.'; feeds.appendChild(empty); }
     dom.settings.digestFeedsList.replaceChildren(feeds);
 
-    const words = document.createDocumentFragment();
-    for (const item of store.reference.digestSettings.blockedWords) {
-        const row = document.createElement('div'); row.className = 'settings-digest-word-item oj-list-item'; row.dataset.wordId = String(item.id);
-        const label = document.createElement('span'); label.className = 'settings-digest-word-label'; label.textContent = item.word;
-        const remove = actionButton('Remove', 'delete-word', 'trash', 'danger');
-        row.append(label, remove); words.appendChild(row);
-    }
-    if (!store.reference.digestSettings.blockedWords.length) { const empty = document.createElement('div'); empty.className = 'state oj-empty-state'; empty.textContent = 'No blocked words yet.'; words.appendChild(empty); }
-    dom.settings.blockedWordsList.replaceChildren(words);
 }
 
 export function refreshSettingsReferences() {
@@ -158,7 +153,7 @@ export async function reloadBullshitRules() { setBullshitRules(await api.bullshi
 
 async function loadSettingsOnlyData() {
     const [digestResult, rulesResult, statusResult, statsResult, bullshitResult] = await Promise.allSettled([api.digestSettings(), api.topicRules(), api.fetchStatus(), api.articleStats(), api.bullshitRules()]);
-    if (digestResult.status === 'fulfilled') { setDigestSettings(digestResult.value); renderDigestSettings(); }
+    if (digestResult.status === 'fulfilled') { setDigestSettings(digestResult.value); renderDigestSettings(); text(dom.settings.digestFeedsState, ''); }
     else text(dom.settings.digestFeedsState, `Error: ${digestResult.reason.message}`);
     if (rulesResult.status === 'fulfilled') dom.settings.topicsJson.value = rulesResult.value?.raw || JSON.stringify(rulesResult.value?.rules || {}, null, 2);
     else text(dom.settings.topicsJsonStatus, `Error: ${rulesResult.reason.message}`);
@@ -308,6 +303,7 @@ function bindBullshitRuleActions() {
             resetBullshitRuleForm();
             await reloadBullshitRules();
             text(dom.settings.bullshitFormStatus, bullshitReevaluationText(result));
+            onDigestChanged();
             await onFeedChanged();
         } catch (error) {
             text(dom.settings.bullshitFormStatus, `Error: ${error.message}`);
@@ -338,6 +334,7 @@ function bindBullshitRuleActions() {
                 if (store.settings.bullshitRuleEditingId === id) resetBullshitRuleForm();
                 await reloadBullshitRules();
                 text(dom.settings.bullshitReevaluateStatus, bullshitReevaluationText(result));
+                onDigestChanged();
                 await onFeedChanged();
             } catch (error) { action.disabled = false; toast.error(error.message); }
         }
@@ -351,6 +348,7 @@ function bindBullshitRuleActions() {
             const result = await api.updateBullshitRule(id, { enabled: checkbox.checked });
             await reloadBullshitRules();
             text(dom.settings.bullshitReevaluateStatus, bullshitReevaluationText(result));
+            onDigestChanged();
             await onFeedChanged();
         } catch (error) {
             checkbox.checked = !checkbox.checked; checkbox.disabled = false; toast.error(error.message);
@@ -361,6 +359,7 @@ function bindBullshitRuleActions() {
         try {
             const result = await api.reevaluateBullshitRules();
             text(dom.settings.bullshitReevaluateStatus, bullshitReevaluationText(result));
+            onDigestChanged();
             await onFeedChanged();
         } catch (error) { text(dom.settings.bullshitReevaluateStatus, `Error: ${error.message}`); }
         finally { dom.settings.bullshitReevaluate.disabled = false; }
@@ -368,16 +367,26 @@ function bindBullshitRuleActions() {
 }
 
 function bindDigestSettings() {
-    dom.settings.digestFeedsSave.addEventListener('click', async () => {
-        const ids = [...dom.settings.digestFeedsList.querySelectorAll('[data-feed-id]:checked')].map(input => Number(input.dataset.feedId)); dom.settings.digestFeedsSave.disabled = true;
-        try { setDigestSettings(await api.saveExcludedFeeds(ids)); renderDigestSettings(); onDigestChanged(); text(dom.settings.digestFeedsState, `Saved (${ids.length} excluded).`); }
-        catch (error) { text(dom.settings.digestFeedsState, `Error: ${error.message}`); }
-        finally { dom.settings.digestFeedsSave.disabled = false; }
+    dom.settings.digestFeedsList.addEventListener('change', async event => {
+        const checkbox = event.target.closest('input[data-feed-id]');
+        if (!checkbox || savingExcludedFeed) return;
+        const feedId = Number(checkbox.dataset.feedId);
+        const restoreFocus = document.activeElement === checkbox;
+        savingExcludedFeed = true;
+        dom.settings.digestFeedsList.querySelectorAll('input').forEach(input => { input.disabled = true; });
+        text(dom.settings.digestFeedsState, 'Saving…');
+        try {
+            setDigestSettings(await api.setFeedExcluded(feedId, checkbox.checked));
+            onDigestChanged();
+            text(dom.settings.digestFeedsState, 'Saved.');
+        } catch (error) {
+            text(dom.settings.digestFeedsState, `Error: ${error.message}`);
+        } finally {
+            savingExcludedFeed = false;
+            renderDigestSettings();
+            if (restoreFocus) dom.settings.digestFeedsList.querySelector(`[data-feed-id="${feedId}"]`)?.focus();
+        }
     });
-    const addWord = async () => { const word = dom.settings.blockedWordInput.value.trim().replace(/\s+/g, ' ').slice(0, 120); if (word.length < 2) { text(dom.settings.blockedWordsState, 'Please enter at least 2 characters.'); return; } dom.settings.blockedWordAdd.disabled = true; try { await api.addBlockedWord(word); dom.settings.blockedWordInput.value = ''; setDigestSettings(await api.digestSettings()); renderDigestSettings(); onDigestChanged(); } catch (error) { text(dom.settings.blockedWordsState, `Error: ${error.message}`); } finally { dom.settings.blockedWordAdd.disabled = false; } };
-    dom.settings.blockedWordAdd.addEventListener('click', addWord);
-    dom.settings.blockedWordInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); void addWord(); } });
-    dom.settings.blockedWordsList.addEventListener('click', async event => { const button = event.target.closest('[data-action="delete-word"]'); const id = Number(button?.closest('[data-word-id]')?.dataset.wordId); if (!id) return; button.disabled = true; try { await api.deleteBlockedWord(id); setDigestSettings(await api.digestSettings()); renderDigestSettings(); onDigestChanged(); } catch (error) { button.disabled = false; toast.error(error.message); } });
 }
 
 function bindFetch() {

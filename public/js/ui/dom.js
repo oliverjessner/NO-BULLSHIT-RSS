@@ -3,6 +3,12 @@ const byId = id => document.getElementById(id);
 export const dom = Object.freeze({
     nav: document.querySelector('.nav'),
     navLinks: document.querySelectorAll('.nav-link'),
+    statistics: Object.freeze({
+        trigger: byId('statistics-trigger'), dialog: byId('statistics-dialog'), close: byId('statistics-close'),
+        done: byId('statistics-done'), refresh: byId('statistics-refresh'), status: byId('statistics-status'),
+        content: byId('statistics-content'), total: byId('statistics-total'), bullshit: byId('statistics-bullshit'),
+        feeds: byId('statistics-feeds'), topics: byId('statistics-topics'),
+    }),
     views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), settings: byId('view-settings') }),
     feed: Object.freeze({
         count: byId('feed-count'), search: byId('search-input'), topicFilter: byId('filter-topic'),
@@ -49,8 +55,6 @@ export const dom = Object.freeze({
         bullshitState: byId('bullshit-rules-state'), bullshitList: byId('bullshit-rules-list'),
         bullshitReevaluate: byId('bullshit-rules-reevaluate'), bullshitReevaluateStatus: byId('bullshit-rules-reevaluate-status'),
         digestFeedsState: byId('digest-settings-feeds-state'), digestFeedsList: byId('digest-settings-feeds-list'),
-        digestFeedsSave: byId('digest-settings-save-feeds'), blockedWordInput: byId('digest-block-word-input'),
-        blockedWordAdd: byId('digest-block-word-add'), blockedWordsState: byId('digest-block-words-state'), blockedWordsList: byId('digest-block-words-list'),
     }),
     modal: Object.freeze({ backdrop: byId('modal-backdrop'), select: byId('modal-list-select'), close: byId('modal-close'), cancel: byId('modal-cancel'), confirm: byId('modal-confirm'), existing: byId('modal-existing-lists') }),
     feedImport: Object.freeze({

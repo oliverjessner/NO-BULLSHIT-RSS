@@ -1,7 +1,7 @@
 import { loadTopicsByArticleIds } from './article-queries.js';
 import { getDigestPeriodDefinition, getDigestTimezone } from './digest-periods.js';
 
-async function loadActiveClusters(period, database) {
+export async function loadActiveClusters(period, database) {
     if (!period?.activeGenerationId) return [];
     const sourceNameExpression = database.feedNamesAvailable === false
         ? 'sources.name'
@@ -25,6 +25,8 @@ async function loadActiveClusters(period, database) {
               AND digest_cluster_state.clusterKey = digest_clusters.clusterKey
          WHERE digest_clusters.digestGenerationId = ?
            AND digest_cluster_state.dismissedAt IS NULL AND digest_cluster_state.completedAt IS NULL
+           AND NOT EXISTS (SELECT 1 FROM digest_excluded_feeds WHERE digest_excluded_feeds.feedId = articles.feedId)
+           ${database.bullshitRulesAvailable === false ? '' : 'AND NOT EXISTS (SELECT 1 FROM article_bullshit_matches WHERE article_bullshit_matches.articleId = articles.id)'}
          ORDER BY digest_clusters.displayPosition, digest_cluster_articles.position`,
     ].join('\n');
     const rows = await database.all(
@@ -53,7 +55,12 @@ async function loadActiveClusters(period, database) {
         cluster.items.push(article);
         if (row.isRepresentative) cluster.representative = article;
     }
-    return Array.from(clusters.values()).map(cluster => ({ ...cluster, representative: cluster.representative || cluster.items[0] }));
+    return Array.from(clusters.values()).map(cluster => ({
+        ...cluster,
+        representative: cluster.representative || cluster.items[0],
+        clusterTitle: cluster.representative ? cluster.clusterTitle : cluster.items[0].title || 'Untitled',
+        clusterCount: cluster.items.length,
+    })).filter(cluster => period.type !== 'month' || cluster.items.length > 1);
 }
 
 export async function readStoredDigestPayload(type = 'day', database, referenceDate = new Date()) {

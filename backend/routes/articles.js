@@ -8,6 +8,7 @@ import { normalizeDigestVariant } from './digest.js';
 import { publish } from '../services/events.js';
 import { logInfo } from '../utils/logger.js';
 import { importArticlesFromUrls } from '../services/article-import.js';
+import { getStatistics } from '../services/statistics.js';
 
 const router = express.Router();
 
@@ -232,6 +233,11 @@ async function handleSetDismissed(req, res) {
 
     return res.json({ ok: true, id: articleId, dismissed });
 }
+
+router.get('/statistics', auth, async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json(await getStatistics());
+});
 
 router.get('/stats', auth, async (_req, res) => {
     const row = await get(

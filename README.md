@@ -11,7 +11,7 @@ and keep your feeds and articles on your machine. No subscriptions or ads.
 - **Daily, weekly, and monthly digests:** group related articles from multiple sources into stories.
 - **Local topics:** automatically tag articles with your own keyword rules.
 - **Search and filters:** find articles by text, source, topic, or reading list. Select a word and search it from the context menu.
-- **Bullshit rules:** flag unwanted content with custom rules and filter it out of your feed.
+- **Bullshit rules:** exclude matching articles and selected RSS feeds from digests. Use the Clean filter to hide matching articles in Feed.
 - **Reading lists:** save articles for later and dismiss stories you have finished.
 - **Import and export:** add article URLs directly or from a text file; export feeds and digests as TXT, CSV, or JSON.
 - **Website icons:** recognize your sources at a glance with automatically fetched icons.

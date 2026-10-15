@@ -1,7 +1,8 @@
-# 1.3.1
+# 1.3.2
 
 - move https://github.com/oliverjessner/fetchary/ to extract the favicon
 - small cosmetics in the settings
+- click on the bullshit logo to see the stats
 
 # 1.3.0
 

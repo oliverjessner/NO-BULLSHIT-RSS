@@ -9,6 +9,7 @@ import {
     reevaluateAllArticles,
     updateBullshitRule,
 } from '../services/bullshit-rules.js';
+import { generateDirtyDigestPeriods, markAllDigestPeriodsDirty } from '../services/digest-store.js';
 
 const router = express.Router();
 
@@ -34,6 +35,8 @@ const updateRuleSchema = {
 
 async function reEvaluateAndPublish(action, rule = null) {
     const reEvaluation = await reevaluateAllArticles();
+    await markAllDigestPeriodsDirty();
+    await generateDirtyDigestPeriods();
     publish('bullshit-rules.updated', { action, ruleId: rule?.id || null, ...reEvaluation });
     publish('articles.updated', { source: 'bullshit-rules', ...reEvaluation });
     return reEvaluation;

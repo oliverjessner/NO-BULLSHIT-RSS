@@ -19,6 +19,7 @@ import {
     searchFromSelection,
 } from './js/views/feed.js';
 import { initFeedImport } from './js/views/feed-import.js';
+import { initStatistics } from './js/ui/statistics.js';
 
 const controllers = new Map([
     ['main', { activate: activateFeed, deactivate: deactivateFeed }],
@@ -53,6 +54,7 @@ async function ensureController(name) {
             activate: module.activateDigest,
             deactivate: module.deactivateDigest,
             dirty: module.markDigestDirty,
+            refresh: () => module.loadDigest({ force: true, silent: true }),
         };
         controllers.set(name, controller);
         return controller;
@@ -65,7 +67,7 @@ async function ensureController(name) {
                 markFeedDirty();
                 if (store.ui.activeView === 'main') await loadArticles({ force: true, showLoading: false });
             },
-            onDigestChanged: () => controllers.get('digest')?.dirty?.(),
+            onDigestChanged: markDigestDirty,
         };
         const controller = {
             activate: () => settingsModule.activateSettings(options),
@@ -92,6 +94,7 @@ async function activate(name) {
 function markDigestDirty() {
     store.digest.needsRefresh = true;
     controllers.get('digest')?.dirty?.();
+    if (store.ui.activeView === 'digest') void controllers.get('digest')?.refresh?.();
 }
 
 function setupLiveUpdates() {
@@ -123,6 +126,7 @@ function setupLiveUpdates() {
         },
         bullshitRulesUpdated: () => {
             markFeedDirty();
+            markDigestDirty();
             void settingsModule?.reloadBullshitRules();
         },
         articlesUpdated: () => {
@@ -142,6 +146,7 @@ async function init() {
     cleanupDesignSystem = () => { cleanupOJ(); cleanupSelectDropdowns(); };
     initLayout();
     initArticleViewer();
+    initStatistics();
     initNavigation(activate);
     initModal({
         onSaved: async () => {

@@ -18,7 +18,7 @@ export const store = {
         topicsBySlug: new Map(),
         bullshitRules: [],
         bullshitRulesById: new Map(),
-        digestSettings: { excludedFeedIds: [], blockedWords: [] },
+        digestSettings: { excludedFeedIds: [] },
     },
     feed: {
         articles: [],
@@ -87,6 +87,5 @@ export function setBullshitRules(rules) {
 export function setDigestSettings(settings) {
     store.reference.digestSettings = {
         excludedFeedIds: Array.isArray(settings?.excludedFeedIds) ? settings.excludedFeedIds.map(Number) : [],
-        blockedWords: Array.isArray(settings?.blockedWords) ? settings.blockedWords : [],
     };
 }

@@ -1,14 +1,15 @@
 import express from 'express';
 import { all, get, run } from '../database/datenbank.js';
 import { auth } from '../middleware/auth.js';
+import { positiveIdParamsSchema, requestSchema as schema } from '../middleware/validate-request.js';
 import { publish } from '../services/events.js';
 import { generateDirtyDigestPeriods, markAllDigestPeriodsDirty } from '../services/digest-store.js';
 import { logWarn } from '../utils/logger.js';
 
 const router = express.Router();
 
-function rebuildDirtyDigests() {
-    void generateDirtyDigestPeriods().catch(error => logWarn('Digest rebuild after settings change failed', { error: error.message }));
+async function rebuildDirtyDigests() {
+    await generateDirtyDigestPeriods().catch(error => logWarn('Digest rebuild after settings change failed', { error: error.message }));
 }
 
 function normalizeFeedIds(value) {
@@ -27,26 +28,13 @@ function normalizeFeedIds(value) {
     return Array.from(ids);
 }
 
-function normalizeBlockedWord(value) {
-    return String(value || '')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .slice(0, 120);
-}
-
 async function getDigestSettingsPayload() {
     const excludedFeedRows = await all('SELECT feedId FROM digest_excluded_feeds ORDER BY feedId ASC');
-    const blockedWordRows = await all('SELECT id, word, createdAt FROM digest_blocked_words ORDER BY id DESC');
 
     return {
         excludedFeedIds: excludedFeedRows
             .map(row => Number(row.feedId))
             .filter(feedId => Number.isInteger(feedId) && feedId > 0),
-        blockedWords: blockedWordRows.map(row => ({
-            id: Number(row.id),
-            word: row.word,
-            createdAt: row.createdAt,
-        })),
     };
 }
 
@@ -89,71 +77,33 @@ router.put('/excluded-feeds', auth, async ({ body }, res) => {
     }
 
     await markAllDigestPeriodsDirty();
-    rebuildDirtyDigests();
+    await rebuildDirtyDigests();
 
     publish('digest.settings.updated', { type: 'excluded-feeds', total: validFeedIds.length });
 
     return res.json(await getDigestSettingsPayload());
 });
 
-router.post('/blocked-words', auth, async ({ body }, res) => {
-    const word = normalizeBlockedWord(body?.word);
-
-    if (word.length < 2) {
-        return res.status(400).json({ error: 'word must be at least 2 characters long' });
+router.patch('/excluded-feeds/:id', auth, schema.validate({
+    params: positiveIdParamsSchema,
+    body: {
+        type: 'object', required: ['excluded'],
+        properties: { excluded: { type: 'boolean' } }, additionalProperties: false,
+    },
+}), async ({ params, body }, res) => {
+    const feedId = Number(params.id);
+    if (!await get('SELECT id FROM feeds WHERE id = ?', [feedId])) {
+        return res.status(404).json({ error: 'Feed not found' });
     }
-
-    const result = await run(
-        `INSERT OR IGNORE INTO digest_blocked_words (word, createdAt)
-         VALUES (?, datetime('now'))`,
-        [word],
-    );
-
-    const row = await get(
-        `SELECT id, word, createdAt
-         FROM digest_blocked_words
-         WHERE word = ? COLLATE NOCASE
-         ORDER BY id DESC
-         LIMIT 1`,
-        [word],
-    );
-
-    if (Number(result?.changes || 0) > 0) {
-        await markAllDigestPeriodsDirty();
-        rebuildDirtyDigests();
+    if (body.excluded) {
+        await run("INSERT OR IGNORE INTO digest_excluded_feeds (feedId, createdAt) VALUES (?, datetime('now'))", [feedId]);
+    } else {
+        await run('DELETE FROM digest_excluded_feeds WHERE feedId = ?', [feedId]);
     }
-
-    publish('digest.settings.updated', {
-        type: 'blocked-words',
-        action: Number(result?.changes || 0) > 0 ? 'added' : 'exists',
-        id: Number(row?.id || 0),
-    });
-
-    return res.status(Number(result?.changes || 0) > 0 ? 201 : 200).json({
-        id: Number(row?.id || 0),
-        word: row?.word || word,
-        createdAt: row?.createdAt || null,
-    });
-});
-
-router.delete('/blocked-words/:id', auth, async ({ params: { id } }, res) => {
-    const blockedWordId = Number(id);
-    if (!Number.isInteger(blockedWordId) || blockedWordId <= 0) {
-        return res.status(400).json({ error: 'Invalid blocked word id' });
-    }
-
-    const result = await run('DELETE FROM digest_blocked_words WHERE id = ?', [blockedWordId]);
-
-    if (Number(result?.changes || 0) === 0) {
-        return res.status(404).json({ error: 'Blocked word not found' });
-    }
-
     await markAllDigestPeriodsDirty();
-    rebuildDirtyDigests();
-
-    publish('digest.settings.updated', { type: 'blocked-words', action: 'deleted', id: blockedWordId });
-
-    return res.status(204).end();
+    await rebuildDirtyDigests();
+    publish('digest.settings.updated', { type: 'excluded-feeds', feedId, excluded: body.excluded });
+    return res.json(await getDigestSettingsPayload());
 });
 
 export default router;

@@ -27,8 +27,8 @@ test('counts all stored articles, limits rankings and counts each bullshit artic
         const label = ['AI', 'Zebra', 'Apple'][index] ?? `Topic ${id}`;
         await database.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
             VALUES (?, 1, ?, ?, datetime('now'), datetime('now'))`, [id, name, `https://example.test/${id}.rss`]);
-        await database.run(`INSERT INTO topics (id, slug, label, configJson, ruleVersion, createdAt, updatedAt)
-            VALUES (?, ?, ?, '{}', 1, datetime('now'), datetime('now'))`, [id, `topic-${id}`, label]);
+        await database.run(`INSERT INTO topics (id, slug, label, configJson, ruleVersion, ruleHash, createdAt, updatedAt)
+            VALUES (?, ?, ?, '{}', 1, 'test', datetime('now'), datetime('now'))`, [id, `topic-${id}`, label]);
         for (let article = 0; article < counts[index]; article += 1) {
             const row = await database.run(`INSERT INTO articles
                 (feedId, externalId, title, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)

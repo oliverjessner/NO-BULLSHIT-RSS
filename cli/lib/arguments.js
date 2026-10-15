@@ -5,6 +5,7 @@ export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json',
 const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 
 Usage:
+  no-bullshit-rss stats [--json]
   no-bullshit-rss rss [--rss-url]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
@@ -14,6 +15,7 @@ Usage:
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
 
 Commands:
+  stats                      Show article totals and top 10 feeds and topics
   rss                        Show all stored RSS feeds
   topics                     Show all stored topics
   lists                      Show all stored lists
@@ -24,6 +26,7 @@ Commands:
   articles digest <count>    Show the newest digest clusters as JSON
 
 Options:
+  --json                     Print stats as JSON
   --rss-url                  Print one RSS feed URL per line
   --url                      Print one URL per line
   --title, --titles          Print one title per line
@@ -38,6 +41,8 @@ When --url and --title are combined, each line is URL<TAB>TITLE.
 Without a projection flag, "articles last" prints a JSON array and "articles random" prints one JSON object.
 
 Examples:
+  no-bullshit-rss stats
+  no-bullshit-rss stats --json
   no-bullshit-rss rss
   no-bullshit-rss rss --rss-url
   no-bullshit-rss topics
@@ -88,6 +93,10 @@ export function parseCliArgs(argv) {
     }
 
     const [resource, action, countValue, ...flags] = args;
+    if (resource === 'stats') {
+        rejectUnknownFlags(args.slice(1), new Set(['--json']));
+        return { command: 'stats', json: args.includes('--json') };
+    }
     if (resource === 'rss') {
         const rssFlags = args.slice(1);
         rejectUnknownFlags(rssFlags, new Set(['--rss-url']));

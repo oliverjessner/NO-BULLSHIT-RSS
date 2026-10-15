@@ -29,6 +29,24 @@ npm link
 
 After `npm link`, the `no-bullshit-rss` command is available in your shell.
 
+## Statistics
+
+Show the same library statistics as the app's logo dialog:
+
+```bash
+no-bullshit-rss stats
+```
+
+This prints the total article count, the top 10 feeds and topics by article count,
+and the number of distinct articles matched by bullshit rules. Counts include
+all stored articles, including dismissed articles. Each bullshit article is counted once.
+
+For scripts, return the same data as JSON:
+
+```bash
+no-bullshit-rss stats --json
+```
+
 ## Latest articles
 
 Print one URL per line:

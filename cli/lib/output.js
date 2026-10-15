@@ -8,6 +8,19 @@ export function compactArticle(article) {
     };
 }
 
+export function formatStatistics(statistics, { json = false } = {}) {
+    if (json) return JSON.stringify(statistics, null, 2);
+    const count = value => Number(value).toLocaleString('en-US');
+    const name = value => String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').replace(/\s+/gu, ' ').trim();
+    const ranking = (title, items) => [title, ...items.map(item => `${name(item.name)}: ${count(item.count)}`), ...(items.length ? [] : ['(none)'])].join('\n');
+    return [
+        `Articles: ${count(statistics.totalArticles)}`,
+        ranking('Top 10 Feeds', statistics.topFeeds),
+        ranking('Top 10 Topics', statistics.topTopics),
+        `Found Bullshit Articles: ${count(statistics.bullshitArticles)}`,
+    ].join('\n\n');
+}
+
 export function formatChosenArticle(article, options = {}) {
     if (options.url || options.title) {
         return formatLastArticles([article], options);

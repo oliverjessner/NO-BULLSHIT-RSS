@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,7 +9,7 @@ import sqlite3 from '@vscode/sqlite3';
 import { CLI_VERSION, parseCliArgs } from './lib/arguments.js';
 import { chooseArticle } from './lib/choose.js';
 import { discoverDatabasePath, getDesktopDatabasePath } from './lib/database-path.js';
-import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles } from './lib/output.js';
+import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles, formatStatistics } from './lib/output.js';
 import { runCli } from './main.js';
 import { getDigestPeriodDefinition } from '../backend/services/digest-periods.js';
 
@@ -24,7 +25,7 @@ function createCaptureStream() {
     };
 }
 
-async function createFixtureDatabase(databasePath, { includeFeedNames = true } = {}) {
+async function createFixtureDatabase(databasePath, { includeFeedNames = true, includeBullshitRules = false } = {}) {
     const database = await new Promise((resolve, reject) => {
         const connection = new sqlite3.Database(databasePath, error => {
             if (error) reject(error);
@@ -47,6 +48,9 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true } =
     await exec(await readFile(new URL('../migrations/0001_schema.sql', import.meta.url), 'utf8'));
     if (includeFeedNames) {
         await exec(await readFile(new URL('../migrations/0002_feed_names.sql', import.meta.url), 'utf8'));
+    }
+    if (includeBullshitRules) {
+        await exec(await readFile(new URL('../migrations/0003_bullshit_rules.sql', import.meta.url), 'utf8'));
     }
 
     const now = new Date();
@@ -116,12 +120,22 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true } =
         `,
     );
 
+    if (includeBullshitRules) {
+        await exec(`INSERT INTO bullshit_rules (id, name, enabled, field, operator, value, createdAt, updatedAt) VALUES
+            (1, 'One', 1, 'title', 'contains', 'same', datetime('now'), datetime('now')),
+            (2, 'Two', 1, 'teaser', 'contains', 'topic', datetime('now'), datetime('now'));
+            INSERT INTO article_bullshit_matches VALUES (2, 1, datetime('now')), (2, 2, datetime('now')), (3, 2, datetime('now'));
+            INSERT INTO article_topics (articleId, topicId, score, matchedTermsJson, classificationVersion, createdAt)
+                VALUES (1, 1, 10, '{}', 'test', datetime('now')), (3, 1, 10, '{}', 'test', datetime('now'));`);
+    }
     return { close };
 }
 
 test('parses article projections and digest ranges', () => {
     assert.deepEqual(parseCliArgs(['--version']), { command: 'version' });
     assert.deepEqual(parseCliArgs(['-v']), { command: 'version' });
+    assert.deepEqual(parseCliArgs(['stats']), { command: 'stats', json: false });
+    assert.deepEqual(parseCliArgs(['stats', '--json']), { command: 'stats', json: true });
     assert.deepEqual(parseCliArgs(['rss']), { command: 'rss', rssUrl: false });
     assert.deepEqual(parseCliArgs(['rss', '--rss-url']), { command: 'rss', rssUrl: true });
     assert.deepEqual(parseCliArgs(['topics']), { command: 'topics' });
@@ -220,6 +234,8 @@ test('rejects invalid counts, flags and multiple digest ranges', () => {
     assert.throws(() => parseCliArgs(['articles', 'random', '--choose']), /Unknown option/u);
     assert.throws(() => parseCliArgs(['articles', 'digest', '2', '--choose']), /Unknown option/u);
     assert.throws(() => parseCliArgs(['rss', '--url']), /Unknown option/u);
+    assert.throws(() => parseCliArgs(['stats', '--url']), /Unknown option/u);
+    assert.throws(() => parseCliArgs(['stats', '10']), /Unknown option/u);
     assert.throws(() => parseCliArgs(['topics', '--list']), /Unknown option/u);
     assert.throws(() => parseCliArgs(['lists', '--list']), /Missing required list name/u);
     assert.throws(() => parseCliArgs(['lists', '--list', '--url']), /Missing required list name/u);
@@ -323,6 +339,58 @@ test('formats URL, title, combined and compact JSON output', () => {
     ];
     assert.deepEqual(JSON.parse(formatFeeds(feeds)), feeds);
     assert.equal(formatFeeds(feeds, { rssUrl: true }), 'https://example.com/tech.xml\nhttps://example.com/startups.xml');
+});
+
+test('formats readable statistics, empty rankings and JSON without terminal control characters', () => {
+    const statistics = { totalArticles: 10394, bullshitArticles: 32,
+        topFeeds: [{ id: 1, name: 'Golem\n\u001b[31m', count: 1331 }], topTopics: [{ id: 1, name: 'AI', count: 234 }] };
+    const output = formatStatistics(statistics);
+    assert.equal(output, 'Articles: 10,394\n\nTop 10 Feeds\nGolem [31m: 1,331\n\nTop 10 Topics\nAI: 234\n\nFound Bullshit Articles: 32');
+    assert.deepEqual(JSON.parse(formatStatistics(statistics, { json: true })), statistics);
+    assert.equal(formatStatistics({ totalArticles: 0, bullshitArticles: 0, topFeeds: [], topTopics: [] }),
+        'Articles: 0\n\nTop 10 Feeds\n(none)\n\nTop 10 Topics\n(none)\n\nFound Bullshit Articles: 0');
+});
+
+test('stats CLI reads the shared statistics without changing or creating database files', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-cli-stats-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const databasePath = path.join(directory, 'fixture.db');
+    const fixture = await createFixtureDatabase(databasePath, { includeBullshitRules: true });
+    await fixture.close();
+    const before = await readFile(databasePath);
+    const filesBefore = await readdir(directory);
+    const entry = new URL('./no-bullshit-rss.js', import.meta.url).pathname;
+    const options = { cwd: directory, env: { ...process.env, DB_PATH: databasePath }, encoding: 'utf8', timeout: 10_000 };
+    const human = spawnSync(process.execPath, [entry, 'stats'], options);
+    assert.equal(human.status, 0, human.stderr);
+    assert.equal(human.stderr, '');
+    assert.equal(human.stdout, 'Articles: 3\n\nTop 10 Feeds\nTest Source: 3\n\nTop 10 Topics\nNvidia: 2\n\nFound Bullshit Articles: 2\n');
+    const json = spawnSync(process.execPath, [entry, 'stats', '--json'], options);
+    assert.equal(json.status, 0, json.stderr);
+    assert.equal(json.stderr, '');
+    assert.deepEqual(JSON.parse(json.stdout), {
+        totalArticles: 3, bullshitArticles: 2,
+        topFeeds: [{ id: 1, name: 'Test Source', count: 3 }], topTopics: [{ id: 1, name: 'Nvidia', count: 2 }],
+    });
+    assert.deepEqual(await readFile(databasePath), before);
+    assert.deepEqual(await readdir(directory), filesBefore);
+});
+
+test('stats supports older schemas without migrating or creating bullshit tables', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-cli-legacy-stats-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const databasePath = path.join(directory, 'fixture.db');
+    const fixture = await createFixtureDatabase(databasePath, { includeFeedNames: false });
+    await fixture.close();
+    const before = await readFile(databasePath);
+    const stdout = createCaptureStream();
+    const stderr = createCaptureStream();
+    assert.equal(await runCli(['stats', '--json'], { stdout, stderr, cwd: directory, env: { DB_PATH: databasePath } }), 0);
+    assert.equal(stderr.read(), '');
+    assert.deepEqual(JSON.parse(stdout.read()), {
+        totalArticles: 3, bullshitArticles: 0, topFeeds: [{ id: 1, name: 'Test Source', count: 3 }], topTopics: [],
+    });
+    assert.deepEqual(await readFile(databasePath), before);
 });
 
 test('chooses an article with keyboard navigation and restores terminal state', async () => {

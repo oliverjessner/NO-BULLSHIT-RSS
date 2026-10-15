@@ -15,6 +15,7 @@ and keep your feeds and articles on your machine. No subscriptions or ads.
 - **Reading lists:** save articles for later and dismiss stories you have finished.
 - **Import and export:** add article URLs directly or from a text file; export feeds and digests as TXT, CSV, or JSON.
 - **Website icons:** recognize your sources at a glance with automatically fetched icons.
+- **Library statistics:** click the app logo or run `no-bullshit-rss stats` for article totals, top feeds and topics, and detected bullshit articles.
 - **CLI:** access stored articles, feeds, lists, topics, and digests from your terminal. [See commands](docs/cli.md).
 
 ## Install

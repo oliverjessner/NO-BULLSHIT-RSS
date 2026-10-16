@@ -156,8 +156,9 @@ git rev-parse --verify "refs/tags/$TAG_NAME" >/dev/null 2>&1 && fail "tag '$TAG_
 gh release view "$TAG_NAME" >/dev/null 2>&1 && fail "GitHub release '$TAG_NAME' already exists"
 
 TAG_MESSAGE_FILE=$(mktemp)
+RELEASE_NOTES_FILE=$(mktemp)
 cleanup() {
-    rm -f "$TAG_MESSAGE_FILE"
+    rm -f "$TAG_MESSAGE_FILE" "$RELEASE_NOTES_FILE"
 }
 trap cleanup EXIT
 
@@ -167,6 +168,11 @@ trap cleanup EXIT
         printf '\n%s\n' "$CHANGELOG_BODY"
     fi
 } >"$TAG_MESSAGE_FILE"
+
+{
+    printf '# %s\n' "$CHANGELOG_VERSION"
+    tail -n +2 "$TAG_MESSAGE_FILE"
+} >"$RELEASE_NOTES_FILE"
 
 collect_release_artifacts() {
     local output_dir="$1"
@@ -221,7 +227,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'Homebrew: update oliverjessner/homebrew-tap after the DMG upload\n\n'
     printf 'Homebrew tap checkout: %s\n\n' "$HOMEBREW_TAP_DIR"
     printf 'Release notes:\n'
-    cat "$TAG_MESSAGE_FILE"
+    cat "$RELEASE_NOTES_FILE"
     exit 0
 fi
 
@@ -255,7 +261,7 @@ git push "$GIT_REMOTE" "$TAG_NAME"
 printf 'Pushed %s to %s\n' "$TAG_NAME" "$GIT_REMOTE"
 
 printf 'Creating GitHub release %s\n' "$TAG_NAME"
-gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --notes-file "$TAG_MESSAGE_FILE"
+gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --notes-file "$RELEASE_NOTES_FILE"
 printf 'Created GitHub release %s\n' "$TAG_NAME"
 
 printf 'Uploading release artifacts\n'

@@ -35,8 +35,19 @@ test('publish dry run reads # release headings and only the newest notes', async
     assert.match(result.stdout, /Tag: v1\.1\.2/);
     assert.match(result.stdout, /Mockups: generate five WebP screenshots before the release commit/);
     assert.match(result.stdout, /Homebrew: update oliverjessner\/homebrew-tap after the DMG upload/);
-    assert.match(result.stdout, /Release notes:\n1\.1\.2\n\n- New release\n$/);
+    assert.match(result.stdout, /Release notes:\n# 1\.1\.2\n\n- New release\n$/);
     assert.doesNotMatch(result.stdout, /Old release/);
+});
+
+test('publish notes start with one Markdown heading for the changelog version', async () => {
+    for (const title of ['# 1.4.0', '# v1.4.0', '# V1.4.0']) {
+        const result = await dryRun(`${title}\n\n- New release\n\n# 1.3.3\n\n- Old release\n`, '1.4.0');
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout.split('Release notes:\n')[1], '# 1.4.0\n\n- New release\n');
+    }
+    const empty = await dryRun('# 1.4.0\n\n# 1.3.3\n\n- Old release\n', '1.4.0');
+    assert.equal(empty.status, 0, empty.stderr);
+    assert.equal(empty.stdout.split('Release notes:\n')[1], '# 1.4.0\n');
 });
 
 test('publish does not accept ## as a release heading', async () => {
@@ -78,7 +89,16 @@ async function fullPublish({ failUpload = false, failMockups = false } = {}) {
         await writeFile(path.join(directory, 'changelog.md'), '# 1.1.2\n\n- New release\n');
         const eventLog = path.join(directory, 'events.jsonl');
         await writeFile(eventLog, '');
-        const logEvent = `const fs = require('node:fs');\nfs.appendFileSync(process.env.MOCK_PUBLISH_LOG, JSON.stringify({ command: COMMAND, args: process.argv.slice(2) }) + '\\n');\n`;
+        const logEvent = `const fs = require('node:fs');
+const event = { command: COMMAND, args: process.argv.slice(2) };
+if (COMMAND === 'gh' && event.args[0] === 'release' && event.args[1] === 'create') {
+    event.notes = fs.readFileSync(event.args[event.args.indexOf('--notes-file') + 1], 'utf8');
+}
+if (COMMAND === 'git' && event.args[0] === 'tag') {
+    event.message = fs.readFileSync(event.args[event.args.indexOf('-F') + 1], 'utf8');
+}
+fs.appendFileSync(process.env.MOCK_PUBLISH_LOG, JSON.stringify(event) + '\\n');
+`;
         const commandMock = `#!${process.execPath}
 const path = require('node:path');
 const COMMAND = path.basename(process.argv[1]);
@@ -147,6 +167,8 @@ test('full publish generates screenshots before committing, then uploads the DMG
     assert.ok(commitIndex > addIndex);
     assert.ok(buildIndex > commitIndex);
     assert.ok(createIndex > buildIndex);
+    assert.equal(events[createIndex].notes, '# 1.1.2\n\n- New release\n');
+    assert.equal(events.find(event => event.command === 'git' && event.args[0] === 'tag').message, '1.1.2\n\n- New release\n');
     assert.ok(uploadIndex > createIndex);
     assert.ok(brewIndex > uploadIndex);
     assert.deepEqual(events[uploadIndex].args, ['release', 'upload', 'v1.1.2', 'dist/NO.BULLSHIT.RSS-1.1.2-arm64.dmg']);

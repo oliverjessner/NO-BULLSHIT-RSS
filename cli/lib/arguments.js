@@ -9,7 +9,7 @@ Usage:
   no-bullshit-rss rss [--rss-url]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
-  no-bullshit-rss articles last <count> [--choose] [--url] [--title|--titles]
+  no-bullshit-rss articles last <count> [--topic <slug>] [--choose] [--url] [--title|--titles]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
@@ -30,6 +30,7 @@ Options:
   --rss-url                  Print one RSS feed URL per line
   --url                      Print one URL per line
   --title, --titles          Print one title per line
+  --topic <slug>             Filter newest articles by stored topic slug
   --choose                   Interactively choose one of the newest articles
   --daily                    Use today's digest (default)
   --weekly                   Use this week's digest
@@ -52,6 +53,8 @@ Examples:
   no-bullshit-rss articles last 10 --title
   no-bullshit-rss articles last 10 --url --title
   no-bullshit-rss articles last 10 --choose --url
+  no-bullshit-rss articles last 10 --topic ki
+  no-bullshit-rss articles last 10 --topic ki --url --title
   no-bullshit-rss articles random
   no-bullshit-rss articles random --url
   no-bullshit-rss articles search 10 --title "nvidia"
@@ -140,13 +143,32 @@ export function parseCliArgs(argv) {
 
     const count = parseCount(countValue);
     if (action === 'last') {
-        rejectUnknownFlags(flags, new Set(['--url', '--title', '--titles', '--choose']));
+        let topic = null;
+        const projectionFlags = [];
+        for (let index = 0; index < flags.length; index += 1) {
+            const flag = flags[index];
+            if (flag !== '--topic') {
+                projectionFlags.push(flag);
+                continue;
+            }
+            if (topic !== null) {
+                throw new Error('Only one --topic may be used.');
+            }
+            const topicSlug = flags[index + 1];
+            if (!topicSlug || !topicSlug.trim() || topicSlug.startsWith('--')) {
+                throw new Error('Missing required topic slug after --topic.');
+            }
+            topic = topicSlug.trim().toLowerCase();
+            index += 1;
+        }
+        rejectUnknownFlags(projectionFlags, new Set(['--url', '--title', '--titles', '--choose']));
         return {
             command: 'articles-last',
             count,
-            url: flags.includes('--url'),
-            title: flags.includes('--title') || flags.includes('--titles'),
-            choose: flags.includes('--choose'),
+            url: projectionFlags.includes('--url'),
+            title: projectionFlags.includes('--title') || projectionFlags.includes('--titles'),
+            choose: projectionFlags.includes('--choose'),
+            topic,
         };
     }
 

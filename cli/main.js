@@ -88,6 +88,7 @@ export async function runCli(
         } else if (command.command === 'articles-last') {
             const articles = await queryArticles(
                 {
+                    topic: command.topic,
                     limit: command.count,
                     offset: 0,
                     activeOnly: false,

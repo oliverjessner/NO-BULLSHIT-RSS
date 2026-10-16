@@ -86,6 +86,20 @@ The selector is rendered on stderr and only the selected result is written to st
 
 Articles are ordered by `publishedAt DESC, id DESC`.
 
+Filter the newest articles by an assigned topic:
+
+```bash
+no-bullshit-rss articles last 10 --topic ki
+no-bullshit-rss articles last 10 --topic ki --url --title
+no-bullshit-rss articles last 10 --topic ki --choose --url
+```
+
+Use the topic's `slug` from `no-bullshit-rss topics`. Matching ignores case and
+surrounding whitespace. The filter is applied before the result count, so this
+returns up to 10 of the newest articles assigned to `ki`. An unknown topic or a
+topic without assigned articles returns an empty result. The filter uses stored
+topic assignments and does not reclassify articles.
+
 ## Random article
 
 Return one randomly selected stored article as a compact JSON object:

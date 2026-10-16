@@ -159,6 +159,7 @@ test('parses article projections and digest ranges', () => {
         url: true,
         title: false,
         choose: false,
+        topic: null,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--title']), {
         command: 'articles-last',
@@ -166,6 +167,7 @@ test('parses article projections and digest ranges', () => {
         url: false,
         title: true,
         choose: false,
+        topic: null,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--titles']), {
         command: 'articles-last',
@@ -173,6 +175,7 @@ test('parses article projections and digest ranges', () => {
         url: false,
         title: true,
         choose: false,
+        topic: null,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--url', '--titles']), {
         command: 'articles-last',
@@ -180,6 +183,7 @@ test('parses article projections and digest ranges', () => {
         url: true,
         title: true,
         choose: false,
+        topic: null,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--choose', '--url']), {
         command: 'articles-last',
@@ -187,6 +191,7 @@ test('parses article projections and digest ranges', () => {
         url: true,
         title: false,
         choose: true,
+        topic: null,
     });
     assert.deepEqual(parseCliArgs(['articles', 'random']), {
         command: 'articles-random',
@@ -208,6 +213,35 @@ test('parses article projections and digest ranges', () => {
     assert.equal(parseCliArgs(['articles', 'digest', '5', '--monthly']).variant, 'month');
 });
 
+test('parses a topic slug in any position among article projection and chooser flags', () => {
+    for (const flags of [
+        ['--topic', ' KI ', '--url', '--titles', '--choose'],
+        ['--url', '--topic', 'KI', '--titles', '--choose'],
+        ['--choose', '--url', '--title', '--topic', 'ki'],
+    ]) {
+        assert.deepEqual(parseCliArgs(['articles', 'last', '10', ...flags]), {
+            command: 'articles-last',
+            count: 10,
+            url: true,
+            title: true,
+            choose: true,
+            topic: 'ki',
+        });
+    }
+});
+
+test('rejects missing or repeated topic slugs and extra article arguments', () => {
+    for (const flags of [['--topic'], ['--topic', ''], ['--topic', '  '], ['--topic', '--url']]) {
+        assert.throws(() => parseCliArgs(['articles', 'last', '10', ...flags]), /Missing required topic slug/u);
+    }
+    assert.throws(
+        () => parseCliArgs(['articles', 'last', '10', '--topic', 'ki', '--topic', 'nvidia']),
+        /Only one --topic/u,
+    );
+    assert.throws(() => parseCliArgs(['articles', 'last', '10', '--topic', 'ki', 'nvidia']), /Unknown option/u);
+    assert.throws(() => parseCliArgs(['articles', 'last', '10', '--topic', 'ki', '--unknown']), /Unknown option/u);
+});
+
 test('prints the package version for version and help commands', async () => {
     const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
     const versionStdout = createCaptureStream();
@@ -222,6 +256,7 @@ test('prints the package version for version and help commands', async () => {
     assert.equal(await runCli(['--help'], { stdout: helpStdout, stderr: createCaptureStream() }), 0);
     assert.equal(helpStdout.read().startsWith(`NO BULLSHIT RSS CLI v${packageJson.version}\n`), true);
     assert.match(helpStdout.read(), /-v, --version\s+Show version/u);
+    assert.match(helpStdout.read(), /--topic <slug>/u);
 });
 
 test('rejects invalid counts, flags and multiple digest ranges', () => {
@@ -630,6 +665,59 @@ test('runs article and digest commands against only a temporary DB without write
         ],
     );
     await verification.close();
+});
+
+test('filters newest stored articles by topic before limiting without database writes', async t => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-cli-topic-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const databasePath = path.join(directory, 'fixture.db');
+    const fixture = await createFixtureDatabase(databasePath, { includeBullshitRules: true });
+    await fixture.close();
+    const before = await readFile(databasePath);
+    const filesBefore = await readdir(directory);
+    const entry = new URL('./no-bullshit-rss.js', import.meta.url).pathname;
+    const options = { cwd: directory, env: { ...process.env, DB_PATH: databasePath }, encoding: 'utf8', timeout: 10_000 };
+
+    for (const [args, expectedIds] of [
+        [['2', '--topic', ' NVIDIA '], [3, 1]],
+        [['1', '--topic', 'nvidia'], [3]],
+        [['10', '--topic', 'missing-topic'], []],
+        [['10', '--topic', "nvidia' OR 1=1 --"], []],
+    ]) {
+        const result = spawnSync(process.execPath, [entry, 'articles', 'last', ...args], options);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stderr, '');
+        assert.deepEqual(JSON.parse(result.stdout).map(article => article.id), expectedIds);
+    }
+
+    for (const [flags, expectedOutput] of [
+        [['--url'], 'https://example.com/three\nhttps://example.com/older\n'],
+        [['--title'], 'Same time higher id\nOlder\n'],
+        [['--url', '--titles'], 'https://example.com/three\tSame time higher id\nhttps://example.com/older\tOlder\n'],
+    ]) {
+        const result = spawnSync(process.execPath, [entry, 'articles', 'last', '10', ...flags, '--topic', 'nvidia'], options);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stderr, '');
+        assert.equal(result.stdout, expectedOutput);
+    }
+
+    const stdout = createCaptureStream();
+    const stderr = createCaptureStream();
+    const exitCode = await runCli(['articles', 'last', '2', '--topic', 'nvidia', '--choose', '--url'], {
+        stdout,
+        stderr,
+        cwd: directory,
+        env: { DB_PATH: databasePath },
+        chooseArticle: async articles => {
+            assert.deepEqual(articles.map(article => article.id), [3, 1]);
+            return articles[1];
+        },
+    });
+    assert.equal(exitCode, 0, stderr.read());
+    assert.equal(stderr.read(), '');
+    assert.equal(stdout.read(), 'https://example.com/older\n');
+    assert.deepEqual(await readFile(databasePath), before);
+    assert.deepEqual(await readdir(directory), filesBefore);
 });
 
 test('reads digest data from a pre-feed-name database without migrating it', async t => {

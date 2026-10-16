@@ -1,5 +1,8 @@
 ## Build and publish
 
+Build requirements: Node.js 26 or newer, Rust 1.93 or newer, and Apple's Command
+Line Tools on macOS Apple Silicon.
+
 Build the macOS ARM64 DMG:
 
 ```bash
@@ -10,6 +13,10 @@ Desktop preparation assembles and verifies the runtime in a staging directory
 before replacing the generated resources. Preparation and Cargo's resource copy
 share a filesystem lock, so they cannot read and replace the tree simultaneously.
 If preparation fails, the previous complete runtime remains available.
+
+Release builds leave build dependencies and procedural macros unstripped to avoid
+the [LINKEDIT alignment issue on macOS 27](https://github.com/rust-lang/rust/issues/157750).
+The shipped application binary still uses the release profile's stripping setting.
 
 The release DMG is written to `dist/NO.BULLSHIT.RSS-<version>-arm64.dmg`.
 Tauri's app bundle and original DMG are under `src-tauri/target/aarch64-apple-darwin/release/bundle/`.

@@ -22,6 +22,11 @@ strip = true
 lto = true
 codegen-units = 1
 
+# Stripped proc-macro dylibs can have invalid LINKEDIT alignment on macOS 27.
+# https://github.com/rust-lang/rust/issues/157750
+[profile.release.build-override]
+strip = "none"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

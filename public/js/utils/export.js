@@ -135,6 +135,7 @@ function feedMarkdown(articles, filters, filterLabels, exportedAt) {
     const lines = ['# Feed Export', '', `Exported: ${localDate(exportedAt)}`];
     if (filters.query) lines.push(`Search: ${singleLine(filters.query)}`);
     if (filters.topic) lines.push(`Topic: ${singleLine(filterLabels.topic || filters.topic)}`);
+    if (filters.noTopic) lines.push('Topic: None');
     if (filters.source) lines.push(`Source: ${singleLine(filterLabels.source || filters.source)}`);
     if (filters.listId) lines.push(`List: ${singleLine(filterLabels.list || filters.listId)}`);
     if (filters.bullshit) lines.push(`Bullshit: ${singleLine(filters.bullshit)}`);
@@ -165,6 +166,7 @@ export function createFeedExport(format, { articles = [], filters = {}, filterLa
     const normalizedFilters = {
         query: filters.query || null,
         topic: filters.topic || null,
+        ...(filters.noTopic ? { noTopic: true } : {}),
         source: filters.source || null,
         listId: filters.listId ? Number(filters.listId) || String(filters.listId) : null,
         bullshit: filters.bullshit || null,

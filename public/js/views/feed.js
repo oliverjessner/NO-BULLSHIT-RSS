@@ -15,12 +15,15 @@ import { createFeedExport, downloadExport, fetchAllFeedArticles } from '../utils
 
 let initialized = false;
 let observer = null;
+const NO_TOPIC_VALUE = ':none';
 
 function requestKey() {
+    const noTopic = dom.feed.topicFilter.value === NO_TOPIC_VALUE;
     return new URLSearchParams({
         feedId: dom.feed.sourceFilter.value,
         listId: dom.feed.listFilter.value,
-        topic: dom.feed.topicFilter.value,
+        topic: noTopic ? '' : dom.feed.topicFilter.value,
+        noTopic: noTopic ? 'true' : '',
         query: normalizeSearch(dom.feed.search.value, CONFIG.MAX_SEARCH_QUERY_LENGTH),
         bullshit: dom.feed.bullshitFilter.value,
     }).toString();
@@ -29,7 +32,8 @@ function requestKey() {
 function exportSnapshot() {
     const params = new URLSearchParams(requestKey());
     for (const [name, value] of [...params]) if (!value) params.delete(name);
-    const topic = dom.feed.topicFilter.value ? filterLabel(dom.feed.topicFilter, 'Topic') : null;
+    const noTopic = params.get('noTopic') === 'true';
+    const topic = dom.feed.topicFilter.value && !noTopic ? filterLabel(dom.feed.topicFilter, 'Topic') : null;
     const source = dom.feed.sourceFilter.value ? filterLabel(dom.feed.sourceFilter, 'Source') : null;
     const list = dom.feed.listFilter.value ? filterLabel(dom.feed.listFilter, 'List') : null;
     return {
@@ -37,6 +41,7 @@ function exportSnapshot() {
         filters: {
             query: params.get('query'),
             topic,
+            noTopic,
             source,
             listId: params.get('listId'),
             bullshit: params.get('bullshit') === 'all' ? null : params.get('bullshit'),
@@ -67,7 +72,7 @@ function renderFilterSelect(select, defaultLabel, values, label, value) {
 export function refreshFeedReferences() {
     renderFilterSelect(dom.feed.sourceFilter, 'Source: All', store.reference.feeds, feed => `Source: ${feed.name}`, feed => String(feed.id));
     renderFilterSelect(dom.feed.listFilter, 'List: All', store.reference.lists, list => `List: ${list.name}`, list => String(list.id));
-    renderFilterSelect(dom.feed.topicFilter, 'Topic: All', store.reference.topics, topic => `Topic: ${topic.label || topic.slug}`, topic => topic.slug);
+    renderFilterSelect(dom.feed.topicFilter, 'Topic: All', [{ slug: NO_TOPIC_VALUE, label: 'None' }, ...store.reference.topics], topic => `Topic: ${topic.label || topic.slug}`, topic => topic.slug);
     renderFilterChips();
 }
 

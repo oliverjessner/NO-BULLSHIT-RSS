@@ -77,6 +77,7 @@ export async function queryArticles(
         source,
         listId,
         topic,
+        noTopic = false,
         query,
         titleContains,
         urlContains,
@@ -118,6 +119,9 @@ export async function queryArticles(
             WHERE article_topics.articleId = articles.id AND topics.slug = ?
         )`);
         params.push(String(topic).trim().toLowerCase());
+    }
+    if (noTopic) {
+        whereParts.push('NOT EXISTS (SELECT 1 FROM article_topics WHERE article_topics.articleId = articles.id)');
     }
     if (query) {
         const terms = String(query).normalize('NFKC').match(/[\p{L}\p{N}]+/gu) || [];

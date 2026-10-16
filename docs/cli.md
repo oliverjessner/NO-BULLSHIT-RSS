@@ -100,6 +100,18 @@ returns up to 10 of the newest articles assigned to `ki`. An unknown topic or a
 topic without assigned articles returns an empty result. The filter uses stored
 topic assignments and does not reclassify articles.
 
+Show the newest articles without any assigned topic:
+
+```bash
+no-bullshit-rss articles last 10 --no-topic
+no-bullshit-rss articles last 10 --no-topic --url --title
+no-bullshit-rss articles last 10 --no-topic --choose --url
+```
+
+Like `--topic`, this filter is applied before the result count. `--topic` and
+`--no-topic` cannot be combined. In the app, choose **Topic: None** in the topic
+filter to show articles without an assigned topic.
+
 ## Random article
 
 Return one randomly selected stored article as a compact JSON object:

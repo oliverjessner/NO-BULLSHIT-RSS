@@ -264,12 +264,16 @@ router.post('/import', auth, schema.validate({ body: articleImportBodySchema }),
 });
 router.patch('/:id/dismissed', auth, schema.validate({ params: positiveIdParamsSchema, body: dismissedBodySchema }), handleSetDismissed);
 
-router.get('/', auth, async ({ query: { feedId, source, listId, topic, query, bullshit = 'all', limit = 100, offset = 0, cursorPublishedAt, cursorId } }, res) => {
+router.get('/', auth, async ({ query: { feedId, source, listId, topic, noTopic: noTopicValue, query, bullshit = 'all', limit = 100, offset = 0, cursorPublishedAt, cursorId } }, res) => {
+    const noTopic = noTopicValue === 'true' || noTopicValue === '1';
+    if (topic && noTopic) {
+        return res.status(400).json({ error: 'Only one of topic or noTopic may be used.' });
+    }
     if (query) {
         logInfo('Search query', { query });
     }
     const articles = await queryArticles(
-        { feedId, source, listId, topic, query, bullshit, limit, offset, cursorPublishedAt, cursorId, activeOnly: true, includeTopics: true, maxLimit: 250 },
+        { feedId, source, listId, topic, noTopic, query, bullshit, limit, offset, cursorPublishedAt, cursorId, activeOnly: true, includeTopics: true, maxLimit: 250 },
         { all },
     );
     return res.json(articles);

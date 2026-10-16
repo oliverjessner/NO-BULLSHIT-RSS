@@ -53,6 +53,27 @@ test('feed source, list, and bullshit filters are forwarded together', async () 
     assert.equal(calls[0].get('bullshit'), 'clean');
 });
 
+test('feed export keeps the no-topic filter on every page and in JSON and Markdown', async () => {
+    const calls = [];
+    const pages = [[article(2, { topics: [] })], []];
+    const articles = await fetchAllFeedArticles(params => {
+        calls.push(new URLSearchParams(params));
+        return pages.shift();
+    }, new URLSearchParams({ noTopic: 'true', query: 'news' }), { pageSize: 1 });
+    assert.equal(calls.length, 2);
+    for (const params of calls) {
+        assert.equal(params.get('noTopic'), 'true');
+        assert.equal(params.has('topic'), false);
+        assert.equal(params.get('query'), 'news');
+    }
+    const filters = { noTopic: true, query: 'news' };
+    const payload = JSON.parse(createFeedExport('json', { articles, filters, exportedAt: EXPORTED_AT }).content);
+    assert.equal(payload.filters.noTopic, true);
+    assert.equal(payload.filters.topic, null);
+    assert.deepEqual(payload.articles[0].topics, []);
+    assert.match(createFeedExport('markdown', { articles, filters, exportedAt: EXPORTED_AT }).content, /^Topic: None$/mu);
+});
+
 test('feed export traverses beyond the first 100 articles with keyset pagination', async () => {
     const all = Array.from({ length: 125 }, (_, index) => article(125 - index));
     const calls = [];

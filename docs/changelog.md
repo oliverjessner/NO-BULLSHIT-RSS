@@ -1,6 +1,9 @@
 # 1.4.0
 
--
+- Filter the newest CLI articles by topic with `articles last <count> --topic <slug>`.
+- Show articles without an assigned topic using `--no-topic` in the CLI or **Topic: None** in the UI.
+- Apply CLI topic filters before the result limit and combine them with `--url`, `--title`, and `--choose`.
+- Keep the no-topic filter when loading more articles and exporting the feed, including filter metadata in JSON and Markdown.
 
 # 1.3.3
 

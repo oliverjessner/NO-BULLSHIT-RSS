@@ -9,7 +9,7 @@ Usage:
   no-bullshit-rss rss [--rss-url]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
-  no-bullshit-rss articles last <count> [--topic <slug>] [--choose] [--url] [--title|--titles]
+  no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
@@ -31,6 +31,7 @@ Options:
   --url                      Print one URL per line
   --title, --titles          Print one title per line
   --topic <slug>             Filter newest articles by stored topic slug
+  --no-topic                 Show newest articles without an assigned topic
   --choose                   Interactively choose one of the newest articles
   --daily                    Use today's digest (default)
   --weekly                   Use this week's digest
@@ -55,6 +56,7 @@ Examples:
   no-bullshit-rss articles last 10 --choose --url
   no-bullshit-rss articles last 10 --topic ki
   no-bullshit-rss articles last 10 --topic ki --url --title
+  no-bullshit-rss articles last 10 --no-topic
   no-bullshit-rss articles random
   no-bullshit-rss articles random --url
   no-bullshit-rss articles search 10 --title "nvidia"
@@ -161,7 +163,11 @@ export function parseCliArgs(argv) {
             topic = topicSlug.trim().toLowerCase();
             index += 1;
         }
-        rejectUnknownFlags(projectionFlags, new Set(['--url', '--title', '--titles', '--choose']));
+        rejectUnknownFlags(projectionFlags, new Set(['--url', '--title', '--titles', '--choose', '--no-topic']));
+        const noTopic = projectionFlags.includes('--no-topic');
+        if (topic !== null && noTopic) {
+            throw new Error('Only one of --topic or --no-topic may be used.');
+        }
         return {
             command: 'articles-last',
             count,
@@ -169,6 +175,7 @@ export function parseCliArgs(argv) {
             title: projectionFlags.includes('--title') || projectionFlags.includes('--titles'),
             choose: projectionFlags.includes('--choose'),
             topic,
+            noTopic,
         };
     }
 

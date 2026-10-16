@@ -89,6 +89,7 @@ export async function runCli(
             const articles = await queryArticles(
                 {
                     topic: command.topic,
+                    noTopic: command.noTopic,
                     limit: command.count,
                     offset: 0,
                     activeOnly: false,

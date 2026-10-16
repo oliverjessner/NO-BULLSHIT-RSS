@@ -160,6 +160,7 @@ test('parses article projections and digest ranges', () => {
         title: false,
         choose: false,
         topic: null,
+        noTopic: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--title']), {
         command: 'articles-last',
@@ -168,6 +169,7 @@ test('parses article projections and digest ranges', () => {
         title: true,
         choose: false,
         topic: null,
+        noTopic: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--titles']), {
         command: 'articles-last',
@@ -176,6 +178,7 @@ test('parses article projections and digest ranges', () => {
         title: true,
         choose: false,
         topic: null,
+        noTopic: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--url', '--titles']), {
         command: 'articles-last',
@@ -184,6 +187,7 @@ test('parses article projections and digest ranges', () => {
         title: true,
         choose: false,
         topic: null,
+        noTopic: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'last', '10', '--choose', '--url']), {
         command: 'articles-last',
@@ -192,6 +196,7 @@ test('parses article projections and digest ranges', () => {
         title: false,
         choose: true,
         topic: null,
+        noTopic: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'random']), {
         command: 'articles-random',
@@ -226,7 +231,28 @@ test('parses a topic slug in any position among article projection and chooser f
             title: true,
             choose: true,
             topic: 'ki',
+            noTopic: false,
         });
+    }
+});
+
+test('parses no-topic with projections and chooser and rejects conflicting topic filters', () => {
+    for (const flags of [
+        ['--no-topic', '--url', '--title', '--choose'],
+        ['--choose', '--url', '--titles', '--no-topic'],
+    ]) {
+        assert.deepEqual(parseCliArgs(['articles', 'last', '10', ...flags]), {
+            command: 'articles-last',
+            count: 10,
+            url: true,
+            title: true,
+            choose: true,
+            topic: null,
+            noTopic: true,
+        });
+    }
+    for (const flags of [['--topic', 'ki', '--no-topic'], ['--no-topic', '--topic', 'ki']]) {
+        assert.throws(() => parseCliArgs(['articles', 'last', '10', ...flags]), /Only one of --topic or --no-topic/u);
     }
 });
 
@@ -257,6 +283,7 @@ test('prints the package version for version and help commands', async () => {
     assert.equal(helpStdout.read().startsWith(`NO BULLSHIT RSS CLI v${packageJson.version}\n`), true);
     assert.match(helpStdout.read(), /-v, --version\s+Show version/u);
     assert.match(helpStdout.read(), /--topic <slug>/u);
+    assert.match(helpStdout.read(), /--no-topic/u);
 });
 
 test('rejects invalid counts, flags and multiple digest ranges', () => {
@@ -681,6 +708,8 @@ test('filters newest stored articles by topic before limiting without database w
     for (const [args, expectedIds] of [
         [['2', '--topic', ' NVIDIA '], [3, 1]],
         [['1', '--topic', 'nvidia'], [3]],
+        [['1', '--no-topic'], [2]],
+        [['10', '--no-topic'], [2]],
         [['10', '--topic', 'missing-topic'], []],
         [['10', '--topic', "nvidia' OR 1=1 --"], []],
     ]) {
@@ -691,31 +720,39 @@ test('filters newest stored articles by topic before limiting without database w
     }
 
     for (const [flags, expectedOutput] of [
-        [['--url'], 'https://example.com/three\nhttps://example.com/older\n'],
-        [['--title'], 'Same time higher id\nOlder\n'],
-        [['--url', '--titles'], 'https://example.com/three\tSame time higher id\nhttps://example.com/older\tOlder\n'],
+        [['--topic', 'nvidia', '--url'], 'https://example.com/three\nhttps://example.com/older\n'],
+        [['--title', '--topic', 'nvidia'], 'Same time higher id\nOlder\n'],
+        [['--url', '--topic', 'nvidia', '--titles'], 'https://example.com/three\tSame time higher id\nhttps://example.com/older\tOlder\n'],
+        [['--no-topic', '--url'], 'https://example.com/two\n'],
+        [['--title', '--no-topic'], 'Same time lower id\n'],
+        [['--url', '--no-topic', '--titles'], 'https://example.com/two\tSame time lower id\n'],
     ]) {
-        const result = spawnSync(process.execPath, [entry, 'articles', 'last', '10', ...flags, '--topic', 'nvidia'], options);
+        const result = spawnSync(process.execPath, [entry, 'articles', 'last', '10', ...flags], options);
         assert.equal(result.status, 0, result.stderr);
         assert.equal(result.stderr, '');
         assert.equal(result.stdout, expectedOutput);
     }
 
-    const stdout = createCaptureStream();
-    const stderr = createCaptureStream();
-    const exitCode = await runCli(['articles', 'last', '2', '--topic', 'nvidia', '--choose', '--url'], {
-        stdout,
-        stderr,
-        cwd: directory,
-        env: { DB_PATH: databasePath },
-        chooseArticle: async articles => {
-            assert.deepEqual(articles.map(article => article.id), [3, 1]);
-            return articles[1];
-        },
-    });
-    assert.equal(exitCode, 0, stderr.read());
-    assert.equal(stderr.read(), '');
-    assert.equal(stdout.read(), 'https://example.com/older\n');
+    for (const [flags, expectedIds, expectedOutput] of [
+        [['--topic', 'nvidia'], [3, 1], 'https://example.com/older\n'],
+        [['--no-topic'], [2], 'https://example.com/two\n'],
+    ]) {
+        const stdout = createCaptureStream();
+        const stderr = createCaptureStream();
+        const exitCode = await runCli(['articles', 'last', '2', ...flags, '--choose', '--url'], {
+            stdout,
+            stderr,
+            cwd: directory,
+            env: { DB_PATH: databasePath },
+            chooseArticle: async articles => {
+                assert.deepEqual(articles.map(article => article.id), expectedIds);
+                return articles.at(-1);
+            },
+        });
+        assert.equal(exitCode, 0, stderr.read());
+        assert.equal(stderr.read(), '');
+        assert.equal(stdout.read(), expectedOutput);
+    }
     assert.deepEqual(await readFile(databasePath), before);
     assert.deepEqual(await readdir(directory), filesBefore);
 });

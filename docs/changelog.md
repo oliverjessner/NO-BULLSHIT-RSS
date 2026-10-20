@@ -1,5 +1,7 @@
 # 1.5.0
 
+- Fix feed logo discovery with Fetchary 2.0.4 for redirected webpages, manifests and icons while preserving download size limits and timeouts.
+
 # 1.4.0
 
 - Filter the newest CLI articles by topic with `articles last <count> --topic <slug>`.

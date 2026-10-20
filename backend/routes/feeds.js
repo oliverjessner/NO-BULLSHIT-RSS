@@ -8,7 +8,6 @@ import { fetchSiteLogo } from '../services/logo.js';
 import { publish } from '../services/events.js';
 import { isManualImportFeedUrl } from '../services/article-import.js';
 
-const router = express.Router();
 const feedBodySchema = {
     type: 'object',
     required: ['name', 'websiteUrl', 'feedUrl'],
@@ -90,128 +89,134 @@ export async function updateFeedRecord({ id, name, websiteUrl, feedUrl, logoBuff
     });
 }
 
-router.get('/', auth, async (_, res) => {
-    const feeds = await all(`${feedSelect} ORDER BY feeds.id DESC`);
-    return res.json(feeds.map(mapFeed));
-});
+export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
+    const router = express.Router();
 
-router.get('/:id/logo', auth, schema.validate({ params: positiveIdParamsSchema }), async (req, res) => {
-    const row = await get(
-        `SELECT sources.logo, sources.logoMime FROM feeds
-         JOIN sources ON sources.id = feeds.sourceId
-         WHERE feeds.id = ? AND ? = 'local-owner'`,
-        [req.params.id, req.auth.ownerId],
-    );
-    if (!row?.logo || !row?.logoMime) return res.status(404).end();
-    res.setHeader('Content-Type', row.logoMime);
-    res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
-    return res.send(row.logo);
-});
+    router.get('/', auth, async (_, res) => {
+        const feeds = await all(`${feedSelect} ORDER BY feeds.id DESC`);
+        return res.json(feeds.map(mapFeed));
+    });
 
-router.post('/', auth, schema.validate({ body: feedBodySchema }), async (req, res) => {
-    const { name, websiteUrl, feedUrl } = req.body || {};
-    let logoBuffer = null;
-    let logoMime = null;
+    router.get('/:id/logo', auth, schema.validate({ params: positiveIdParamsSchema }), async (req, res) => {
+        const row = await get(
+            `SELECT sources.logo, sources.logoMime FROM feeds
+             JOIN sources ON sources.id = feeds.sourceId
+             WHERE feeds.id = ? AND ? = 'local-owner'`,
+            [req.params.id, req.auth.ownerId],
+        );
+        if (!row?.logo || !row?.logoMime) return res.status(404).end();
+        res.setHeader('Content-Type', row.logoMime);
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        return res.send(row.logo);
+    });
 
-    if (!name || !websiteUrl || !feedUrl) {
-        return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
-    }
-    if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
-        return res.status(400).json({ error: 'Invalid URL format' });
-    }
-    if (await get('SELECT id FROM feeds WHERE feedUrl = ?', [feedUrl])) {
-        return res.status(409).json({ error: 'Feed URL already exists' });
-    }
-    const reachable = await isFeedReachable(feedUrl);
-    if (!reachable) {
-        return res.status(400).json({ error: 'Feed URL not reachable' });
-    }
+    router.post('/', auth, schema.validate({ body: feedBodySchema }), async (req, res) => {
+        const { name, websiteUrl, feedUrl } = req.body || {};
+        let logoBuffer = null;
+        let logoMime = null;
 
-    const logo = await fetchSiteLogo(websiteUrl);
-    if (logo) {
-        logoBuffer = logo.buffer;
-        logoMime = logo.mime;
-    }
+        if (!name || !websiteUrl || !feedUrl) {
+            return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
+        }
+        if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
+            return res.status(400).json({ error: 'Invalid URL format' });
+        }
+        if (await get('SELECT id FROM feeds WHERE feedUrl = ?', [feedUrl])) {
+            return res.status(409).json({ error: 'Feed URL already exists' });
+        }
+        const reachable = await isFeedReachable(feedUrl);
+        if (!reachable) {
+            return res.status(400).json({ error: 'Feed URL not reachable' });
+        }
 
-    const feedId = await createFeedRecord({ name, websiteUrl, feedUrl, logoBuffer, logoMime });
-    const feed = await get(`${feedSelect} WHERE feeds.id = ?`, [feedId]);
-
-    publish('feeds.updated', { id: feed.id });
-    return res.status(201).json(mapFeed(feed));
-});
-
-router.put('/:id', auth, schema.validate({ params: positiveIdParamsSchema, body: feedBodySchema }), async (req, res) => {
-    const { id } = req.params;
-    const { name, websiteUrl, feedUrl } = req.body || {};
-    const existing = await get(`${feedSelect} WHERE feeds.id = ? AND ? = ?`, [id, req.auth.ownerId, 'local-owner']);
-
-    if (!name || !websiteUrl || !feedUrl) {
-        return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
-    }
-    if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
-        return res.status(400).json({ error: 'Invalid URL format' });
-    }
-    const duplicate = await get('SELECT id FROM feeds WHERE feedUrl = ? AND id <> ?', [feedUrl, id]);
-    if (duplicate) return res.status(409).json({ error: 'Feed URL already exists' });
-    const reachable = await isFeedReachable(feedUrl);
-    if (!reachable) {
-        return res.status(400).json({ error: 'Feed URL not reachable' });
-    }
-    if (!existing) {
-        return res.status(404).json({ error: 'Feed not found' });
-    }
-
-    let logoBuffer = existing.logo;
-    let logoMime = existing.logoMime;
-
-    if (!existing.logo || existing.websiteUrl !== websiteUrl) {
-        const logo = await fetchSiteLogo(websiteUrl);
+        const logo = await fetchLogo(websiteUrl);
         if (logo) {
             logoBuffer = logo.buffer;
             logoMime = logo.mime;
         }
-    }
 
-    const result = await updateFeedRecord({ id, name, websiteUrl, feedUrl, logoBuffer, logoMime });
+        const feedId = await createFeedRecord({ name, websiteUrl, feedUrl, logoBuffer, logoMime });
+        const feed = await get(`${feedSelect} WHERE feeds.id = ?`, [feedId]);
 
-    if (result.changes === 0) {
-        return res.status(404).json({ error: 'Feed not found' });
-    }
+        publish('feeds.updated', { id: feed.id });
+        return res.status(201).json(mapFeed(feed));
+    });
 
-    const feed = await get(`${feedSelect} WHERE feeds.id = ? AND ? = ?`, [id, req.auth.ownerId, 'local-owner']);
+    router.put('/:id', auth, schema.validate({ params: positiveIdParamsSchema, body: feedBodySchema }), async (req, res) => {
+        const { id } = req.params;
+        const { name, websiteUrl, feedUrl } = req.body || {};
+        const existing = await get(`${feedSelect} WHERE feeds.id = ? AND ? = ?`, [id, req.auth.ownerId, 'local-owner']);
 
-    publish('feeds.updated', { id: feed.id });
-    res.json(mapFeed(feed));
-});
+        if (!name || !websiteUrl || !feedUrl) {
+            return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
+        }
+        if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
+            return res.status(400).json({ error: 'Invalid URL format' });
+        }
+        const duplicate = await get('SELECT id FROM feeds WHERE feedUrl = ? AND id <> ?', [feedUrl, id]);
+        if (duplicate) return res.status(409).json({ error: 'Feed URL already exists' });
+        const reachable = await isFeedReachable(feedUrl);
+        if (!reachable) {
+            return res.status(400).json({ error: 'Feed URL not reachable' });
+        }
+        if (!existing) {
+            return res.status(404).json({ error: 'Feed not found' });
+        }
 
-router.delete('/:id', auth, schema.validate({ params: positiveIdParamsSchema }), async (req, res) => {
-    const { id } = req.params;
-    const result = await run('DELETE FROM feeds WHERE id = ? AND ? = ?', [id, req.auth.ownerId, 'local-owner']);
+        let logoBuffer = existing.logo;
+        let logoMime = existing.logoMime;
 
-    if (result.changes === 0) {
-        return res.status(404).json({ error: 'Feed not found' });
-    }
+        if (!existing.logo || existing.websiteUrl !== websiteUrl) {
+            const logo = await fetchLogo(websiteUrl);
+            if (logo) {
+                logoBuffer = logo.buffer;
+                logoMime = logo.mime;
+            }
+        }
 
-    publish('feeds.updated', { id });
-    return res.status(204).end();
-});
+        const result = await updateFeedRecord({ id, name, websiteUrl, feedUrl, logoBuffer, logoMime });
 
-router.get('/test/url', auth, schema.validate({ query: feedTestQuerySchema }), async ({ query: { url } }, res) => {
-    if (!isValidUrl(url)) {
-        return res.status(400).json({ error: 'Invalid URL format' });
-    }
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Feed not found' });
+        }
 
-    try {
-        const feed = await parser.parseURL(url);
-        const titles = (feed.items || [])
-            .slice(0, 3)
-            .map(item => item.title)
-            .filter(Boolean);
+        const feed = await get(`${feedSelect} WHERE feeds.id = ? AND ? = ?`, [id, req.auth.ownerId, 'local-owner']);
 
-        return res.json({ title: feed.title || null, itemCount: (feed.items || []).length, sampleTitles: titles });
-    } catch (err) {
-        return res.status(400).json({ error: 'Feed not reachable or invalid RSS' });
-    }
-});
+        publish('feeds.updated', { id: feed.id });
+        res.json(mapFeed(feed));
+    });
 
-export default router;
+    router.delete('/:id', auth, schema.validate({ params: positiveIdParamsSchema }), async (req, res) => {
+        const { id } = req.params;
+        const result = await run('DELETE FROM feeds WHERE id = ? AND ? = ?', [id, req.auth.ownerId, 'local-owner']);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Feed not found' });
+        }
+
+        publish('feeds.updated', { id });
+        return res.status(204).end();
+    });
+
+    router.get('/test/url', auth, schema.validate({ query: feedTestQuerySchema }), async ({ query: { url } }, res) => {
+        if (!isValidUrl(url)) {
+            return res.status(400).json({ error: 'Invalid URL format' });
+        }
+
+        try {
+            const feed = await parser.parseURL(url);
+            const titles = (feed.items || [])
+                .slice(0, 3)
+                .map(item => item.title)
+                .filter(Boolean);
+
+            return res.json({ title: feed.title || null, itemCount: (feed.items || []).length, sampleTitles: titles });
+        } catch (err) {
+            return res.status(400).json({ error: 'Feed not reachable or invalid RSS' });
+        }
+    });
+
+    return router;
+}
+
+export default createFeedsRouter();

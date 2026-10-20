@@ -7,11 +7,16 @@ const MAX_LOGO_BYTES = 200 * 1024;
 const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 8000;
 const DISCOVERY_TIMEOUT_MS = 20_000;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 async function readBoundedResponse(url, options, maxBytes, deadline) {
     const signal = AbortSignal.any([options.signal, deadline, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]);
     signal.throwIfAborted();
     const response = await fetch(url, { ...options, signal });
+    // Fetchary validates and follows each redirect; it also cancels this body.
+    if (REDIRECT_STATUSES.has(response.status) && response.headers.has('location')) {
+        return { response, buffer: null };
+    }
     const reader = response.body?.getReader();
     try {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -37,7 +42,7 @@ async function readBoundedResponse(url, options, maxBytes, deadline) {
     }
 }
 
-export async function fetchSiteLogo(websiteUrl) {
+export async function fetchSiteLogo(websiteUrl, { allowPrivateNetwork = false } = {}) {
     try {
         const url = new URL(websiteUrl);
         if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
@@ -48,11 +53,16 @@ export async function fetchSiteLogo(websiteUrl) {
             mode: 'http',
             timeout: REQUEST_TIMEOUT_MS,
             userAgent: 'no-bullshit-rss',
+            allowPrivateNetwork,
+            signal: deadline,
             fetch: async (resourceUrl, options) => {
                 const page = isPage;
-                isPage = false;
                 const resource = await readBoundedResponse(resourceUrl, options, page ? MAX_PAGE_BYTES : MAX_LOGO_BYTES, deadline);
-                if (!page) resources.set(resource.response.url, resource.buffer);
+                if (resource.buffer !== null) {
+                    // Keep the page budget until its final response, across redirects.
+                    isPage = false;
+                    if (!page) resources.set(resource.response.url, resource.buffer);
+                }
                 return resource.response;
             },
         });
@@ -66,7 +76,7 @@ export async function fetchSiteLogo(websiteUrl) {
     }
 }
 
-export async function refreshAllFeedLogos({ missingOnly = false } = {}) {
+export async function refreshAllFeedLogos({ missingOnly = false, fetchLogo = fetchSiteLogo } = {}) {
     const sources = await all(`SELECT id, websiteUrl FROM sources
         WHERE EXISTS (SELECT 1 FROM feeds WHERE feeds.sourceId = sources.id)
         ${missingOnly ? 'AND (logo IS NULL OR logoMime IS NULL)' : ''}
@@ -74,7 +84,7 @@ export async function refreshAllFeedLogos({ missingOnly = false } = {}) {
     let updated = 0;
 
     for (const source of sources) {
-        const logo = await fetchSiteLogo(source.websiteUrl);
+        const logo = await fetchLogo(source.websiteUrl);
         if (!logo) continue;
         const result = await run(`UPDATE sources SET logo = ?, logoMime = ?, updatedAt = datetime('now')
             WHERE id = ? AND websiteUrl = ? ${missingOnly ? 'AND (logo IS NULL OR logoMime IS NULL)' : ''}`, [

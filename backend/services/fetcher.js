@@ -44,7 +44,7 @@ async function fetchWithRetry(url, { timeoutMs = 10000, retries = 2 } = {}) {
     throw lastError;
 }
 
-export async function updateAllFeeds() {
+export async function updateAllFeeds({ refreshLogos = refreshAllFeedLogos } = {}) {
     const start = Date.now();
     const feeds = await all('SELECT * FROM feeds WHERE feedUrl NOT LIKE ? ORDER BY id', [`${MANUAL_IMPORT_FEED_PREFIX}%`]);
     let totalNew = 0;
@@ -103,7 +103,7 @@ export async function updateAllFeeds() {
                 });
             }
         }
-        await refreshAllFeedLogos({ missingOnly: true });
+        await refreshLogos({ missingOnly: true });
         await ensureRebuildWindowDigestPeriods();
         await generateDirtyDigestPeriods();
     } catch (err) {

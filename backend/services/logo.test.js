@@ -11,10 +11,13 @@ const directory = await mkdtemp(path.join(os.tmpdir(), 'no-bullshit-rss-logos-')
 process.env.DB_PATH = path.join(directory, 'logos.db');
 const database = await import('../database/datenbank.js');
 const { fetchSiteLogo, refreshAllFeedLogos } = await import('./logo.js');
-const { default: feedsRouter, createFeedRecord } = await import('../routes/feeds.js');
+const { createFeedsRouter, createFeedRecord } = await import('../routes/feeds.js');
 const { updateAllFeeds } = await import('./fetcher.js');
 const { subscribe } = await import('./events.js');
 await database.initSchema();
+
+const fetchLocalLogo = url => fetchSiteLogo(url, { allowPrivateNetwork: true });
+const refreshLocalLogos = options => refreshAllFeedLogos({ ...options, fetchLogo: fetchLocalLogo });
 
 const small = await sharp({ create: { width: 16, height: 16, channels: 4, background: '#ff0000' } }).png().toBuffer();
 const large = await sharp({ create: { width: 192, height: 192, channels: 4, background: '#00ff00' } }).png().toBuffer();
@@ -24,7 +27,7 @@ const routes = new Map();
 const hits = new Map();
 const app = express();
 app.use(express.json());
-app.use('/api/feeds', feedsRouter);
+app.use('/api/feeds', createFeedsRouter({ fetchLogo: fetchLocalLogo }));
 app.use((req, res) => {
     hits.set(req.path, (hits.get(req.path) || 0) + 1);
     const route = routes.get(req.path);
@@ -46,6 +49,15 @@ test.beforeEach(async () => {
     await database.run('DELETE FROM sources');
 });
 
+test('blocks private network targets by default and allows an explicit trusted test call', async () => {
+    page('/private', '<link rel="icon" href="/small.png">');
+    image('/small.png', small);
+
+    assert.equal(await fetchSiteLogo(`${base}/private`), null);
+    assert.equal(hits.size, 0);
+    assert.deepEqual(await fetchLocalLogo(`${base}/private`), { buffer: small, mime: 'image/png' });
+});
+
 test('uses final page, base and manifest URLs and chooses measured resolution over advertised sizes', async () => {
     routes.set('/start', (_req, res) => res.redirect('/news/'));
     page('/news/', `<html><head><base href="/assets/">
@@ -59,21 +71,81 @@ test('uses final page, base and manifest URLs and chooses measured resolution ov
     routes.set('/app/large.png', (_req, res) => res.redirect('/cdn/icon'));
     image('/cdn/icon', large, 'application/octet-stream');
 
-    const logo = await fetchSiteLogo(`${base}/start`);
+    const logo = await fetchLocalLogo(`${base}/start`);
     assert.deepEqual(logo, { buffer: large, mime: 'image/png' });
     assert.equal(hits.get('/cdn/icon'), 1, 'the selected image is stored without a second download');
+});
+
+test('follows all redirect statuses without reading redirect bodies or reducing the page limit', async () => {
+    const statuses = [301, 302, 303, 307, 308];
+    const closed = statuses.map((status, index) => new Promise(resolve => {
+        routes.set(`/redirect-${index}`, (_req, res) => {
+            res.once('close', resolve);
+            res.status(status).set('Location', index + 1 < statuses.length ? `/redirect-${index + 1}` : '/redirected-page');
+            res.set('Content-Length', String(3 * 1024 * 1024));
+            // A redirect's irrelevant, unfinished body must not delay discovery.
+            res.write('unused redirect body');
+        });
+    }));
+    page('/redirected-page', `<link rel="icon" href="/small.png">${' '.repeat(256 * 1024)}`);
+    image('/small.png', small);
+
+    assert.deepEqual(await fetchLocalLogo(`${base}/redirect-0`), { buffer: small, mime: 'image/png' });
+    await Promise.all(closed);
+    for (let index = 0; index < statuses.length; index += 1) assert.equal(hits.get(`/redirect-${index}`), 1);
+    assert.equal(hits.get('/redirected-page'), 1);
+    assert.equal(hits.get('/small.png'), 1);
+});
+
+test('retains header and streamed page and icon limits after redirects', async () => {
+    const hugePage = `<link rel="icon" href="/small.png">${' '.repeat(2 * 1024 * 1024)}`;
+    routes.set('/large-page-start', (_req, res) => res.redirect('/large-page'));
+    page('/large-page', hugePage);
+    routes.set('/streamed-page-start', (_req, res) => res.redirect('/streamed-page'));
+    routes.set('/streamed-page', (_req, res) => {
+        res.type('html');
+        res.write(hugePage);
+        res.end();
+    });
+    image('/small.png', small);
+    assert.equal(await fetchLocalLogo(`${base}/large-page-start`), null);
+    assert.equal(await fetchLocalLogo(`${base}/streamed-page-start`), null);
+    assert.equal(hits.has('/small.png'), false);
+
+    const oversized = Buffer.concat([large, Buffer.alloc(200 * 1024)]);
+    page('/icon-limits', '<link rel="icon" href="/sized-start"><link rel="icon" href="/streamed-start"><link rel="icon" href="/small.png">');
+    routes.set('/sized-start', (_req, res) => res.redirect('/oversized.png'));
+    image('/oversized.png', oversized);
+    routes.set('/streamed-start', (_req, res) => res.redirect('/oversized-stream.png'));
+    routes.set('/oversized-stream.png', (_req, res) => {
+        res.type('image/png');
+        res.write(oversized);
+        res.end();
+    });
+    assert.deepEqual(await fetchLocalLogo(`${base}/icon-limits`), { buffer: small, mime: 'image/png' });
+    assert.equal(hits.get('/oversized.png'), 1);
+    assert.equal(hits.get('/oversized-stream.png'), 1);
+});
+
+test('rejects redirects without a destination and bounds redirect loops', async () => {
+    routes.set('/no-location', (_req, res) => res.status(302).end());
+    routes.set('/loop', (_req, res) => res.redirect('/loop'));
+
+    assert.equal(await fetchLocalLogo(`${base}/no-location`), null);
+    assert.equal(await fetchLocalLogo(`${base}/loop`), null);
+    assert.equal(hits.get('/loop'), 11);
 });
 
 test('prefers scalable SVG and handles a missing page icon with the favicon.ico fallback', async () => {
     page('/svg', '<link rel="icon" href="/large.png"><link rel="icon" href="/icon.svg">');
     image('/large.png', large);
     image('/icon.svg', svg, 'image/svg+xml');
-    assert.deepEqual(await fetchSiteLogo(`${base}/svg`), { buffer: Buffer.from(svg), mime: 'image/svg+xml' });
+    assert.deepEqual(await fetchLocalLogo(`${base}/svg`), { buffer: Buffer.from(svg), mime: 'image/svg+xml' });
 
     page('/fallback', '<link rel="icon" href="/broken.png">');
     image('/broken.png', '<html>Not an image</html>', 'image/png');
     image('/favicon.ico', small, 'application/octet-stream');
-    assert.deepEqual(await fetchSiteLogo(`${base}/fallback`), { buffer: small, mime: 'image/png' });
+    assert.deepEqual(await fetchLocalLogo(`${base}/fallback`), { buffer: small, mime: 'image/png' });
 });
 
 test('skips oversized icons from headers and streamed bytes while retaining a smaller candidate', async () => {
@@ -86,22 +158,22 @@ test('skips oversized icons from headers and streamed bytes while retaining a sm
         res.end();
     });
     image('/small.png', small);
-    assert.deepEqual(await fetchSiteLogo(`${base}/limits`), { buffer: small, mime: 'image/png' });
+    assert.deepEqual(await fetchLocalLogo(`${base}/limits`), { buffer: small, mime: 'image/png' });
     assert.equal(hits.get('/sized.png'), 1);
     assert.equal(hits.get('/stream.png'), 1);
 
     page('/huge', 'x'.repeat(2 * 1024 * 1024 + 1));
-    assert.equal(await fetchSiteLogo(`${base}/huge`), null);
+    assert.equal(await fetchLocalLogo(`${base}/huge`), null);
 });
 
 test('returns null for invalid URLs, failed pages and sites without a usable image', async () => {
     for (const value of [null, '', 'invalid', 'file:///etc/hosts', 'https://user:pass@example.com/']) {
-        assert.equal(await fetchSiteLogo(value), null);
+        assert.equal(await fetchLocalLogo(value), null);
     }
     assert.equal(hits.size, 0);
-    assert.equal(await fetchSiteLogo(`${base}/unavailable`), null);
+    assert.equal(await fetchLocalLogo(`${base}/unavailable`), null);
     page('/empty', '<html></html>');
-    assert.equal(await fetchSiteLogo(`${base}/empty`), null);
+    assert.equal(await fetchLocalLogo(`${base}/empty`), null);
 });
 
 test('aborts a stalled response body after headers arrive', { timeout: 12_000 }, async () => {
@@ -112,7 +184,7 @@ test('aborts a stalled response body after headers arrive', { timeout: 12_000 },
         res.write('<html>');
         res.once('close', closed);
     });
-    assert.equal(await fetchSiteLogo(`${base}/stalled`), null);
+    assert.equal(await fetchLocalLogo(`${base}/stalled`), null);
     await connectionClosed;
 });
 
@@ -152,7 +224,7 @@ test('feed fetching fills missing source icons once, preserves existing logos an
     const events = [];
     const unsubscribe = subscribe(event => events.push(event));
     try {
-        await updateAllFeeds();
+        await updateAllFeeds({ refreshLogos: refreshLocalLogos });
         assert.equal(hits.get('/shared'), 1);
         assert.equal(hits.has('/existing'), false);
         assert.deepEqual(await database.all('SELECT logo, logoMime FROM sources ORDER BY id'), [
@@ -162,11 +234,11 @@ test('feed fetching fills missing source icons once, preserves existing logos an
         for (const id of [firstId, secondId]) {
             assert.deepEqual(Buffer.from(await (await fetch(`${base}/api/feeds/${id}/logo`)).arrayBuffer()), large);
         }
-        assert.deepEqual(await refreshAllFeedLogos({ missingOnly: true }), { updated: 0, total: 0 });
+        assert.deepEqual(await refreshLocalLogos({ missingOnly: true }), { updated: 0, total: 0 });
     } finally { unsubscribe(); }
 
     routes.clear();
-    assert.deepEqual(await refreshAllFeedLogos(), { updated: 0, total: 2 });
+    assert.deepEqual(await refreshLocalLogos(), { updated: 0, total: 2 });
     assert.deepEqual((await database.all('SELECT logo FROM sources ORDER BY id')).map(row => row.logo), [large, small]);
 });
 

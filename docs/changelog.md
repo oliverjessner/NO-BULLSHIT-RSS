@@ -9,6 +9,7 @@
 - Move Watchdog notification preferences to Settings → Notifications; add Feed-compatible Markdown/JSON/CSV/link exports, publication-time filters, and full-card mouse/keyboard activation.
 - Preserve loaded Watchdog pages, pagination cursors and scroll position when changing read/archive state or receiving live updates; add articles to lists through the existing list dialog.
 - Rename the Settings feed tab to RSS Feeds.
+- Include the Watchdog view in the regular six-image screenshot generation and README.
 - Fix feed logo discovery with Fetchary 2.0.4 for redirected webpages, manifests and icons while preserving download size limits and timeouts.
 
 # 1.4.0

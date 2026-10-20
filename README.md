@@ -32,6 +32,8 @@ Open **Watchdog** between Digest and Settings, then choose **New watchdog**. Mat
 
 All rules, matches and reading states stay in the local SQLite database. Watchdog reuses the existing five-minute RSS scheduler. [API and verification details](docs/watchdog.md).
 
+![NO BULLSHIT RSS Watchdog](public/images/mockups/watchdog.webp)
+
 ## Install
 
 Requires **macOS 13 (Ventura) or newer** on **Apple Silicon (M1 or newer)**.

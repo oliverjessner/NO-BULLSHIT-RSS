@@ -21,7 +21,7 @@ usage() {
     cat <<'EOF'
 Usage: ./publish.sh [--dry-run]
 
-Regenerates the five mockup screenshots, stages and commits pending changes,
+Regenerates the six mockup screenshots, stages and commits pending changes,
 pushes the current branch, builds the macOS ARM64 DMG, creates and pushes an
 annotated git tag from package.json.version and
 the first section in docs/changelog.md, then creates a GitHub release and updates
@@ -212,7 +212,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
         RELEASE_ARTIFACTS+=("$artifact")
     done < <(collect_release_artifacts "$RELEASE_OUTPUT_DIR" "$VERSION" 0)
     printf 'Branch: %s\n' "$CURRENT_BRANCH"
-    printf 'Mockups: generate five WebP screenshots before the release commit\n'
+    printf 'Mockups: generate six WebP screenshots before the release commit\n'
     printf 'Commit message: %s\n\n' "$COMMIT_MESSAGE"
     printf 'Build command: %s\n\n' "$BUILD_COMMAND"
     printf 'Release output dir: %s\n' "$RELEASE_OUTPUT_DIR"

@@ -109,6 +109,15 @@ async function generateMockups(url) {
         await page.locator('[data-digest-range="month"][aria-pressed="true"]').waitFor({ state: 'visible' });
         await capture(page, 'digest_month.webp', errors);
 
+        const watchdogLoaded = page.waitForResponse(response =>
+            new URL(response.url()).pathname === '/api/watchdogs/matches' && response.ok());
+        await page.locator('.nav-link[data-view="watchdog"]').click();
+        await watchdogLoaded;
+        await page.locator('#view-watchdog').waitFor({ state: 'visible' });
+        await page.waitForFunction(() => document.getElementById('watchdog-results')?.getAttribute('aria-busy') === 'false');
+        await page.locator('#watchdog-inbox').evaluate(inbox => { inbox.scrollTop = 0; });
+        await capture(page, 'watchdog.webp', errors);
+
         await page.locator('.nav-link[data-view="settings"]').click();
         await page.locator('#settings-feeds-tab').click();
         await page.locator('#settings-feeds').waitFor({ state: 'visible' });
@@ -141,7 +150,7 @@ async function main() {
     });
     if (values.help) {
         console.log(
-            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377]\nCreates five 1920 × 1080 WebPs and replaces public/images/mockups/. Starts a temporary local server from existing app data when needed.',
+            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377]\nCreates six 1920 × 1080 WebPs, including Watchdog, and replaces public/images/mockups/. Starts a temporary local server from existing app data when needed.',
         );
         return;
     }

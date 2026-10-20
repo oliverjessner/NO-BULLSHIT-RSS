@@ -33,7 +33,7 @@ test('publish dry run reads # release headings and only the newest notes', async
     const result = await dryRun('# 1.1.2\n\n- New release\n\n# 1.1.1\n\n- Old release\n');
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Tag: v1\.1\.2/);
-    assert.match(result.stdout, /Mockups: generate five WebP screenshots before the release commit/);
+    assert.match(result.stdout, /Mockups: generate six WebP screenshots before the release commit/);
     assert.match(result.stdout, /Homebrew: update oliverjessner\/homebrew-tap after the DMG upload/);
     assert.match(result.stdout, /Release notes:\n# 1\.1\.2\n\n- New release\n$/);
     assert.doesNotMatch(result.stdout, /Old release/);

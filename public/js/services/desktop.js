@@ -1,8 +1,17 @@
 const native = globalThis.__TAURI__?.core;
 export const isDesktop = Boolean(native);
 
+export function normalizeDesktopError(error, command = 'desktop operation') {
+    if (error instanceof Error) return error;
+    const message = typeof error === 'string' ? error : error?.message;
+    return new Error(typeof message === 'string' && message.trim() ? message : `Native command ${command} failed.`);
+}
+
 export function invokeDesktop(command, args = {}) {
-    return native ? native.invoke(command, args) : Promise.resolve();
+    if (!native) return Promise.resolve();
+    return Promise.resolve().then(() => native.invoke(command, args)).catch(error => {
+        throw normalizeDesktopError(error, command);
+    });
 }
 
 export function openBrowser(url) {

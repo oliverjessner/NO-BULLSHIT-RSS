@@ -7,6 +7,8 @@ import { publish } from './events.js';
 import { decodeBuffer, detectEncoding } from '../utils/encoding.js';
 import { MANUAL_IMPORT_FEED_PREFIX } from './article-import.js';
 import { refreshAllFeedLogos } from './logo.js';
+import { processWatchdogArticles, dispatchWatchdogNotifications } from './watchdogs.js';
+import { sendDesktopNotification } from './desktop-events.js';
 
 const parser = new Parser({ timeout: 8000 });
 
@@ -44,10 +46,17 @@ async function fetchWithRetry(url, { timeoutMs = 10000, retries = 2 } = {}) {
     throw lastError;
 }
 
-export async function updateAllFeeds({ refreshLogos = refreshAllFeedLogos } = {}) {
+let activeFetch = null;
+export function updateAllFeeds(options = {}) {
+    if (!activeFetch) activeFetch = fetchFeeds(options).finally(() => { activeFetch = null; });
+    return activeFetch;
+}
+
+async function fetchFeeds({ refreshLogos = refreshAllFeedLogos, notify = sendDesktopNotification } = {}) {
     const start = Date.now();
     const feeds = await all('SELECT * FROM feeds WHERE feedUrl NOT LIKE ? ORDER BY id', [`${MANUAL_IMPORT_FEED_PREFIX}%`]);
     let totalNew = 0;
+    const fetchedFeedIds = [];
     let errorMessage = null;
 
     logInfo('Fetch run started');
@@ -59,6 +68,7 @@ export async function updateAllFeeds({ refreshLogos = refreshAllFeedLogos } = {}
             try {
                 const xml = await fetchWithRetry(feed.feedUrl, { timeoutMs: 10000, retries: 2 });
                 const parsed = await parser.parseString(xml);
+                fetchedFeedIds.push(feed.id);
                 let newCount = 0;
                 const fetchedAt = new Date().toISOString();
 
@@ -102,6 +112,12 @@ export async function updateAllFeeds({ refreshLogos = refreshAllFeedLogos } = {}
                     url: feed.feedUrl,
                 });
             }
+        }
+        try {
+            await processWatchdogArticles({ fetchedFeedIds });
+            await dispatchWatchdogNotifications(notify);
+        } catch (error) {
+            logWarn('Watchdog processing failed', { error: error.message });
         }
         await refreshLogos({ missingOnly: true });
         await ensureRebuildWindowDigestPeriods();

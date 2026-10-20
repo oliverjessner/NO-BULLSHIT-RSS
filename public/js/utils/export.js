@@ -132,7 +132,11 @@ export async function fetchAllFeedArticles(fetchPage, filterParams, { pageSize =
 }
 
 function feedMarkdown(articles, filters, filterLabels, exportedAt) {
-    const lines = ['# Feed Export', '', `Exported: ${localDate(exportedAt)}`];
+    const lines = [filters.watchdog ? '# Watchdog Export' : '# Feed Export', '', `Exported: ${localDate(exportedAt)}`];
+    if (filters.watchdog) {
+        const selection = filters.watchdog;
+        lines.push(`Watchdog: ${singleLine(selection.name || 'All')}`, `Status: ${selection.status}`, `Archive: ${selection.archived ? 'yes' : 'no'}`, `Time range: ${selection.range}`, `As of: ${selection.asOf}`);
+    }
     if (filters.query) lines.push(`Search: ${singleLine(filters.query)}`);
     if (filters.topic) lines.push(`Topic: ${singleLine(filterLabels.topic || filters.topic)}`);
     if (filters.noTopic) lines.push('Topic: None');
@@ -170,6 +174,7 @@ export function createFeedExport(format, { articles = [], filters = {}, filterLa
         source: filters.source || null,
         listId: filters.listId ? Number(filters.listId) || String(filters.listId) : null,
         bullshit: filters.bullshit || null,
+        ...(filters.watchdog ? { watchdog: { ...filters.watchdog } } : {}),
     };
     let content;
     if (format === 'markdown') content = feedMarkdown(normalizedArticles, normalizedFilters, filterLabels, exportedAt);
@@ -178,7 +183,7 @@ export function createFeedExport(format, { articles = [], filters = {}, filterLa
     else content = linkList(normalizedArticles);
 
     const querySegment = safeFilenameSegment(normalizedFilters.query);
-    const filenameParts = ['no-bullshit-rss-feed'];
+    const filenameParts = [filters.watchdog ? 'no-bullshit-rss-watchdog' : 'no-bullshit-rss-feed'];
     if (querySegment) filenameParts.push(querySegment);
     filenameParts.push(localDate(exportedAt));
     return { content, mimeType: config.mimeType, filename: `${filenameParts.join('-')}.${config.extension}` };

@@ -4,6 +4,22 @@ import { createDigestExport, createFeedExport, fetchAllFeedArticles } from './ex
 
 const EXPORTED_AT = new Date('2026-09-02T12:00:00.000Z');
 
+test('Watchdog exports reuse the Feed schema and all four formats with selection metadata', () => {
+    const articles = [article(42, { bullshit: true, bullshitRules: ['Sponsored'] })];
+    const watchdog = { id: 3, name: 'Research', status: 'unread', archived: false, range: '7d', asOf: EXPORTED_AT.toISOString() };
+    const feed = JSON.parse(createFeedExport('json', { articles, exportedAt: EXPORTED_AT }).content);
+    const result = JSON.parse(createFeedExport('json', { articles, filters: { watchdog }, exportedAt: EXPORTED_AT }).content);
+    assert.deepEqual(Object.keys(result), Object.keys(feed));
+    assert.deepEqual(result.articles, feed.articles);
+    assert.deepEqual(result.filters, { ...feed.filters, watchdog });
+    for (const format of ['markdown', 'json', 'csv', 'links']) {
+        const output = createFeedExport(format, { articles, filters: { watchdog }, exportedAt: EXPORTED_AT });
+        assert.match(output.filename, /^no-bullshit-rss-watchdog-/);
+        if (format === 'markdown') { assert.match(output.content, /^# Watchdog Export/); assert.match(output.content, /Watchdog: Research/); }
+        if (format === 'csv' || format === 'links') assert.equal(output.content, createFeedExport(format, { articles, exportedAt: EXPORTED_AT }).content);
+    }
+});
+
 function article(id, overrides = {}) {
     return {
         id,

@@ -6,7 +6,7 @@ import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { createViewerSync } from '../public/js/services/desktop.js';
+import { createViewerSync, normalizeDesktopError } from '../public/js/services/desktop.js';
 import { runtimeTarget, stageDesktopResources } from './prepare-desktop.js';
 
 test('article navigation is serialized and the latest hide wins during an in-flight request', async () => {
@@ -164,4 +164,14 @@ test('port collisions fail startup without announcing another process as ready',
     assert.equal(code, 1);
     assert.match(server.output(), /EADDRINUSE/);
     assert.doesNotMatch(server.output(), /NBS_DESKTOP_READY/);
+});
+
+
+test('native IPC text and structured errors retain their useful message', () => {
+    for (const error of ['Native permission command rejected', { message: 'Permission command unavailable' }, new Error('Existing Error')]) {
+        const converted = normalizeDesktopError(error, 'watchdog_notification_permission');
+        assert.ok(converted instanceof Error);
+        assert.equal(converted.message, typeof error === 'string' ? error : error.message);
+    }
+    assert.equal(normalizeDesktopError(null, 'watchdog_notification_permission').message, 'Native command watchdog_notification_permission failed.');
 });

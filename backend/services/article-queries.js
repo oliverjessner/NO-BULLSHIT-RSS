@@ -1,5 +1,6 @@
 import { mapArticleRow } from '../routes/digest.js';
 import { loadBullshitMatchesByArticleIds } from './bullshit-rules.js';
+import { watchdogMatchFilter } from './watchdog-filters.js';
 
 function normalizeArticleIds(value) {
     if (!Array.isArray(value)) {
@@ -89,6 +90,7 @@ export async function queryArticles(
         cursorPublishedAt,
         cursorId,
         bullshit = 'all',
+        watchdog,
     } = {},
     { all, feedNamesAvailable = true, bullshitRulesAvailable = true },
 ) {
@@ -100,6 +102,12 @@ export async function queryArticles(
     const bullshitExpression = bullshitRulesAvailable
         ? 'EXISTS (SELECT 1 FROM article_bullshit_matches WHERE article_bullshit_matches.articleId = articles.id)'
         : '0';
+
+    if (watchdog) {
+        const filter = watchdogMatchFilter(watchdog, { match: 'wm', article: 'articles' });
+        whereParts.push(`EXISTS (SELECT 1 FROM watchdog_matches wm WHERE wm.articleId = articles.id AND ${filter.where.join(' AND ')})`);
+        params.push(...filter.params);
+    }
 
     if (feedId) {
         whereParts.push('feeds.id = ?');

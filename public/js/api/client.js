@@ -11,6 +11,16 @@ export async function apiFetch(path, options = {}) {
 
 const json = (method, body, signal) => ({ method, body: JSON.stringify(body), signal });
 export const api = Object.freeze({
+    watchdogs: () => apiFetch('/api/watchdogs'),
+    createWatchdog: body => apiFetch('/api/watchdogs', json('POST', body)),
+    updateWatchdog: (id, body) => apiFetch(`/api/watchdogs/${id}`, json('PATCH', body)),
+    deleteWatchdog: id => apiFetch(`/api/watchdogs/${id}`, { method: 'DELETE' }),
+    watchdogMatches: params => apiFetch(`/api/watchdogs/matches?${params}`),
+    watchdogExport: params => apiFetch(`/api/watchdogs/export?${params}`),
+    watchdogMatch: id => apiFetch(`/api/watchdogs/matches/${id}`),
+    updateWatchdogMatch: (id, body) => apiFetch(`/api/watchdogs/matches/${id}`, json('PATCH', body)),
+    watchdogNotifications: () => apiFetch('/api/watchdogs/notifications'),
+    setWatchdogNotifications: enabled => apiFetch('/api/watchdogs/notifications', json('PATCH', { enabled })),
     feeds: () => apiFetch('/api/feeds'),
     createFeed: body => apiFetch('/api/feeds', json('POST', body)),
     updateFeed: (id, body) => apiFetch(`/api/feeds/${id}`, json('PUT', body)),

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-watchdog-take-target"
+description = "Enables the watchdog_take_target command without any pre-configured scope."
+commands.allow = ["watchdog_take_target"]
+
+[[permission]]
+identifier = "deny-watchdog-take-target"
+description = "Denies the watchdog_take_target command without any pre-configured scope."
+commands.deny = ["watchdog_take_target"]

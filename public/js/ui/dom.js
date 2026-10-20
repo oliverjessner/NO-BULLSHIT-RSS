@@ -9,7 +9,7 @@ export const dom = Object.freeze({
         content: byId('statistics-content'), total: byId('statistics-total'), bullshit: byId('statistics-bullshit'),
         feeds: byId('statistics-feeds'), topics: byId('statistics-topics'),
     }),
-    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), settings: byId('view-settings') }),
+    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), watchdog: byId('view-watchdog'), settings: byId('view-settings') }),
     feed: Object.freeze({
         count: byId('feed-count'), search: byId('search-input'), topicFilter: byId('filter-topic'),
         sourceFilter: byId('filter-source'), listFilter: byId('filter-list'), bullshitFilter: byId('filter-bullshit'), filterRow: byId('active-filter-row'),

@@ -17,6 +17,15 @@ fn lock_desktop_resources() -> std::fs::File {
 }
 
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        cc::Build::new()
+            .file("src/watchdog_permissions.m")
+            .flag("-fobjc-arc")
+            .flag("-fblocks")
+            .compile("watchdog_permissions");
+        println!("cargo:rustc-link-lib=framework=UserNotifications");
+        println!("cargo:rerun-if-changed=src/watchdog_permissions.m");
+    }
     // Preparation must finish before tauri-build walks/copies the runtime tree.
     #[cfg(target_os = "macos")]
     let _resources_lock = lock_desktop_resources();
@@ -27,6 +36,8 @@ fn main() {
             "toggle_devtools",
             "selection_menu",
             "save_export",
+            "watchdog_notification_permission",
+            "watchdog_take_target",
         ]),
     ))
     .expect("failed to build desktop resources");

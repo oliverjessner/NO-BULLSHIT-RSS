@@ -25,6 +25,8 @@ test('applies versioned migrations in order and only once', async () => {
             { version: '0003_bullshit_rules.sql' },
             { version: '0004_default_bullshit_rules.sql' },
             { version: '0005_unified_digest_filters.sql' },
+            { version: '0006_watchdogs.sql' },
+            { version: '0007_watchdog_export_index.sql' },
         ],
     );
 
@@ -44,7 +46,7 @@ test('applies versioned migrations in order and only once', async () => {
 
     await database.initSchema();
 
-    assert.deepEqual(await database.get('SELECT COUNT(*) AS count FROM schema_migrations'), { count: 5 });
+    assert.deepEqual(await database.get('SELECT COUNT(*) AS count FROM schema_migrations'), { count: 7 });
     assert.deepEqual(await database.get('PRAGMA integrity_check'), { integrity_check: 'ok' });
     assert.deepEqual(await database.all('PRAGMA foreign_key_check'), []);
 });
@@ -80,4 +82,35 @@ test('preserves legacy word filters as enabled rules and matches without losing 
     await database.initSchema();
     assert.equal((await database.get('SELECT COUNT(*) AS count FROM article_bullshit_matches')).count, 3);
     assert.deepEqual(await database.all('PRAGMA foreign_key_check'), []);
+});
+
+test('watchdog migration baselines an existing library without creating matches or notifications', async () => {
+    const latest = (await database.get('SELECT MAX(id) AS id FROM articles')).id;
+    await database.exec(`DROP TABLE watchdog_matches; DROP TABLE watchdogs;
+        ALTER TABLE feeds DROP COLUMN watchdogInitializedAt;
+        DELETE FROM app_metadata WHERE key LIKE 'watchdog.%';
+        DELETE FROM schema_migrations WHERE version IN ('0006_watchdogs.sql', '0007_watchdog_export_index.sql');`);
+    await database.initSchema();
+    assert.equal(Number((await database.get("SELECT value FROM app_metadata WHERE key = 'watchdog.lastArticleId'")).value), latest);
+    assert.equal((await database.get('SELECT COUNT(*) AS count FROM watchdog_matches')).count, 0);
+    assert.equal((await database.get("SELECT value FROM app_metadata WHERE key = 'watchdog.notifications'")).value, '0');
+    assert.ok((await database.get('SELECT watchdogInitializedAt FROM feeds WHERE id = 1')).watchdogInitializedAt);
+    const plan = await database.all('EXPLAIN QUERY PLAN SELECT articleId FROM watchdog_matches WHERE articleId = ? AND archivedAt IS NULL', [latest]);
+    assert.ok(plan.some(row => row.detail.includes('idx_watchdog_matches_article')));
+});
+
+test('concurrent transactions and unrelated queries cannot join a failing transaction', async () => {
+    await database.exec('CREATE TABLE transaction_isolation_test (value TEXT)');
+    const failing = database.transaction(async () => {
+        await database.run("INSERT INTO transaction_isolation_test VALUES ('rolled back')");
+        await new Promise(resolve => setTimeout(resolve, 10));
+        throw new Error('Expected rollback');
+    });
+    const independent = database.run("INSERT INTO transaction_isolation_test VALUES ('retained')");
+    const succeeding = database.transaction(async () => {
+        await database.run("INSERT INTO transaction_isolation_test VALUES ('committed')");
+    });
+    await assert.rejects(failing, /Expected rollback/);
+    await Promise.all([independent, succeeding]);
+    assert.deepEqual(await database.all('SELECT value FROM transaction_isolation_test ORDER BY rowid'), [{ value: 'retained' }, { value: 'committed' }]);
 });

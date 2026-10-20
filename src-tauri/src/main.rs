@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod backend;
+mod watchdog;
 use std::sync::Mutex;
 use tauri::{
     menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu},
@@ -321,6 +322,8 @@ fn main() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
+        .manage(watchdog::State::default())
         .manage(ArticleState::default())
         .manage(SelectionState::default())
         .invoke_handler(tauri::generate_handler![
@@ -328,10 +331,13 @@ fn main() {
             sync_article_viewer,
             toggle_devtools,
             selection_menu,
-            save_export
+            save_export,
+            watchdog::watchdog_notification_permission,
+            watchdog::watchdog_take_target
         ])
         .setup(|app| {
             install_menu(app.handle())?;
+            watchdog::setup(app.handle())?;
             match backend::start(app.handle()) {
                 Ok(backend) => {
                     app.manage(backend::Origin(backend.origin.clone()));

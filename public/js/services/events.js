@@ -7,7 +7,8 @@ export function initEvents(handlers = {}) {
         try {
             const payload = JSON.parse(event.data || '{}');
             const name = payload.event || '';
-            if (name === 'fetch.completed') handlers.fetchCompleted?.(payload.data);
+            if (name === 'watchdogs.updated' || name === 'connected') handlers.watchdogsUpdated?.(payload.data);
+            else if (name === 'fetch.completed') handlers.fetchCompleted?.(payload.data);
             else if (name === 'feeds.updated') handlers.feedsUpdated?.(payload.data);
             else if (name === 'lists.updated') handlers.listsUpdated?.(payload.data);
             else if (name === 'lists.items.updated') handlers.listItemsUpdated?.(payload.data);

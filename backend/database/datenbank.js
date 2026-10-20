@@ -1,4 +1,5 @@
 import sqlite3 from '@vscode/sqlite3';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +8,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data-v2.db');
 const BUSY_TIMEOUT_MS = Math.max(1_000, Number(process.env.SQLITE_BUSY_TIMEOUT_MS) || 5_000);
 const db = new sqlite3.Database(DB_PATH);
+// A transaction owns this connection until commit/rollback. Concurrent API and
+// scheduler work must not accidentally join another request's transaction.
+const context = new AsyncLocalStorage();
+let queue = Promise.resolve();
+function access(operation) {
+    if (context.getStore()?.active) return operation();
+    const result = queue.then(operation);
+    queue = result.catch(() => {});
+    return result;
+}
+
 
 db.serialize(() => {
     db.run('PRAGMA foreign_keys = ON');
@@ -25,7 +37,7 @@ function withBusyRetry(operation, attempt = 0) {
     });
 }
 
-export function run(sql, params = []) {
+function runQuery(sql, params = []) {
     return withBusyRetry(
         () =>
             new Promise((resolve, reject) => {
@@ -37,7 +49,7 @@ export function run(sql, params = []) {
     );
 }
 
-export function exec(sql) {
+function execQuery(sql) {
     return withBusyRetry(
         () =>
             new Promise((resolve, reject) => {
@@ -49,7 +61,18 @@ export function exec(sql) {
     );
 }
 
-export async function transaction(callback, { mode = 'IMMEDIATE' } = {}) {
+export function transaction(callback, options = {}) {
+    if (context.getStore()?.active) throw new Error('Nested transactions are not supported');
+    return access(() => {
+        const scope = { active: true };
+        return context.run(scope, async () => {
+            try { return await runTransaction(callback, options); }
+            finally { scope.active = false; }
+        });
+    });
+}
+
+async function runTransaction(callback, { mode = 'IMMEDIATE' } = {}) {
     await run(`BEGIN ${mode}`);
     try {
         const result = await callback({ run, get, all });
@@ -74,7 +97,7 @@ export function closeDatabase() {
     });
 }
 
-export function get(sql, params = []) {
+function getQuery(sql, params = []) {
     return withBusyRetry(
         () =>
             new Promise((resolve, reject) => {
@@ -86,7 +109,7 @@ export function get(sql, params = []) {
     );
 }
 
-export function all(sql, params = []) {
+function allQuery(sql, params = []) {
     return withBusyRetry(
         () =>
             new Promise((resolve, reject) => {
@@ -97,6 +120,11 @@ export function all(sql, params = []) {
             }),
     );
 }
+
+export const run = (...args) => access(() => runQuery(...args));
+export const exec = (...args) => access(() => execQuery(...args));
+export const get = (...args) => access(() => getQuery(...args));
+export const all = (...args) => access(() => allQuery(...args));
 
 export async function initSchema() {
     await get('PRAGMA journal_mode = WAL');

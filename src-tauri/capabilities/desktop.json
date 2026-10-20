@@ -2,8 +2,8 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
   "description": "Desktop actions for the local reader only. Article webviews have no native permissions.",
-  "local": false,
+  "local": true,
   "remote": { "urls": ["http://127.0.0.1:*/*"] },
   "webviews": ["main"],
-  "permissions": ["allow-open-external", "allow-sync-article-viewer", "allow-toggle-devtools", "allow-selection-menu", "allow-save-export"]
+  "permissions": ["allow-open-external", "allow-sync-article-viewer", "allow-toggle-devtools", "allow-selection-menu", "allow-save-export", "allow-watchdog-notification-permission", "allow-watchdog-take-target"]
 }

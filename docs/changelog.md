@@ -1,5 +1,12 @@
 # 1.5.0
 
+- Add Watchdog: create, edit, pause and delete individual keyword rules with include-any, include-all, exclusions and optional feed restrictions.
+- Keep an idempotent local match inbox with historical lookup, read/archive state, filters, unread badges and SSE updates.
+- Add opt-in native macOS notifications through the Node/Tauri bridge, grouped per watchdog with click-through to the matching article, including when the main window is closed.
+- Keep historical matches and first feed imports silent, isolate notification errors from RSS fetching, and serialize SQLite access across concurrent API and scheduler transactions.
+- Fix Watchdog notification permission calls from Tauri's local development origin, retain native error messages, and explain when notifications require the bundled macOS app.
+- Keep Watchdog filters and selection in place while scrolling the article inbox independently, including keyboard scrolling.
+- Move Watchdog notification preferences to Settings → Notifications; add Feed-compatible Markdown/JSON/CSV/link exports, publication-time filters, and full-card mouse/keyboard activation.
 - Fix feed logo discovery with Fetchary 2.0.4 for redirected webpages, manifests and icons while preserving download size limits and timeouts.
 
 # 1.4.0

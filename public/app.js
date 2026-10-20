@@ -19,10 +19,12 @@ import {
     searchFromSelection,
 } from './js/views/feed.js';
 import { initFeedImport } from './js/views/feed-import.js';
+import { initWatchdog, activateWatchdog, deactivateWatchdog, refreshWatchdogs, consumeWatchdogTarget } from './js/views/watchdog.js';
 import { initStatistics } from './js/ui/statistics.js';
 
 const controllers = new Map([
     ['main', { activate: activateFeed, deactivate: deactivateFeed }],
+    ['watchdog', { activate: activateWatchdog, deactivate: deactivateWatchdog }],
 ]);
 let activeController = 'main';
 let settingsModule = null;
@@ -99,6 +101,10 @@ function markDigestDirty() {
 
 function setupLiveUpdates() {
     initEvents({
+        watchdogsUpdated: () => {
+            void refreshWatchdogs();
+            if (store.ui.activeView === 'settings') void settingsModule?.refreshWatchdogNotifications({ checkPermission: false }).catch(error => toast.error(error.message));
+        },
         fetchCompleted: () => {
             markFeedDirty();
             markDigestDirty();
@@ -164,7 +170,9 @@ async function init() {
     });
     await loadReferences();
     await initFeed();
+    await initWatchdog();
     setupLiveUpdates();
+    await consumeWatchdogTarget();
     window.__nbsSearchSelection = searchFromSelection;
 }
 

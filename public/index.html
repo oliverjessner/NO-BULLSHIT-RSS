@@ -17,6 +17,7 @@
             <nav class="nav oj-nav" aria-label="Main views">
                 <button class="nav-link oj-nav-link is-active" data-view="main" aria-pressed="true" aria-current="page">Feed</button>
                 <button class="nav-link oj-nav-link" data-view="digest" aria-pressed="false">Digest</button>
+                <button class="nav-link oj-nav-link" data-view="watchdog" aria-pressed="false">Watchdog <span id="watchdog-nav-badge" class="watchdog-nav-badge" hidden>0</span></button>
                 <button class="nav-link oj-nav-link" data-view="settings" aria-pressed="false">Settings</button>
             </nav>
         </header>
@@ -256,6 +257,41 @@
                 </div>
             </section>
 
+            <section id="view-watchdog" class="view view-watchdog" hidden aria-labelledby="watchdog-heading">
+                <header class="watchdog-header oj-panel">
+                    <div><p class="eyebrow">Your personal news radar</p><h1 id="watchdog-heading">Watchdog</h1><p id="watchdog-total" class="oj-muted" aria-live="polite">0 unread matches</p></div>
+                    <div class="watchdog-header-actions">
+                        <div id="watchdog-export-menu" class="bulk-actions-menu oj-dropdown" data-oj-dropdown>
+                            <button id="watchdog-export-trigger" class="bulk-actions-trigger oj-icon-button" type="button" data-oj-dropdown-trigger aria-label="Watchdog actions" data-oj-tooltip="Actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                            <div id="watchdog-export-popover" class="bulk-actions-popover export-popover oj-menu" data-oj-dropdown-menu role="menu" aria-label="Watchdog article actions" hidden>
+                                <p class="export-popover-title oj-heading-3">Export</p>
+                                <button class="oj-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                <button class="oj-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                <button class="oj-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                <button class="oj-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
+                            </div>
+                        </div>
+                        <button id="watchdog-new" class="oj-button oj-button-primary" type="button" aria-haspopup="dialog" aria-controls="watchdog-dialog">New watchdog</button>
+                    </div>
+                </header>
+                <div class="watchdog-layout">
+                    <aside class="watchdog-sidebar" aria-label="Your watchdogs"><h2 class="oj-heading-3">Watchdogs</h2><div id="watchdog-rules"></div></aside>
+                    <section id="watchdog-results" class="watchdog-results" aria-label="Watchdog matches" aria-busy="false">
+                        <div class="watchdog-filters oj-panel">
+                            <select id="watchdog-status-filter" data-oj-select-dropdown aria-label="Match read status"><option value="all">All</option><option value="unread">Unread</option><option value="read">Read</option></select>
+                            <select id="watchdog-filter" data-oj-select-dropdown aria-label="Filter matches by watchdog"><option value="">Watchdog: All</option></select>
+                            <select id="watchdog-range-filter" data-oj-select-dropdown aria-label="Article time range"><option value="24h">Last 24h</option><option value="7d">Last 7 days</option><option value="month">Last month</option><option value="year">Last year</option><option value="all" selected>All</option></select>
+                            <label class="watchdog-checkbox"><input id="watchdog-archived" type="checkbox" /> Show archive</label>
+                        </div>
+                        <div id="watchdog-inbox" class="watchdog-inbox" role="region" aria-label="Watchdog article list" tabindex="0">
+                            <p id="watchdog-state" class="oj-status" role="status" aria-live="polite">No matches yet.</p>
+                            <div id="watchdog-matches" class="watchdog-matches"></div>
+                            <button id="watchdog-more" class="oj-button oj-button-ghost watchdog-more" type="button" hidden>Load more matches</button>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
             <section id="view-settings" class="view view-settings oj-tabs" data-oj-tabs hidden>
                 <div class="settings-tabs-wrap">
                     <div class="settings-tabs oj-tab-list" role="tablist" aria-label="Settings sections">
@@ -266,6 +302,7 @@
                         <button class="settings-tab oj-tab" id="settings-bullshit-tab" data-settings="bullshit" type="button" role="tab" aria-selected="false" aria-controls="settings-bullshit">Bullshit Rules</button>
                         <button class="settings-tab oj-tab" id="settings-lists-tab" data-settings="lists" type="button" role="tab" aria-selected="false" aria-controls="settings-lists">Lists</button>
                         <button class="settings-tab oj-tab" id="settings-cosmetics-tab" data-settings="cosmetics" type="button" role="tab" aria-selected="false" aria-controls="settings-cosmetics">Cosmetics</button>
+                        <button class="settings-tab oj-tab" id="settings-notifications-tab" data-settings="notifications" type="button" role="tab" aria-selected="false" aria-controls="settings-notifications">Notifications</button>
                     </div>
                 </div>
 
@@ -477,6 +514,15 @@
                     </div>
                 </div>
 
+                <div id="settings-notifications" class="settings-panel settings-panel-single oj-tab-panel" role="tabpanel" aria-labelledby="settings-notifications-tab" hidden>
+                    <section class="card settings-notifications-card oj-panel" aria-labelledby="watchdog-notification-heading">
+                        <h3 id="watchdog-notification-heading" class="title oj-heading-3">Watchdog notifications</h3>
+                        <p class="teaser oj-muted">Receive native macOS notifications for new Watchdog matches. Watching continues while the app runs, including with its window closed.</p>
+                        <p id="watchdog-notification-status" class="oj-status" role="status" aria-live="polite">Notifications are off. Matches are still saved locally.</p>
+                        <div class="form-actions"><button id="watchdog-notifications" class="oj-button oj-button-secondary" type="button" disabled>Enable notifications</button></div>
+                    </section>
+                </div>
+
                 <div id="settings-cosmetics" class="settings-panel settings-panel-single oj-tab-panel" role="tabpanel" aria-labelledby="settings-cosmetics-tab" hidden>
                     <div class="settings-cosmetics-content">
                         <section class="card settings-cosmetics-card oj-panel">
@@ -574,6 +620,31 @@
                 <button id="statistics-refresh" class="btn ghost oj-button oj-button-ghost" type="button">Refresh</button>
                 <button id="statistics-done" class="btn oj-button oj-button-secondary" type="button">Close</button>
             </div>
+        </dialog>
+
+        <dialog id="watchdog-dialog" class="oj-dialog modal watchdog-dialog" data-oj-dialog aria-labelledby="watchdog-dialog-title" aria-describedby="watchdog-dialog-help">
+            <form id="watchdog-form">
+                <div class="oj-dialog-header modal-header"><h2 id="watchdog-dialog-title" class="oj-dialog-title">New watchdog</h2><button id="watchdog-close" class="oj-icon-button" type="button" aria-label="Close watchdog dialog">×</button></div>
+                <div class="oj-dialog-body modal-body watchdog-form-fields">
+                    <p id="watchdog-dialog-help" class="oj-helper">Search title, teaser and stored article content. Matching ignores case. Enter one literal term or phrase per line, or separate terms with commas. Editing a watchdog affects future articles.</p>
+                    <label class="oj-label" for="watchdog-name">Name</label><input id="watchdog-name" class="oj-input" maxlength="200" required autofocus />
+                    <label class="oj-label" for="watchdog-any">Include any</label><textarea id="watchdog-any" class="oj-textarea" rows="2" placeholder="OpenAI, Anthropic" aria-describedby="watchdog-include-help"></textarea>
+                    <label class="oj-label" for="watchdog-all">Include all</label><textarea id="watchdog-all" class="oj-textarea" rows="2" placeholder="AI safety" aria-describedby="watchdog-include-help"></textarea>
+                    <p id="watchdog-include-help" class="oj-helper">Any term from the first field and every term from the second field must match. At least one include term is required.</p>
+                    <label class="oj-label" for="watchdog-exclude">Exclude</label><textarea id="watchdog-exclude" class="oj-textarea" rows="2" placeholder="sponsored, giveaway"></textarea>
+                    <p class="oj-helper">A match for any excluded term always wins. Up to 100 terms per field, 200 characters per term.</p>
+                    <fieldset class="watchdog-feed-scope"><legend>RSS feeds</legend><p class="oj-helper">Leave all unchecked to watch every feed.</p><div id="watchdog-feeds" class="watchdog-feed-options"></div></fieldset>
+                    <label class="watchdog-checkbox"><input id="watchdog-enabled" type="checkbox" checked /> Active</label>
+                    <label id="watchdog-history-row" class="watchdog-checkbox"><input id="watchdog-history" type="checkbox" /> Show historical matches, without notifications</label>
+                    <p id="watchdog-form-status" class="oj-status" role="status" aria-live="polite"></p>
+                </div>
+                <div class="oj-dialog-footer modal-actions"><button id="watchdog-cancel" class="oj-button oj-button-ghost" type="button">Cancel</button><button id="watchdog-save" class="oj-button oj-button-primary" type="submit">Save watchdog</button></div>
+            </form>
+        </dialog>
+        <dialog id="watchdog-article-dialog" class="oj-dialog modal watchdog-article-dialog" data-oj-dialog aria-labelledby="watchdog-article-title">
+            <div class="oj-dialog-header modal-header"><h2 id="watchdog-article-title" class="oj-dialog-title">Watchdog match</h2><button id="watchdog-article-close" class="oj-icon-button" type="button" aria-label="Close match">×</button></div>
+            <div class="oj-dialog-body modal-body"><p id="watchdog-article-meta" class="oj-helper"></p><div id="watchdog-article-content" class="watchdog-article-content"></div></div>
+            <div class="oj-dialog-footer modal-actions"><button id="watchdog-article-original" class="oj-button oj-button-primary" type="button">Open original article</button></div>
         </dialog>
 
         <dialog id="feed-import-backdrop" class="modal feed-import-modal oj-dialog" data-oj-dialog aria-labelledby="feed-import-title" aria-describedby="feed-import-help">

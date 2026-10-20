@@ -89,6 +89,10 @@ pub fn start(app: &AppHandle) -> Result<Backend, Box<dyn std::error::Error>> {
         let mut log = log;
         let mut ready = false;
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            if line.starts_with("NBS_DESKTOP_EVENT ") {
+                super::watchdog::dispatch(&monitor_app, &line);
+                continue;
+            }
             let _ = writeln!(log, "{line}");
             if line == "NBS_DESKTOP_READY" {
                 ready = true;

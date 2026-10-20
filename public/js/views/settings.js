@@ -6,6 +6,8 @@ import { setSelectValue } from '../ui/select-dropdown.js';
 import { toast } from '../ui/toast.js';
 import { formatDate } from '../utils/format.js';
 import { clear, hide, show, text } from '../utils/dom.js';
+import { initWatchdogNotifications, refreshWatchdogNotifications } from '../services/watchdog-notifications.js';
+export { refreshWatchdogNotifications } from '../services/watchdog-notifications.js';
 
 let initialized = false;
 let onReferencesChanged = async () => {};
@@ -398,8 +400,12 @@ export async function initSettings(options = {}) {
     initialized = true; store.settings.initialized = true;
     onReferencesChanged = options.onReferencesChanged || onReferencesChanged; onFeedChanged = options.onFeedChanged || onFeedChanged; onDigestChanged = options.onDigestChanged || onDigestChanged;
     bindTabs(); bindFeedActions(); bindListActions(); bindTopicActions(); bindBullshitRuleActions(); bindDigestSettings(); bindFetch();
+    initWatchdogNotifications();
     refreshSettingsReferences(); await loadSettingsOnlyData();
 }
 
-export async function activateSettings(options) { if (!initialized) await initSettings(options); }
+export async function activateSettings(options) {
+    if (!initialized) await initSettings(options);
+    await refreshWatchdogNotifications().catch(error => toast.error(error.message));
+}
 export function deactivateSettings() {}

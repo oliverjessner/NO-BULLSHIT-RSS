@@ -101,8 +101,8 @@ function markDigestDirty() {
 
 function setupLiveUpdates() {
     initEvents({
-        watchdogsUpdated: () => {
-            void refreshWatchdogs();
+        watchdogsUpdated: event => {
+            void refreshWatchdogs(event);
             if (store.ui.activeView === 'settings') void settingsModule?.refreshWatchdogNotifications({ checkPermission: false }).catch(error => toast.error(error.message));
         },
         fetchCompleted: () => {

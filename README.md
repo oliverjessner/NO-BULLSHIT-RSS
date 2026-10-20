@@ -24,6 +24,7 @@ and keep your feeds and articles on your machine. No subscriptions or ads.
 Open **Watchdog** between Digest and Settings, then choose **New watchdog**. Match any of your **Include any** terms, all **Include all** terms, and none of the **Exclude** terms. Terms are literal, case-insensitive phrases searched across title, teaser and stored article content. Optionally select individual RSS feeds.
 
 - Request historical matches when creating a watchdog; these never send notifications. Editing or reactivating a watchdog applies to future articles.
+- Add matching articles to your reading lists with **Add to list**, using the same dialog as Feed.
 - Filter matches by watchdog, All / Unread / Read, and publication time: **Last 24h**, **Last 7 days**, **Last month**, **Last year**, or **All**. Click a Watchdog card to select it or an article card to open its stored text; mark matches read or archive them. Filters and selection remain fixed while the article inbox scrolls. The navigation badge counts unread, unarchived matches.
 - Export all filtered articles through the Watchdog actions menu as Markdown, JSON, CSV, or a link list. Exports use the same article schema as Feed, keep the selected filters, and include results beyond the currently loaded page. Articles matching several Watchdogs appear once per export.
 - In the macOS app, open **Settings → Notifications → Enable notifications**, confirm the dialog and grant macOS permission. Multiple matches are grouped per watchdog, with at most three notifications per fetch; all matches remain in the inbox.

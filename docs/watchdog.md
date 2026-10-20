@@ -42,9 +42,13 @@ Export accepts the same filters and `asOf`, plus Feed's `limit=1..250`, `cursorP
 
 Both Watchdog and match cards support clicking the container and Enter/Space keyboard activation; Edit, Pause, Delete, read and archive buttons keep their own actions. Filters and Watchdog selection remain stationary while the match inbox scrolls.
 
-## Native delivery
+Read/archive actions update the affected match in place, including their SSE events. Already loaded pages, the next-page cursor and inbox scroll position are retained. A match leaves the current view only when it no longer satisfies the read/archive filter. Broader live refreshes reload the previously requested page depth rather than replacing it with the first page. Pagination also retains its requested depth if a live refresh races with Load more.
+
+Each article card offers **Add to list**, using the same list dialog as Feed and the underlying article ID. Existing memberships are shown there; adding an article does not open it or mark its Watchdog match as read.
 
 Migration `0007_watchdog_export_index.sql` adds the article-first match index used by shared Feed-style export queries, including existing Watchdog databases.
+
+## Native delivery
 
 Only an explicit action under **Settings → Notifications** in the macOS app opens the app's consent dialog and then requests real UserNotifications authorization. The Tauri notification plugin handles banner delivery and click callbacks. Its desktop permission API itself always reports granted, so a small native macOS bridge checks/requests the actual OS authorization instead. No notification permission is requested on startup.
 

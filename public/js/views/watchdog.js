@@ -9,6 +9,7 @@ import { normalizeArticleUrl } from '../utils/format.js';
 import { parseWatchdogTerms } from '../utils/watchdog.js';
 import { bindExportMenu } from '../ui/export-menu.js';
 import { createFeedExport, downloadExport, fetchAllFeedArticles } from '../utils/export.js';
+import { openListModal } from '../ui/modal.js';
 
 const byId = id => document.getElementById(id);
 const node = (tag, className, text) => {
@@ -17,7 +18,7 @@ const node = (tag, className, text) => {
     if (text !== undefined) element.textContent = text;
     return element;
 };
-const state = { rules: [], matches: [], request: 0, hasMore: false, loading: false, editing: null, active: false, initialized: false, rulesRequest: 0, asOf: Date.now() };
+const state = { rules: [], matches: [], request: 0, hasMore: false, loading: false, editing: null, active: false, initialized: false, rulesRequest: 0, asOf: Date.now(), pages: 1, cursor: null, matchVersion: 0, updates: new Map() };
 const filteredId = () => byId('watchdog-filter').value;
 const report = error => toast.error(error.message || 'Watchdog request failed.');
 const interactive = 'button, a, input, select, textarea, [contenteditable="true"]';
@@ -89,19 +90,41 @@ function renderRules() {
     if (focus) list.querySelector(focus.card ? `[data-watchdog-id="${focus.card}"]` : `[data-action="${focus.action}"][data-id="${focus.id}"]`)?.focus({ preventScroll: true });
 }
 
-export async function refreshWatchdogs() {
+const visibleMatchState = match => Boolean(match.archivedAt) === byId('watchdog-archived').checked
+    && (byId('watchdog-status-filter').value === 'all'
+        || Boolean(match.readAt) === (byId('watchdog-status-filter').value === 'read'));
+
+function updateVisibleMatch(match) {
+    const loaded = state.matches.some(item => item.id === match.id);
+    const update = { readAt: match.readAt, archivedAt: match.archivedAt, version: ++state.matchVersion };
+    state.updates.set(match.id, update);
+    if (loaded) {
+        state.matches = state.matches.map(item => item.id === match.id ? { ...item, readAt: update.readAt, archivedAt: update.archivedAt } : item).filter(visibleMatchState);
+        renderMatches();
+    }
+    return loaded;
+}
+
+export async function refreshWatchdogs({ action, id } = {}) {
     const request = ++state.rulesRequest;
     try {
+        // Match-state events must not replace an already paginated inbox.
+        if (state.active && action === 'match-state') {
+            const match = await api.watchdogMatch(id);
+            if (!updateVisibleMatch(match)) await loadMatches({ preserve: true });
+        }
         const payload = await api.watchdogs();
         if (request !== state.rulesRequest) return;
         state.rules = payload.watchdogs;
         renderRules();
-        if (state.active) await loadMatches();
+        if (state.active && !['match-state', 'counts', 'notifications'].includes(action)) await loadMatches({ preserve: true, refreshTime: true });
     } catch (error) { report(error); }
 }
 
 function renderMatches() {
     const list = byId('watchdog-matches');
+    const inbox = byId('watchdog-inbox');
+    const scrollTop = inbox.scrollTop;
     const active = document.activeElement;
     const focus = active && list.contains(active) ? active.dataset.matchId
         ? { card: active.dataset.matchId } : { action: active.dataset.action, id: active.dataset.id } : null;
@@ -122,28 +145,55 @@ function renderMatches() {
         heading.append(button(match.title || 'Untitled article', 'open', match.id, 'watchdog-match-title'));
         const actions = node('div', 'watchdog-actions');
         actions.append(button(match.readAt ? 'Mark unread' : 'Mark read', 'read', match.id),
+            button('Add to list', 'list', match.id),
             button(match.archivedAt ? 'Restore' : 'Archive', 'archive', match.id));
         card.append(meta, heading, node('p', 'watchdog-teaser oj-muted', match.teaser || match.content?.slice(0, 240) || ''), actions);
         list.append(card);
     }
     byId('watchdog-more').hidden = !state.hasMore;
-    if (focus) list.querySelector(focus.card ? `[data-match-id="${focus.card}"]` : `[data-action="${focus.action}"][data-id="${focus.id}"]`)?.focus({ preventScroll: true });
+    if (focus) (list.querySelector(focus.card ? `[data-match-id="${focus.card}"]` : `[data-action="${focus.action}"][data-id="${focus.id}"]`) || inbox).focus({ preventScroll: true });
+    inbox.scrollTop = scrollTop;
 }
 
-async function loadMatches({ append = false } = {}) {
+async function loadMatches({ append = false, preserve = false, refreshTime = false } = {}) {
     const request = ++state.request;
-    if (!append) state.asOf = Date.now();
+    const previousPages = state.pages;
+    const version = state.matchVersion;
+    const targetPages = append ? state.pages + 1 : preserve ? state.pages : 1;
+    // Reserve the requested depth before awaiting: an SSE refresh racing with
+    // Load more must retain the page the reader has just requested.
+    state.pages = targetPages;
+    if (!append && (!preserve || refreshTime)) state.asOf = Date.now();
     const params = matchParams();
-    if (append && state.matches.length) params.set('before', state.matches.at(-1).id);
+    if (append && state.cursor) params.set('before', state.cursor);
     state.loading = true; byId('watchdog-more').disabled = true;
     byId('watchdog-results').setAttribute('aria-busy', 'true');
     try {
-        const result = await api.watchdogMatches(params);
-        if (request !== state.request) return;
-        state.matches = append ? [...state.matches, ...result.matches] : result.matches;
+        const matches = append ? [...state.matches] : [];
+        let result, cursor = append ? state.cursor : null, pages = append ? targetPages : 0;
+        do {
+            result = await api.watchdogMatches(params);
+            if (request !== state.request) return;
+            matches.push(...result.matches);
+            cursor = result.matches.at(-1)?.id || cursor;
+            if (!append) pages += 1;
+            if (cursor) params.set('before', cursor);
+        } while (!append && result.hasMore && pages < targetPages);
+        state.matches = [...new Map(matches.map(match => {
+            const update = state.updates.get(match.id);
+            return [match.id, update?.version > version ? { ...match, readAt: update.readAt, archivedAt: update.archivedAt } : match];
+        })).values()].filter(visibleMatchState);
+        state.pages = pages;
+        state.cursor = cursor;
         state.hasMore = result.hasMore;
+        for (const [id, update] of state.updates) if (update.version <= version) state.updates.delete(id);
         renderMatches();
-    } catch (error) { if (request === state.request) byId('watchdog-state').textContent = `Could not load matches: ${error.message}`; }
+    } catch (error) {
+        if (request === state.request) {
+            state.pages = previousPages;
+            byId('watchdog-state').textContent = `Could not load matches: ${error.message}`;
+        }
+    }
     finally {
         if (request === state.request) {
             state.loading = false; byId('watchdog-more').disabled = false;
@@ -216,7 +266,7 @@ async function ruleAction(event) {
 
 async function openMatch(id) {
     const match = await api.watchdogMatch(id);
-    await api.updateWatchdogMatch(id, { read: true });
+    updateVisibleMatch(await api.updateWatchdogMatch(id, { read: true }));
     byId('watchdog-article-title').textContent = match.title || 'Untitled article';
     byId('watchdog-article-meta').textContent = `${match.watchdogName} · ${match.feedName}`;
     byId('watchdog-article-content').textContent = match.content || match.teaser || 'No article text stored. Open the original article to read more.';
@@ -225,7 +275,7 @@ async function openMatch(id) {
     original.disabled = !url;
     original.onclick = () => { if (url) void openBrowser(url).catch(report); };
     openDialog(byId('watchdog-article-dialog'), { trigger: document.activeElement });
-    await refreshWatchdogs();
+    await refreshWatchdogs({ action: 'counts' });
 }
 
 async function matchAction(event) {
@@ -237,9 +287,11 @@ async function matchAction(event) {
     const match = state.matches.find(item => item.id === Number(target.dataset.id)); if (!match) return;
     try {
         if (target.dataset.action === 'open') await openMatch(match.id);
+        else if (target.dataset.action === 'list') await openListModal(match.articleId);
         else {
             const update = target.dataset.action === 'read' ? { read: !match.readAt } : { archived: !match.archivedAt };
-            await api.updateWatchdogMatch(match.id, update); await refreshWatchdogs();
+            updateVisibleMatch(await api.updateWatchdogMatch(match.id, update));
+            await refreshWatchdogs({ action: 'counts' });
         }
     } catch (error) { report(error); }
 }

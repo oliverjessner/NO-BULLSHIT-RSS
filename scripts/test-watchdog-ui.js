@@ -49,6 +49,7 @@ try {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
     const origin = `http://127.0.0.1:${env.PORT}`;
+    const readingList = await (await page.request.post(`${origin}/api/lists`, { data: { name: 'Watchdog reading list' } })).json();
     await page.goto(origin);
     await page.locator('#view-main').waitFor({ state: 'visible' });
     await page.locator('[data-view="watchdog"]').click();
@@ -91,6 +92,7 @@ try {
         else assert.equal(content.trim().split('\n').length, 2);
     }
     await page.locator('[data-view="settings"]').click();
+    assert.equal(await page.getByRole('tab', { name: 'RSS Feeds', exact: true }).count(), 1);
     await page.locator('#settings-notifications-tab').click();
     await page.waitForFunction(() => document.querySelector('#watchdog-notification-status').textContent.startsWith('Native notifications are available'));
     assert.equal(await page.locator('#watchdog-notifications').isDisabled(), true);
@@ -154,6 +156,7 @@ try {
     await page.locator('#watchdog-status-filter').selectOption('all', { force: true });
     await page.waitForFunction(() => document.querySelector('#watchdog-results').getAttribute('aria-busy') === 'false' && document.querySelectorAll('.watchdog-match').length === 3);
     const outputDirectory = path.join(root, '.desktop-cache/watchdog-qa'); await mkdir(outputDirectory, { recursive: true });
+    await page.locator('.oj-toast-dismiss').evaluateAll(nodes => nodes.forEach(node => node.click()));
     // Fill the article pane with layout fixtures cloned from a real match. Only
     // that pane should move when paging through a long list with the keyboard.
     for (const viewport of [{ width: 1440, height: 1050 }, { width: 800, height: 600 }, { width: 390, height: 844 }]) {
@@ -199,7 +202,7 @@ try {
         });
     }
     await page.setViewportSize({ width: 1440, height: 1050 });
-    await page.locator('.oj-toast [aria-label="Close notification"]').evaluateAll(nodes => nodes.forEach(node => node.click()));
+    await page.locator('.oj-toast-dismiss').evaluateAll(nodes => nodes.forEach(node => node.click()));
     await page.screenshot({ path: path.join(outputDirectory, 'watchdog-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(outputDirectory, 'watchdog-mobile.png'), fullPage: true });
@@ -211,6 +214,85 @@ try {
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
     await page.locator('#watchdog-rules [data-action="delete"]').click();
     await page.getByRole('button', { name: 'Delete', exact: true }).last().click();
+    await page.waitForFunction(() => document.querySelectorAll('.watchdog-rule').length === 0);
+
+    // Real paginated data: a state mutation and its SSE event must retain every
+    // loaded page, the oldest-page cursor and the reader's scroll position.
+    database(`await db.transaction(async () => {
+        for (let index = 0; index < 175; index++) await db.run("INSERT INTO articles (feedId,externalId,title,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (1,?,?,'pagination',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", ['pagination-' + index, 'Pagination fixture ' + index]);
+    });`);
+    const pagingRule = await (await page.request.post(`${origin}/api/watchdogs`, { data: { name: 'Pagination', includeAny: ['Pagination fixture'], includeHistory: true } })).json();
+    await page.setViewportSize({ width: 1440, height: 1050 });
+    await page.locator(`[data-watchdog-id="${pagingRule.watchdog.id}"] .watchdog-rule-meta`).click();
+    await page.waitForFunction(() => document.querySelectorAll('.watchdog-match').length === 50 && document.querySelector('#watchdog-results').getAttribute('aria-busy') === 'false');
+    let releaseAppend, heldAppend;
+    const holdAppend = async route => {
+        if (new URL(route.request().url()).searchParams.has('before') && !heldAppend) {
+            heldAppend = route.request();
+            await new Promise(resolve => { releaseAppend = resolve; });
+        }
+        await route.continue();
+    };
+    await page.route('**/api/watchdogs/matches?*', holdAppend);
+    await page.locator('#watchdog-more').click();
+    await waitFor(() => Boolean(releaseAppend), 'held Load more request');
+    try {
+        await page.request.patch(`${origin}/api/watchdogs/${pagingRule.watchdog.id}`, { data: { name: 'Pagination during Load more' } });
+        await page.waitForFunction(() => document.querySelectorAll('.watchdog-match').length === 100 && document.querySelector('#watchdog-results').getAttribute('aria-busy') === 'false');
+        const oldAppendFinished = page.waitForResponse(response => response.request() === heldAppend);
+        releaseAppend();
+        await oldAppendFinished;
+    } finally { releaseAppend?.(); await page.unroute('**/api/watchdogs/matches?*', holdAppend); }
+    assert.equal(await page.locator('.watchdog-match').count(), 100, 'Live refresh lost the requested second page');
+    const selectedMatchId = await page.locator('.watchdog-match').nth(99).getAttribute('data-match-id');
+    const selectedMatch = await (await page.request.get(`${origin}/api/watchdogs/matches/${selectedMatchId}`)).json();
+    assert.notEqual(selectedMatch.articleId, selectedMatch.id, 'List regression fixture must distinguish article IDs from match IDs');
+    const selectedCard = page.locator(`[data-match-id="${selectedMatchId}"]`);
+    await selectedCard.locator('[data-action="list"]').click();
+    await page.locator('#modal-backdrop').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#watchdog-article-dialog').isVisible(), false);
+    assert.equal(await selectedCard.evaluate(card => card.classList.contains('is-unread')), true);
+    await page.locator('#modal-list-select').selectOption(String(readingList.id), { force: true });
+    await page.locator('#modal-confirm').click();
+    await page.locator('#modal-backdrop').waitFor({ state: 'hidden' });
+    const membership = await (await page.request.post(`${origin}/api/articles/lists/bulk`, { data: { articleIds: [selectedMatch.articleId, selectedMatch.id] } })).json();
+    assert.equal(membership.listsByArticleId[String(selectedMatch.articleId)][0].id, readingList.id);
+    assert.deepEqual(membership.listsByArticleId[String(selectedMatch.id)] || [], []);
+    await selectedCard.locator('[data-action="list"]').click();
+    await page.locator('#modal-backdrop').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#modal-existing-lists').textContent(), /Watchdog reading list/);
+    await page.locator('#modal-cancel').click();
+    await page.locator('#modal-backdrop').waitFor({ state: 'hidden' });
+
+    const beforeReadIds = await page.locator('.watchdog-match').evaluateAll(cards => cards.map(card => card.dataset.matchId));
+    await selectedCard.locator('[data-action="read"]').scrollIntoViewIfNeeded();
+    const beforeReadScroll = await page.locator('#watchdog-inbox').evaluate(inbox => inbox.scrollTop);
+    await selectedCard.locator('[data-action="read"]').click();
+    await page.waitForFunction(id => document.querySelector(`[data-match-id="${id}"] [data-action="read"]`)?.textContent === 'Mark unread', selectedMatchId);
+    assert.deepEqual(await page.locator('.watchdog-match').evaluateAll(cards => cards.map(card => card.dataset.matchId)), beforeReadIds);
+    assert.equal(await page.locator('#watchdog-more').isVisible(), true);
+    assert.ok(Math.abs(await page.locator('#watchdog-inbox').evaluate(inbox => inbox.scrollTop) - beforeReadScroll) < 2, 'Mark read moved the inbox');
+    await page.locator('#watchdog-more').click();
+    await page.waitForFunction(() => document.querySelectorAll('.watchdog-match').length === 150);
+    await page.locator('#watchdog-more').click();
+    await page.waitForFunction(() => document.querySelectorAll('.watchdog-match').length === 175);
+    assert.equal(await page.locator('#watchdog-more').isVisible(), false);
+    const lastMatchId = await page.locator('.watchdog-match').last().getAttribute('data-match-id');
+    await page.locator(`[data-match-id="${lastMatchId}"] [data-action="read"]`).click();
+    await page.waitForFunction(id => document.querySelector(`[data-match-id="${id}"] [data-action="read"]`)?.textContent === 'Mark unread', lastMatchId);
+    assert.equal(await page.locator('.watchdog-match').count(), 175, 'Last-page mutation collapsed pagination');
+
+    // An explicit live refresh must also preserve the loaded depth.
+    await page.request.patch(`${origin}/api/watchdogs/${pagingRule.watchdog.id}`, { data: { name: 'Pagination updated' } });
+    await page.waitForFunction(() => document.querySelector('.watchdog-rule-name')?.textContent === 'Pagination updated' && document.querySelector('#watchdog-results').getAttribute('aria-busy') === 'false');
+    assert.equal(await page.locator('.watchdog-match').count(), 175);
+    await page.locator('#watchdog-status-filter').selectOption('unread', { force: true });
+    await page.waitForFunction(() => document.querySelectorAll('.watchdog-match').length === 50 && document.querySelector('#watchdog-results').getAttribute('aria-busy') === 'false');
+    const unreadId = await page.locator('.watchdog-match').first().getAttribute('data-match-id');
+    await page.locator(`[data-match-id="${unreadId}"] [data-action="read"]`).click();
+    await page.waitForFunction(id => !document.querySelector(`[data-match-id="${id}"]`), unreadId);
+    assert.equal(await page.locator('#watchdog-more').isVisible(), true, 'Unread removal hid the next page');
+    await page.request.delete(`${origin}/api/watchdogs/${pagingRule.watchdog.id}`);
     await page.waitForFunction(() => document.querySelectorAll('.watchdog-rule').length === 0);
     assert.deepEqual(errors, []);
     // Exercise the actual permission UI and HTTP persistence with a native IPC
@@ -234,6 +316,7 @@ try {
     const enable = desktop.locator('#watchdog-notifications');
     const status = desktop.locator('#watchdog-notification-status');
     await desktop.waitForFunction(() => document.querySelector('#watchdog-notification-status').textContent.startsWith('Notifications are off.') && document.querySelector('#watchdog-notifications').dataset.enabled === 'false');
+    await desktop.screenshot({ path: path.join(outputDirectory, 'watchdog-settings-notifications.png'), fullPage: true });
     await desktop.evaluate(() => { window.permissionCalls = []; });
     const preference = async () => (await (await page.request.get(`${origin}/api/watchdogs/notifications`)).json()).enabled;
     async function allowNotifications(expectedStatus) {
@@ -281,7 +364,7 @@ try {
     await desktop.waitForFunction(() => document.querySelector('#watchdog-notifications').disabled);
     assert.match(await status.textContent(), /^Notifications require the bundled macOS app/);
     await desktop.close();
-    console.log('Watchdog browser smoke passed: CRUD, matching/history, SSE, filters, read/archive, deep links, keyboard dialogs, fixed filters/selection with keyboard article scrolling at 1440px/800px/390px, and notification consent/error/persistence flows. Screenshots: .desktop-cache/watchdog-qa/.');
+    console.log('Watchdog browser smoke passed: CRUD, matching/history, SSE, time filters, Feed-schema exports, full-card activation, read/archive, 175-match pagination and scroll preservation, Add to list with real article IDs, RSS Feeds tab, deep links, responsive keyboard scrolling, and Settings notification flows. Screenshots: .desktop-cache/watchdog-qa/.');
 } finally {
     await browser?.close();
     if (backend) { backend.stdin.end(); await Promise.race([once(backend, 'exit'), new Promise(resolve => setTimeout(resolve, 3000))]); if (backend.exitCode === null) backend.kill(); }

@@ -1,3 +1,5 @@
+# 1.5.0
+
 # 1.4.0
 
 - Filter the newest CLI articles by topic with `articles last <count> --topic <slug>`.

@@ -219,14 +219,18 @@ function confirmDeletion(type, label) {
 }
 
 function bindTabs() {
+    const sync = (tab, activePanel) => {
+        dom.settings.tabButtons.forEach(item => item.classList.toggle('is-active', item === tab));
+        dom.settings.panels.forEach(panel => panel.classList.toggle('is-active', panel === activePanel));
+    };
     dom.settings.tabRoot.addEventListener('oj:change', event => {
         if (event.target !== dom.settings.tabRoot) return;
         const { tab, panel: activePanel } = event.detail;
-        dom.settings.tabButtons.forEach(item => {
-            item.classList.toggle('is-active', item === tab);
-        });
-        dom.settings.panels.forEach(panel => panel.classList.toggle('is-active', panel === activePanel));
+        sync(tab, activePanel);
     });
+    // OJ can switch tabs while this lazily loaded module is still initializing.
+    const selected = [...dom.settings.tabButtons].find(tab => tab.getAttribute('aria-selected') === 'true');
+    sync(selected, document.getElementById(selected?.getAttribute('aria-controls')));
 }
 
 function bindFeedActions() {

@@ -132,6 +132,21 @@ test('managed backend announces readiness, serves the app and exits when its des
     assert.deepEqual(await (await fetch(`${base}/api/health`)).json(), { ok: true });
     assert.match(await (await fetch(base)).text(), /NO BULLSHIT RSS/);
     assert.equal((await fetch(`${base}/vendor/oj-designsystem/styles.css`)).status, 200);
+    await t.test('build caches, server sources and npm internals are not frontend assets', async () => {
+        for (const pathname of [
+            '/.desktop-cache/24.22.0/node-v24.22.0-darwin-arm64/lib/node_modules/npm/node_modules/sigstore/dist/config.js',
+            '/.desktop-cache/26.11.1/node-v26.11.1-darwin-arm64/lib/node_modules/npm/node_modules/sigstore/dist/config.js',
+            '/node_modules/npm/node_modules/sigstore/dist/config.js',
+            '/backend/server.js',
+            '/scripts/prepare-desktop.js',
+            '/package.json',
+            '/.env',
+        ]) {
+            const response = await fetch(`${base}${pathname}`);
+            await response.body?.cancel();
+            assert.equal(response.status, 404, pathname);
+        }
+    });
     const feeds = await (await fetch(`${base}/api/feeds`)).json();
     assert.ok(feeds.length > 0);
     server.child.stdin.end();

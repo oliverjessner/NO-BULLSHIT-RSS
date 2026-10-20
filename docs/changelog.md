@@ -1,5 +1,7 @@
 # 1.5.1
 
+- icons for menu buttons
+
 # 1.5.0
 
 - Add Watchdog: create, edit, pause and delete individual keyword rules with include-any, include-all, exclusions and optional feed restrictions.

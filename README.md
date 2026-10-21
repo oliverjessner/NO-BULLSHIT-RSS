@@ -1,38 +1,30 @@
+<p align="center">
+  <img src="public/images/logo/logo.png" alt="NO BULLSHIT RSS logo" width="120" height="120">
+</p>
+
 # NO BULLSHIT RSS 💩
 
-A free, open-source desktop RSS reader. Follow your sources, find relevant stories,
-and keep your feeds and articles on your machine. No subscriptions or ads.
+[![Dependabot Updates](https://github.com/oliverjessner/NO-BULLSHIT-RSS/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/oliverjessner/NO-BULLSHIT-RSS/actions/workflows/dependabot/dependabot-updates)
 
-![NO BULLSHIT RSS compact feed](public/images/mockups/feed_compact.webp)
+NO BULLSHIT RSS is a free, open-source desktop RSS reader for macOS.
+It brings your sources together and helps you find relevant stories in a busy news feed.
+Your feeds, saved articles and reading lists stay on your Mac, without subscriptions or ads.
 
-## Features
+![Compact feed showing articles from multiple sources with search, filters and save controls](public/images/mockups/feed_compact.webp)
 
-- **Compact and card layouts:** choose how you browse your articles in a dark interface.
-- **Daily, weekly, and monthly digests:** group related articles from multiple sources into stories.
-- **Watchdog:** follow custom keyword rules, keep a local inbox of matches, and optionally receive native macOS notifications.
-- **Local topics:** automatically tag articles with your own keyword rules.
-- **Search and filters:** find articles by text, source, topic, or reading list. Select a word and search it from the context menu.
-- **Bullshit rules:** exclude matching articles and selected RSS feeds from digests. Use the Clean filter to hide matching articles in Feed.
-- **Reading lists:** save articles for later and dismiss stories you have finished.
-- **Import and export:** add article URLs directly or from a text file; export feeds and digests as TXT, CSV, or JSON.
-- **Website icons:** recognize your sources at a glance with automatically fetched icons.
-- **Library statistics:** click the app logo or run `no-bullshit-rss stats` for article totals, top feeds and topics, and detected bullshit articles.
-- **CLI:** access stored articles, feeds, lists, topics, and digests from your terminal. [See commands](docs/cli.md).
+Add your RSS feeds in Settings, then browse new articles or catch up through a daily, weekly or monthly digest.
+Save useful articles to reading lists and create keyword alerts for subjects you follow closely.
 
-## Watchdog
+## What it does
 
-Open **Watchdog** between Digest and Settings, then choose **New watchdog**. Match any of your **Include any** terms, all **Include all** terms, and none of the **Exclude** terms. Terms are literal, case-insensitive phrases searched across title, teaser and stored article content. Optionally select individual RSS feeds.
-
-- Request historical matches when creating a watchdog; these never send notifications. Editing or reactivating a watchdog applies to future articles.
-- Add matching articles to your reading lists with **Add to list**, using the same dialog as Feed.
-- Filter matches by watchdog, All / Unread / Read, and publication time: **Last 24h**, **Last 7 days**, **Last month**, **Last year**, or **All**. Click a Watchdog card to select it or an article card to open its stored text; mark matches read or archive them. Filters and selection remain fixed while the article inbox scrolls. The navigation badge counts unread, unarchived matches.
-- Export all filtered articles through the Watchdog actions menu as Markdown, JSON, CSV, or a link list. Exports use the same article schema as Feed, keep the selected filters, and include results beyond the currently loaded page. Articles matching several Watchdogs appear once per export.
-- In the macOS app, open **Settings → Notifications → Enable notifications**, confirm the dialog and grant macOS permission. Multiple matches are grouped per watchdog, with at most three notifications per fetch; all matches remain in the inbox.
-- The first import of a feed stays silent. Known articles are never replayed. Notifications continue when the main window is closed, while the app process is running; quitting the app stops watching.
-
-All rules, matches and reading states stay in the local SQLite database. Watchdog reuses the existing five-minute RSS scheduler. [API and verification details](docs/watchdog.md).
-
-![NO BULLSHIT RSS Watchdog](public/images/mockups/watchdog.webp)
+- Follow RSS feeds in compact or card layouts.
+- Search articles and filter by source, topic or reading list.
+- Group related coverage into daily, weekly and monthly digests.
+- Automatically tag articles with your own topic keywords and filter unwanted coverage with bullshit rules.
+- Track keyword matches in Watchdog, with optional macOS notifications.
+- Save articles to reading lists and dismiss finished articles or stories.
+- Import article links and export results as Markdown, JSON, CSV or link lists.
+- View library statistics in the app or query stored articles, feeds and digests through the CLI.
 
 ## Install
 
@@ -40,40 +32,81 @@ Requires **macOS 13 (Ventura) or newer** on **Apple Silicon (M1 or newer)**.
 
 ### Homebrew
 
-```bash
+```sh
 brew install --cask oliverjessner/tap/no-bullshit-rss
 ```
 
-This installs the app and the `no-bullshit-rss` command.
+Homebrew installs the app and the `no-bullshit-rss` command.
 
 ### Download
 
 1. Download the `.dmg` from the [latest release](https://github.com/oliverjessner/NO-BULLSHIT-RSS/releases/latest).
 2. Open it and drag **NO BULLSHIT RSS** into **Applications**.
-3. Launch the app and add your RSS feeds in **Settings**.
+3. Launch the app and add your feeds under **Settings → RSS Feeds**.
 
-## Screenshots
+## CLI
 
-<details>
-<summary>Monthly digest</summary>
-<br>
+Query stored articles, feeds, topics, reading lists, digests and library statistics from your terminal.
 
-![NO BULLSHIT RSS monthly digest](public/images/mockups/digest_month.webp)
+```sh
+no-bullshit-rss articles last 10 --url --title
+```
 
-</details>
+After installing the app and adding feeds, this prints the URLs and titles of up to ten of the newest stored articles.
+Homebrew makes the command available automatically; DMG users can follow the launcher setup in the guide below.
 
-<details>
-<summary>RSS feed management</summary>
-<br>
+See the [CLI documentation](docs/cli.md) for all commands and options.
 
-![NO BULLSHIT RSS feed settings](public/images/mockups/settings_rss_feeds.webp)
+## Manage your sources
 
-</details>
+Add, test, edit and remove RSS feeds under **Settings → RSS Feeds**.
+Fetch updates immediately with **fetch now**, or let the app refresh your feeds automatically while it runs.
 
-<details>
-<summary>Local topic rules</summary>
-<br>
+![RSS feed settings with the add-feed form, test button and list of saved sources](public/images/mockups/settings_rss_feeds.webp)
 
-![NO BULLSHIT RSS topic settings](public/images/mockups/settings_topics.webp)
+## Browse and save articles
 
-</details>
+Switch between a compact headline list and cards with article previews, then narrow the feed with search and filters.
+Save articles to reading lists for later and dismiss those you have finished.
+
+![Card layout showing article previews, topic labels and Save and Dismiss controls](public/images/mockups/feed_cards.webp)
+
+## Set your own topics and filters
+
+Define topic keywords to tag matching articles automatically, and apply updated topics to articles already in your library.
+Bullshit rules exclude matching articles from Digest; choose **Bullshit: Clean** in Feed to hide them there too.
+
+![Topic settings with keyword fields, saved topics and a control to reclassify existing articles](public/images/mockups/settings_topics.webp)
+
+## Catch up with digests
+
+Choose Day, Week or Month to see related articles grouped into stories across your sources.
+Save a story to a reading list or mark it as digested when you are done.
+
+![Monthly digest grouping related articles into stories with source links and save controls](public/images/mockups/digest_month.webp)
+
+## Follow keyword alerts with Watchdog
+
+Collect keyword matches in a dedicated inbox, with exclusions, feed restrictions and filters for reading state and publication time.
+Enable optional macOS alerts under **Settings → Notifications**; watching continues while the app runs, including with its window closed.
+
+![Watchdog inbox with saved keyword rules, article matches, filters and archive controls](public/images/mockups/watchdog.webp)
+
+## Import links and export results
+
+Paste article URLs or load a plain text link list to add articles outside your RSS feeds.
+Export Feed, Digest or Watchdog results as Markdown, JSON, CSV or a link list, with active Feed and Watchdog filters preserved.
+
+## Who it is for
+
+- Readers following news sites and blogs through RSS.
+- Journalists and researchers tracking keywords across multiple sources.
+- People collecting articles for later reading and exporting selected coverage.
+
+## Changelog
+
+See the [changelog](docs/changelog.md) for release notes and changes.
+
+## License
+
+MIT

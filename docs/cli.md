@@ -1,6 +1,6 @@
 # NO BULLSHIT RSS CLI
 
-The `no-bullshit-rss` CLI reads data already stored by NO BULLSHIT RSS. It does not fetch or configure RSS feeds, start Express, run migrations, or write to the database. SQLite is opened in read-only mode.
+The `no-bullshit-rss` CLI reads data already stored by NO BULLSHIT RSS through a read-only SQLite connection. Watchdog management commands send explicit changes to the running app's local API. The CLI never starts the server, runs migrations, or fetches RSS feeds.
 
 ## DMG installation
 
@@ -221,6 +221,33 @@ When `hasMore` is true, pass the last returned match ID as `--before` for the
 next page. Keep the same `--as-of <Unix milliseconds>` when paging a time range.
 Reading never marks a match read, archives it, sends notifications, or runs a
 Watchdog scan. A database without Watchdog tables requires the app's migration.
+
+Manage Watchdogs through the running app:
+
+```bash
+no-bullshit-rss watchdog create --data '{"name":"GPU news","includeAny":["Nvidia","AMD"],"includeHistory":false}'
+no-bullshit-rss watchdog update 1 --data '{"enabled":false}'
+no-bullshit-rss watchdog update 1 --data '{"includeAll":["GPU"],"exclude":["sponsored"],"feedIds":[2,3]}'
+no-bullshit-rss watchdog set-match 42 --data '{"read":true}'
+no-bullshit-rss watchdog set-match 42 --data '{"archived":true}'
+no-bullshit-rss watchdog notifications on
+no-bullshit-rss watchdog notifications off
+no-bullshit-rss watchdog delete 1
+```
+
+The API validates the same rule fields as the app. Creating with
+`includeHistory: true` explicitly scans existing articles; editing or enabling a
+rule affects future articles. Deleting a rule deletes its matches as in the app.
+`set-match` accepts `read` and/or `archived` booleans, including `false` to undo
+the state. The API defaults to `http://127.0.0.1:1377`; set `NBS_API_URL` to the
+running instance's loopback origin if it uses another port. For example:
+
+```bash
+NBS_API_URL=http://127.0.0.1:1499 no-bullshit-rss watchdog update 1 --data '{"enabled":true}'
+```
+
+Writes target that running instance, while reads use `DB_PATH` or discovery.
+When using several instances, configure both explicitly for the same library.
 
 ## Database discovery
 

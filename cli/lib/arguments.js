@@ -12,6 +12,11 @@ Usage:
   no-bullshit-rss lists [--list <name>]
   no-bullshit-rss watchdog [list|show <id>|match <id>|notifications]
   no-bullshit-rss watchdog matches [--watchdog <id>] [--status all|unread|read] [--archived] [--range 24h|7d|month|year|all] [--limit <1-250>] [--before <id>] [--as-of <milliseconds>]
+  no-bullshit-rss watchdog create --data '<JSON>'
+  no-bullshit-rss watchdog update <id> --data '<JSON>'
+  no-bullshit-rss watchdog delete <id>
+  no-bullshit-rss watchdog set-match <id> --data '{"read":true,"archived":false}'
+  no-bullshit-rss watchdog notifications on|off
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
@@ -95,6 +100,23 @@ function rejectUnknownFlags(flags, allowedFlags) {
 
 function parseWatchdogArgs(args) {
     const [action = 'list', ...flags] = args;
+    if (action === 'notifications' && flags.length === 1 && ['on', 'off'].includes(flags[0])) {
+        return { command: 'watchdog-write', method: 'PATCH', path: '/notifications', body: { enabled: flags[0] === 'on' } };
+    }
+    if (action === 'delete') {
+        if (flags.length !== 1) throw new Error('watchdog delete requires one positive ID.');
+        return { command: 'watchdog-write', method: 'DELETE', path: `/${parseCount(flags[0])}` };
+    }
+    if (['create', 'update', 'set-match'].includes(action)) {
+        const id = action === 'create' ? null : parseCount(flags.shift());
+        if (flags.length !== 2 || flags[0] !== '--data') throw new Error(`watchdog ${action} requires --data '<JSON>'.`);
+        let body;
+        try { body = JSON.parse(flags[1]); } catch { throw new Error('--data must contain valid JSON.'); }
+        if (!body || Array.isArray(body) || typeof body !== 'object' || !Object.keys(body).length) throw new Error('--data must be a non-empty JSON object.');
+        if (Buffer.byteLength(flags[1]) > 100_000) throw new Error('--data is too large.');
+        return { command: 'watchdog-write', method: action === 'create' ? 'POST' : 'PATCH',
+            path: action === 'create' ? '' : action === 'set-match' ? `/matches/${id}` : `/${id}`, body };
+    }
     if (['list', 'notifications'].includes(action)) {
         rejectUnknownFlags(flags, new Set());
         return { command: `watchdog-${action}` };

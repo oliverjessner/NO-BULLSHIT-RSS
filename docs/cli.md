@@ -160,6 +160,16 @@ no-bullshit-rss rss --rss-url
 
 ## Topics and lists
 
+Show the number of stored RSS feeds (also visible in **Settings → RSS Feeds**):
+
+```bash
+no-bullshit-rss rss --amount
+```
+
+This prints a plain integer, including `0` for an empty library. Imported-link
+sources are excluded, just as in the settings feed list. `--amount` and
+`--rss-url` cannot be combined.
+
 Return all stored topic definitions:
 
 ```bash

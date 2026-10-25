@@ -132,6 +132,10 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true, in
 }
 
 test('parses article projections and digest ranges', () => {
+    assert.deepEqual(parseCliArgs(['rss', '--amount']), { command: 'rss', rssUrl: false, amount: true });
+    assert.throws(() => parseCliArgs(['rss', '--amount', '--rss-url']), /Only one/);
+    assert.equal(formatFeeds([], { amount: true }), '0');
+    assert.equal(formatFeeds([{}, {}], { amount: true }), '2');
     assert.deepEqual(parseCliArgs(['--version']), { command: 'version' });
     assert.deepEqual(parseCliArgs(['-v']), { command: 'version' });
     assert.deepEqual(parseCliArgs(['stats']), { command: 'stats', json: false });

@@ -49,6 +49,7 @@ function resetBullshitRuleForm() {
 
 function renderFeeds() {
     const visibleFeeds = store.reference.feeds.filter(feed => !feed.manual);
+    text(dom.settings.feedCount, `Saved RSS feeds: ${visibleFeeds.length.toLocaleString('en-US')}`);
     const fragment = document.createDocumentFragment();
     for (const feed of visibleFeeds) {
         const node = dom.settings.feedTemplate.content.cloneNode(true);

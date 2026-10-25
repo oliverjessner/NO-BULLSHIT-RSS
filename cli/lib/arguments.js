@@ -6,7 +6,7 @@ const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 
 Usage:
   no-bullshit-rss stats [--json]
-  no-bullshit-rss rss [--rss-url]
+  no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
@@ -28,6 +28,7 @@ Commands:
 Options:
   --json                     Print stats as JSON
   --rss-url                  Print one RSS feed URL per line
+  --amount                   Print the number of stored RSS feeds
   --url                      Print one URL per line
   --title, --titles          Print one title per line
   --topic <slug>             Filter newest articles by stored topic slug
@@ -104,10 +105,14 @@ export function parseCliArgs(argv) {
     }
     if (resource === 'rss') {
         const rssFlags = args.slice(1);
-        rejectUnknownFlags(rssFlags, new Set(['--rss-url']));
+        rejectUnknownFlags(rssFlags, new Set(['--rss-url', '--amount']));
+        if (rssFlags.includes('--rss-url') && rssFlags.includes('--amount')) {
+            throw new Error('Only one of --rss-url or --amount may be used.');
+        }
         return {
             command: 'rss',
             rssUrl: rssFlags.includes('--rss-url'),
+            ...(rssFlags.includes('--amount') ? { amount: true } : {}),
         };
     }
     if (resource === 'topics') {

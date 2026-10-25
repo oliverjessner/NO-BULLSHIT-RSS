@@ -40,7 +40,7 @@ export const dom = Object.freeze({
         feedForm: byId('feed-form'), feedName: byId('feed-name'), feedWebsite: byId('feed-website'), feedUrl: byId('feed-url'),
         feedSubmit: byId('feed-submit'), feedCancel: byId('feed-cancel'), feedTest: byId('feed-test'), feedStatus: byId('feed-form-status'),
         feedsState: byId('feeds-state'), feedsList: byId('feeds-list'), feedTemplate: byId('feed-item-template'),
-        fetchStatus: byId('fetch-status'), articleCount: byId('article-count-status'), fetchNow: byId('settings-fetch-now'),
+        fetchStatus: byId('fetch-status'), articleCount: byId('article-count-status'), feedCount: byId('feed-count-status'), fetchNow: byId('settings-fetch-now'),
         listForm: byId('list-form'), listName: byId('list-name'), listDescription: byId('list-description'), listColor: byId('list-color'),
         listSubmit: byId('list-submit'), listCancel: byId('list-cancel'), listStatus: byId('list-form-status'),
         listsState: byId('lists-state'), listsList: byId('lists-list'), listTemplate: byId('list-item-template'),

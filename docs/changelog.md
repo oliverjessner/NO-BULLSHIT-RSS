@@ -1,6 +1,12 @@
 # 1.6.0
 
 - icons for menu buttons
+- Show the number of saved RSS feeds in Settings and through `rss --amount`, excluding imported-link sources.
+- Add Watchdog CLI commands to read and filter rules and matches, create, update and delete rules, change read/archive state, and manage notification preferences through the running app.
+- Add `no-bullshit-rss mcp` with 15 read-only tools for saved articles, feeds, digests, statistics, topics, lists and Watchdogs.
+- Isolate read queries from the app's writable database connection so CLI reads and MCP access remain read-only.
+- Configure weekly Dependabot updates for npm and Cargo dependencies.
+- Backport the GLib `VariantStrIter` security fix (GHSA-wrw7-89jp-8q8g) while retaining compatibility with Tauri's GTK3 dependencies.
 
 # 1.5.0
 

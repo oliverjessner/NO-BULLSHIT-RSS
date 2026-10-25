@@ -8,6 +8,8 @@ import { readStoredFeeds } from './lib/feeds.js';
 import { readRandomStoredArticle, readStoredListArticles, readStoredLists, readStoredTopics } from './lib/library.js';
 import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles, formatStatistics } from './lib/output.js';
 import { openReadOnlyDatabase } from './lib/read-only-database.js';
+import { readStoredWatchdogs, readStoredWatchdog, readStoredWatchdogMatches,
+    readStoredWatchdogMatch, readWatchdogNotificationSettings } from '../backend/services/watchdog-reader.js';
 
 function writeLine(stream, value) {
     stream.write(`${value}\n`);
@@ -56,7 +58,19 @@ export async function runCli(
         database.feedNamesAvailable = feedColumns.some(column => column.name === 'name');
         database.bullshitRulesAvailable = Boolean(await database.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'article_bullshit_matches'"));
 
-        if (command.command === 'stats') {
+        if (command.command.startsWith('watchdog-')) {
+            if (!await database.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'watchdogs'")) {
+                throw new Error('Watchdog schema is missing. Open the updated app to migrate this database.');
+            }
+            let result;
+            if (command.command === 'watchdog-list') result = await readStoredWatchdogs(database);
+            if (command.command === 'watchdog-show') result = await readStoredWatchdog(database, command.id);
+            if (command.command === 'watchdog-match') result = await readStoredWatchdogMatch(database, command.id);
+            if (command.command === 'watchdog-matches') result = await readStoredWatchdogMatches(database, command);
+            if (command.command === 'watchdog-notifications') result = await readWatchdogNotificationSettings(database);
+            if (result === null) throw new Error('Watchdog or match not found.');
+            writeResult(stdout, JSON.stringify(result, null, 2));
+        } else if (command.command === 'stats') {
             writeResult(stdout, formatStatistics(await readStatistics(database), command));
         } else if (command.command === 'rss') {
             const feeds = await readStoredFeeds(database);

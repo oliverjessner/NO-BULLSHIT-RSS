@@ -158,8 +158,6 @@ Print only the RSS feed URLs, one per line:
 no-bullshit-rss rss --rss-url
 ```
 
-## Topics and lists
-
 Show the number of stored RSS feeds (also visible in **Settings → RSS Feeds**):
 
 ```bash
@@ -169,6 +167,8 @@ no-bullshit-rss rss --amount
 This prints a plain integer, including `0` for an empty library. Imported-link
 sources are excluded, just as in the settings feed list. `--amount` and
 `--rss-url` cannot be combined.
+
+## Topics and lists
 
 Return all stored topic definitions:
 
@@ -199,6 +199,28 @@ no-bullshit-rss articles digest 10 --monthly
 ```
 
 If no range is provided, the daily digest is used. The result is a JSON array containing up to the requested number of story clusters.
+
+## Watchdog
+
+Read rules, a single rule, stored matches, a single match or notification settings:
+
+```bash
+no-bullshit-rss watchdog
+no-bullshit-rss watchdog show 1
+no-bullshit-rss watchdog matches --watchdog 1 --status unread --range 7d --limit 50
+no-bullshit-rss watchdog matches --archived
+no-bullshit-rss watchdog match 42
+no-bullshit-rss watchdog notifications
+```
+
+`watchdogs` is an alias for `watchdog`. All results are JSON. Matches default to
+the unarchived inbox, all read states and all dates, newest match ID first.
+`--archived` selects archived matches instead. Ranges are `24h`, `7d`, `month`,
+`year` and `all`, using the app's date filters. `--limit` accepts 1–250 (default 50).
+When `hasMore` is true, pass the last returned match ID as `--before` for the
+next page. Keep the same `--as-of <Unix milliseconds>` when paging a time range.
+Reading never marks a match read, archives it, sends notifications, or runs a
+Watchdog scan. A database without Watchdog tables requires the app's migration.
 
 ## Database discovery
 

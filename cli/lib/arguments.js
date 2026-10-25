@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { WATCHDOG_RANGES } from '../../backend/services/watchdog-filters.js';
 
 export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 
@@ -9,6 +10,8 @@ Usage:
   no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
+  no-bullshit-rss watchdog [list|show <id>|match <id>|notifications]
+  no-bullshit-rss watchdog matches [--watchdog <id>] [--status all|unread|read] [--archived] [--range 24h|7d|month|year|all] [--limit <1-250>] [--before <id>] [--as-of <milliseconds>]
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
@@ -20,6 +23,7 @@ Commands:
   topics                     Show all stored topics
   lists                      Show all stored lists
   lists --list <name>        Show all articles in a named list
+  watchdog                   Read Watchdog rules, matches and notification settings as JSON
   articles last <count>      Show the newest stored articles
   articles random            Show one random stored article
   articles search <count>    Search stored article titles or URLs
@@ -89,6 +93,37 @@ function rejectUnknownFlags(flags, allowedFlags) {
     }
 }
 
+function parseWatchdogArgs(args) {
+    const [action = 'list', ...flags] = args;
+    if (['list', 'notifications'].includes(action)) {
+        rejectUnknownFlags(flags, new Set());
+        return { command: `watchdog-${action}` };
+    }
+    if (['show', 'match'].includes(action)) {
+        if (flags.length !== 1) throw new Error(`watchdog ${action} requires one positive ID.`);
+        return { command: `watchdog-${action}`, id: parseCount(flags[0]) };
+    }
+    if (action !== 'matches') throw new Error(`Unknown watchdog command: ${action}`);
+    const options = { status: 'all', archived: false, range: 'all', limit: 50 };
+    const seen = new Set();
+    for (let index = 0; index < flags.length; index += 1) {
+        const flag = flags[index];
+        if (seen.has(flag)) throw new Error(`Duplicate option: ${flag}`);
+        seen.add(flag);
+        if (flag === '--archived') { options.archived = true; continue; }
+        const key = { '--watchdog': 'watchdogId', '--status': 'status', '--range': 'range', '--limit': 'limit', '--before': 'before', '--as-of': 'asOf' }[flag];
+        if (!key) throw new Error(`Unknown option: ${flag}`);
+        const value = flags[++index];
+        if (!value || value.startsWith('--')) throw new Error(`Missing value after ${flag}.`);
+        options[key] = ['watchdogId', 'limit', 'before', 'asOf'].includes(key) ? parseCount(value) : value;
+    }
+    if (!['all', 'unread', 'read'].includes(options.status)) throw new Error('Invalid Watchdog status.');
+    if (!WATCHDOG_RANGES.includes(options.range)) throw new Error('Invalid Watchdog time range.');
+    if (options.limit > 250) throw new Error('Watchdog limit must be between 1 and 250.');
+    if (options.asOf !== undefined && !Number.isFinite(new Date(options.asOf).getTime())) throw new Error('Invalid Watchdog reference time.');
+    return { command: 'watchdog-matches', ...options };
+}
+
 export function parseCliArgs(argv) {
     const args = Array.isArray(argv) ? argv.map(value => String(value)) : [];
     if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
@@ -99,6 +134,7 @@ export function parseCliArgs(argv) {
     }
 
     const [resource, action, countValue, ...flags] = args;
+    if (resource === 'watchdog' || resource === 'watchdogs') return parseWatchdogArgs(args.slice(1));
     if (resource === 'stats') {
         rejectUnknownFlags(args.slice(1), new Set(['--json']));
         return { command: 'stats', json: args.includes('--json') };

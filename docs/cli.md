@@ -249,6 +249,12 @@ NBS_API_URL=http://127.0.0.1:1499 no-bullshit-rss watchdog update 1 --data '{"en
 Writes target that running instance, while reads use `DB_PATH` or discovery.
 When using several instances, configure both explicitly for the same library.
 
+## Read-only MCP
+
+Run `no-bullshit-rss mcp` from an MCP client's stdio server configuration to
+expose the reading commands as tools. Watchdog management commands are excluded.
+See [MCP setup and tools](mcp.md).
+
 ## Database discovery
 
 The CLI resolves the existing database in this order:

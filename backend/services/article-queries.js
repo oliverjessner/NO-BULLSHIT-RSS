@@ -1,5 +1,5 @@
 import { mapArticleRow } from '../routes/digest.js';
-import { loadBullshitMatchesByArticleIds } from './bullshit-rules.js';
+import { loadBullshitMatchesByArticleIds } from './bullshit-reader.js';
 import { watchdogMatchFilter } from './watchdog-filters.js';
 
 function normalizeArticleIds(value) {

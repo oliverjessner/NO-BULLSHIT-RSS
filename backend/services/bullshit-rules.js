@@ -1,5 +1,6 @@
 import { all, get, run, transaction } from '../database/datenbank.js';
 import { logInfo, logWarn } from '../utils/logger.js';
+import { loadBullshitMatchesByArticleIds as readBullshitMatches } from './bullshit-reader.js';
 
 export const BULLSHIT_RULE_FIELDS = Object.freeze(['title', 'teaser', 'url', 'source']);
 export const BULLSHIT_RULE_OPERATORS = Object.freeze(['contains', 'not_contains', 'equals', 'regex']);
@@ -251,31 +252,7 @@ export async function deleteBullshitRule(id) {
     return result.changes > 0;
 }
 
-function chunkArray(items, size = 400) {
-    const chunks = [];
-    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-    return chunks;
-}
-
 export async function loadBullshitMatchesByArticleIds(articleIds, database = { all }) {
-    const ids = [...new Set((Array.isArray(articleIds) ? articleIds : []).map(Number).filter(id => Number.isInteger(id) && id > 0))];
-    const matches = new Map();
-    for (const chunk of chunkArray(ids)) {
-        const rows = await database.all(
-            `SELECT article_bullshit_matches.articleId, bullshit_rules.id, bullshit_rules.name
-             FROM article_bullshit_matches
-             JOIN bullshit_rules ON bullshit_rules.id = article_bullshit_matches.ruleId
-             WHERE article_bullshit_matches.articleId IN (SELECT value FROM json_each(?))
-             ORDER BY bullshit_rules.id ASC`,
-            [JSON.stringify(chunk)],
-        );
-        for (const row of rows) {
-            const articleId = Number(row.articleId);
-            const current = matches.get(articleId) || [];
-            current.push({ id: Number(row.id), name: row.name });
-            matches.set(articleId, current);
-        }
-    }
-    return matches;
+    return readBullshitMatches(articleIds, database);
 }
 

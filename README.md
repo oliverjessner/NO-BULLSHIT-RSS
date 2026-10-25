@@ -57,6 +57,9 @@ Homebrew makes the command available automatically; DMG users can follow the lau
 
 See the [CLI documentation](docs/cli.md) for all commands and options.
 
+Use `no-bullshit-rss mcp` to read saved articles, digests and Watchdog matches
+from an MCP client. See the [MCP setup](docs/mcp.md) for configuration and tools.
+
 ## Manage your sources
 
 Add, test, edit and remove RSS feeds under **Settings → RSS Feeds**.

@@ -6,6 +6,7 @@ export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json',
 const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 
 Usage:
+  no-bullshit-rss mcp
   no-bullshit-rss stats [--json]
   no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
@@ -23,6 +24,7 @@ Usage:
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
 
 Commands:
+  mcp                        Serve read-only library tools over MCP stdio
   stats                      Show article totals and top 10 feeds and topics
   rss                        Show all stored RSS feeds
   topics                     Show all stored topics
@@ -133,8 +135,9 @@ function parseWatchdogArgs(args) {
         if (seen.has(flag)) throw new Error(`Duplicate option: ${flag}`);
         seen.add(flag);
         if (flag === '--archived') { options.archived = true; continue; }
-        const key = { '--watchdog': 'watchdogId', '--status': 'status', '--range': 'range', '--limit': 'limit', '--before': 'before', '--as-of': 'asOf' }[flag];
-        if (!key) throw new Error(`Unknown option: ${flag}`);
+        const keyByFlag = { '--watchdog': 'watchdogId', '--status': 'status', '--range': 'range', '--limit': 'limit', '--before': 'before', '--as-of': 'asOf' };
+        if (!Object.hasOwn(keyByFlag, flag)) throw new Error(`Unknown option: ${flag}`);
+        const key = keyByFlag[flag];
         const value = flags[++index];
         if (!value || value.startsWith('--')) throw new Error(`Missing value after ${flag}.`);
         options[key] = ['watchdogId', 'limit', 'before', 'asOf'].includes(key) ? parseCount(value) : value;

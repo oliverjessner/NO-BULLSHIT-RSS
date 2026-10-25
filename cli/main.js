@@ -8,6 +8,7 @@ import { readStoredFeeds } from './lib/feeds.js';
 import { readRandomStoredArticle, readStoredListArticles, readStoredLists, readStoredTopics } from './lib/library.js';
 import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles, formatStatistics } from './lib/output.js';
 import { openReadOnlyDatabase } from './lib/read-only-database.js';
+import { writeWatchdog } from './lib/watchdog-api.js';
 import { readStoredWatchdogs, readStoredWatchdog, readStoredWatchdogMatches,
     readStoredWatchdogMatch, readWatchdogNotificationSettings } from '../backend/services/watchdog-reader.js';
 
@@ -35,6 +36,7 @@ export async function runCli(
         discoverDatabase = discoverDatabasePath,
         openDatabase = openReadOnlyDatabase,
         chooseArticle = chooseArticleInteractively,
+        fetchApi = fetch,
     } = {},
 ) {
     let database;
@@ -47,6 +49,11 @@ export async function runCli(
         }
         if (command.command === 'version') {
             writeLine(stdout, CLI_VERSION);
+            return exitCode;
+        }
+
+        if (command.command === 'watchdog-write') {
+            writeResult(stdout, JSON.stringify(await writeWatchdog(command, { env, fetchApi }), null, 2));
             return exitCode;
         }
 

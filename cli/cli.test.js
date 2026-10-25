@@ -167,12 +167,35 @@ test('Watchdog CLI filters and paginates stored matches without writing', async 
     } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('Watchdog CLI rejects writes, invalid filters and unbounded queries', () => {
-    for (const args of [ ['delete', '1'], ['matches', '--limit', '251'], ['matches', '--before', '0'],
+test('Watchdog CLI rejects malformed writes, invalid filters and unbounded queries', () => {
+    for (const args of [ ['delete', '0'], ['update', '1', '--data', 'null'], ['create', '--data', '{}'], ['matches', '--limit', '251'], ['matches', '--before', '0'],
         ['matches', '--status', 'pending'], ['matches', '--range', 'today'], ['matches', '--watchdog'],
         ['matches', '--limit', '2', '--limit', '3'], ['show', '1 OR 1=1'] ]) {
         assert.throws(() => parseCliArgs(['watchdog', ...args]));
     }
+});
+
+test('Watchdog management uses the running local API without opening a database', async () => {
+    const requests = [];
+    const options = {
+        stdout: createCaptureStream(), stderr: createCaptureStream(), env: { NBS_API_URL: 'http://127.0.0.1:1499' },
+        discoverDatabase: () => { throw new Error('Writes must not discover SQLite'); },
+        fetchApi: async (url, init) => {
+            requests.push({ url: String(url), ...init });
+            return new Response(JSON.stringify({ watchdog: { id: 1 } }), { status: 200 });
+        },
+    };
+    assert.equal(await runCli(['watchdog', 'create', '--data', '{"name":"GPU","includeAny":["AMD"]}'], options), 0);
+    assert.equal(requests[0].url, 'http://127.0.0.1:1499/api/watchdogs');
+    assert.equal(requests[0].method, 'POST');
+    assert.deepEqual(JSON.parse(requests[0].body).includeAny, ['AMD']);
+    assert.equal(await runCli(['watchdog', 'set-match', '42', '--data', '{"read":true}'], options), 0);
+    assert.equal(requests[1].url, 'http://127.0.0.1:1499/api/watchdogs/matches/42');
+    assert.equal(requests[1].redirect, 'error');
+    const stderr = createCaptureStream();
+    assert.equal(await runCli(['watchdog', 'delete', '1'], { ...options, stderr, env: { NBS_API_URL: 'https://example.com' } }), 1);
+    assert.match(stderr.read(), /loopback HTTP origin/);
+    assert.equal(requests.length, 2);
 });
 
 test('parses article projections and digest ranges', () => {

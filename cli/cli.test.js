@@ -25,7 +25,7 @@ function createCaptureStream() {
     };
 }
 
-async function createFixtureDatabase(databasePath, { includeFeedNames = true, includeBullshitRules = false } = {}) {
+async function createFixtureDatabase(databasePath, { includeFeedNames = true, includeBullshitRules = false, includeWatchdogs = false } = {}) {
     const database = await new Promise((resolve, reject) => {
         const connection = new sqlite3.Database(databasePath, error => {
             if (error) reject(error);
@@ -52,6 +52,7 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true, in
     if (includeBullshitRules) {
         await exec(await readFile(new URL('../migrations/0003_bullshit_rules.sql', import.meta.url), 'utf8'));
     }
+    if (includeWatchdogs) await exec(await readFile(new URL('../migrations/0006_watchdogs.sql', import.meta.url), 'utf8'));
 
     const now = new Date();
     const newestTimestamp = new Date(now.getTime() - 60_000).toISOString();
@@ -128,8 +129,51 @@ async function createFixtureDatabase(databasePath, { includeFeedNames = true, in
             INSERT INTO article_topics (articleId, topicId, score, matchedTermsJson, classificationVersion, createdAt)
                 VALUES (1, 1, 10, '{}', 'test', datetime('now')), (3, 1, 10, '{}', 'test', datetime('now'));`);
     }
+    if (includeWatchdogs) {
+        await exec(`INSERT INTO watchdogs (id, name, includeAnyJson, startArticleId, createdAt, updatedAt)
+            VALUES (1, 'GPU', '["Nvidia"]', 0, datetime('now'), datetime('now'));
+            INSERT INTO watchdog_matches (id, watchdogId, articleId, matchedAt, readAt, archivedAt, historical, notificationState)
+            VALUES (1, 1, 1, datetime('now'), NULL, NULL, 1, 'skipped'),
+                   (2, 1, 2, datetime('now'), datetime('now'), NULL, 0, 'claimed'),
+                   (3, 1, 3, datetime('now'), NULL, datetime('now'), 0, 'skipped');`);
+    }
     return { close };
 }
+
+test('Watchdog CLI filters and paginates stored matches without writing', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'nbs-watchdog-cli-'));
+    const databasePath = path.join(directory, 'data-v2.db');
+    try {
+        const fixture = await createFixtureDatabase(databasePath, { includeWatchdogs: true });
+        await fixture.close();
+        const before = await readFile(databasePath);
+        const read = async args => {
+            const stdout = createCaptureStream(), stderr = createCaptureStream();
+            assert.equal(await runCli(['watchdog', ...args], { stdout, stderr, env: { DB_PATH: databasePath } }), 0, stderr.read());
+            return JSON.parse(stdout.read());
+        };
+        assert.equal((await read([]))[0].unreadCount, 1);
+        assert.deepEqual((await read(['show', '1'])).includeAny, ['Nvidia']);
+        const first = await read(['matches', '--limit', '1']);
+        assert.deepEqual(first.matches.map(match => match.id), [2]);
+        assert.equal(first.hasMore, true);
+        assert.deepEqual((await read(['matches', '--before', '2'])).matches.map(match => match.id), [1]);
+        assert.deepEqual((await read(['matches', '--status', 'unread'])).matches.map(match => match.id), [1]);
+        assert.deepEqual((await read(['matches', '--archived'])).matches.map(match => match.id), [3]);
+        assert.deepEqual((await read(['matches', '--watchdog', '2'])).matches, []);
+        assert.equal((await read(['match', '3'])).notificationState, 'skipped');
+        assert.deepEqual(await read(['notifications']), { enabled: false });
+        assert.deepEqual(await readFile(databasePath), before);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('Watchdog CLI rejects writes, invalid filters and unbounded queries', () => {
+    for (const args of [ ['delete', '1'], ['matches', '--limit', '251'], ['matches', '--before', '0'],
+        ['matches', '--status', 'pending'], ['matches', '--range', 'today'], ['matches', '--watchdog'],
+        ['matches', '--limit', '2', '--limit', '3'], ['show', '1 OR 1=1'] ]) {
+        assert.throws(() => parseCliArgs(['watchdog', ...args]));
+    }
+});
 
 test('parses article projections and digest ranges', () => {
     assert.deepEqual(parseCliArgs(['rss', '--amount']), { command: 'rss', rssUrl: false, amount: true });

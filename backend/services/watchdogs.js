@@ -1,6 +1,7 @@
 import { all, get, run, transaction } from '../database/datenbank.js';
 import { publish } from './events.js';
-import { watchdogMatchFilter } from './watchdog-filters.js';
+import { readStoredWatchdogs, readStoredWatchdog, readWatchdogNotificationSettings,
+    readStoredWatchdogMatches, readStoredWatchdogMatch } from './watchdog-reader.js';
 
 const normalize = value => String(value ?? '').normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim();
 const maxArticleId = async () => Number((await get('SELECT COALESCE(MAX(id), 0) AS id FROM articles')).id);
@@ -16,13 +17,6 @@ export function matchesWatchdog(article, rule) {
     return (!rule.includeAny.length || rule.includeAny.some(term => text.includes(normalize(term))))
         && rule.includeAll.every(term => text.includes(normalize(term)))
         && !rule.exclude.some(term => text.includes(normalize(term)));
-}
-
-function mapWatchdog(row) {
-    if (!row) return null;
-    const { includeAnyJson, includeAllJson, excludeJson, feedIdsJson, ...rest } = row;
-    return { ...rest, enabled: Boolean(row.enabled), includeAny: JSON.parse(includeAnyJson), includeAll: JSON.parse(includeAllJson),
-        exclude: JSON.parse(excludeJson), feedIds: JSON.parse(feedIdsJson), unreadCount: Number(row.unreadCount || 0) };
 }
 
 function validateRule(input) {
@@ -48,10 +42,9 @@ async function checkFeeds(ids) {
 }
 
 export async function listWatchdogs() {
-    const rows = await all(`SELECT w.*, (SELECT COUNT(*) FROM watchdog_matches m WHERE m.watchdogId = w.id AND m.readAt IS NULL AND m.archivedAt IS NULL) AS unreadCount FROM watchdogs w ORDER BY w.id`);
-    return rows.map(mapWatchdog);
+    return readStoredWatchdogs({ all });
 }
-export async function getWatchdog(id) { return mapWatchdog(await get('SELECT * FROM watchdogs WHERE id = ?', [id])); }
+export async function getWatchdog(id) { return readStoredWatchdog({ get }, id); }
 
 export async function createWatchdog(input) {
     const rule = validateRule({ enabled: true, includeAny: [], includeAll: [], exclude: [], feedIds: [], ...input });
@@ -114,7 +107,7 @@ async function scanArticles(watchdog, after, through, notificationState, histori
 }
 
 export async function notificationSettings() {
-    return { enabled: (await get("SELECT value FROM app_metadata WHERE key = 'watchdog.notifications'"))?.value === '1' };
+    return readWatchdogNotificationSettings({ get });
 }
 export async function setNotificationSettings(enabled) {
     await run("UPDATE app_metadata SET value = ?, updatedAt = datetime('now') WHERE key = 'watchdog.notifications'", [enabled ? '1' : '0']);
@@ -166,13 +159,8 @@ export async function dispatchWatchdogNotifications(send, { maxNotifications = 3
     return batches.length;
 }
 
-export async function listMatches({ before, limit = 50, ...filters } = {}) {
-    const { where, params } = watchdogMatchFilter(filters);
-    if (before) { where.push('m.id < ?'); params.push(before); }
-    const matches = await all(`${selectMatches} WHERE ${where.join(' AND ')} ORDER BY m.id DESC LIMIT ?`, [...params, limit + 1]);
-    return { matches: matches.slice(0, limit), hasMore: matches.length > limit };
-}
-export async function getMatch(id) { return (await get(`${selectMatches} WHERE m.id = ?`, [id])) || null; }
+export async function listMatches(options) { return readStoredWatchdogMatches({ all }, options); }
+export async function getMatch(id) { return readStoredWatchdogMatch({ get }, id); }
 export async function updateMatch(id, input) {
     const assignments = [], params = [];
     if (Object.hasOwn(input, 'read')) { assignments.push("readAt = CASE WHEN ? THEN datetime('now') ELSE NULL END"); params.push(Number(input.read)); }

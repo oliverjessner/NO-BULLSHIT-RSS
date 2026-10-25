@@ -22,6 +22,10 @@ tauri-plugin-notification = "=2.7.0"
 [dev-dependencies]
 tauri = { version = "=2.12.3", features = ["test"] }
 
+# GTK3 requires GLib 0.18; backport GHSA-wrw7-89jp-8q8g until it can upgrade.
+[patch.crates-io]
+glib = { path = "vendor/glib" }
+
 [profile.release]
 strip = true
 lto = true

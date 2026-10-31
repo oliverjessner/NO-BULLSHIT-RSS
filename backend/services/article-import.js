@@ -77,11 +77,26 @@ async function loadImportFeedIndex() {
     return index;
 }
 
+async function loadExistingImportUrls() {
+    // Older releases only removed a short, case-sensitive tracking list and
+    // re-encoded query values. Recognize both stored forms during upgrades.
+    const rows = await all('SELECT id, canonicalUrl, url FROM articles ORDER BY id');
+    const index = new Map();
+    for (const row of rows) {
+        for (const value of [row.canonicalUrl, row.url]) {
+            const canonicalUrl = cleanHttpUrl(value);
+            if (canonicalUrl && !index.has(canonicalUrl)) index.set(canonicalUrl, { id: Number(row.id) });
+        }
+    }
+    return index;
+}
+
 export async function importArticlesFromUrls(values) {
     const inputs = Array.isArray(values) ? values : [];
     const result = { received: inputs.length, imported: 0, duplicates: 0, invalid: 0, failed: 0, articleIds: [], issues: [] };
     const seen = new Set();
     const feedByDomain = await loadImportFeedIndex();
+    let existingImportUrls;
 
     for (let index = 0; index < inputs.length; index += 1) {
         const url = normalizeImportUrl(inputs[index]);
@@ -97,7 +112,11 @@ export async function importArticlesFromUrls(values) {
         }
         seen.add(canonicalUrl);
 
-        const existing = await get('SELECT id FROM articles WHERE canonicalUrl = ? ORDER BY id ASC LIMIT 1', [canonicalUrl]);
+        let existing = await get('SELECT id FROM articles WHERE canonicalUrl = ? ORDER BY id ASC LIMIT 1', [canonicalUrl]);
+        if (!existing) {
+            existingImportUrls ??= await loadExistingImportUrls();
+            existing = existingImportUrls.get(canonicalUrl);
+        }
         if (existing) {
             result.duplicates += 1;
             result.articleIds.push(Number(existing.id));

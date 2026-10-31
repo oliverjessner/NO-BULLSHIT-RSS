@@ -145,3 +145,20 @@ test('prefers a website-domain match over another feeds shared RSS host', async 
     const article = await database.get('SELECT feedId FROM articles WHERE id = ?', [result.articleIds[0]]);
     assert.equal(Number(article.feedId), Number(priorityFeed.lastID));
 });
+
+test('Linkary upgrades recognize legacy tracking and query encoding without duplicating imported articles', async () => {
+    for (const [cleanUrl, oldCanonical, oldUrl] of [
+        ['https://legacy-linkary.test/story?id=42', 'https://legacy-linkary.test/story?id=42&msclkid=old', 'https://legacy-linkary.test/story?id=42&msclkid=old#top'],
+        ['https://legacy-linkary.test/search?q=a%20b', 'https://legacy-linkary.test/search?q=a+b', 'https://legacy-linkary.test/search?q=a%20b&UTM_Source=old'],
+    ]) {
+        const original = await importArticlesFromUrls([cleanUrl]);
+        const id = original.articleIds[0];
+        await database.run('UPDATE articles SET canonicalUrl = ?, url = ?, externalId = ? WHERE id = ?', [oldCanonical, oldUrl, oldCanonical, id]);
+        const before = (await database.get('SELECT COUNT(*) AS count FROM articles')).count;
+        const duplicate = await importArticlesFromUrls([cleanUrl]);
+        assert.equal(duplicate.imported, 0);
+        assert.equal(duplicate.duplicates, 1);
+        assert.deepEqual(duplicate.articleIds, [id]);
+        assert.equal((await database.get('SELECT COUNT(*) AS count FROM articles')).count, before);
+    }
+});

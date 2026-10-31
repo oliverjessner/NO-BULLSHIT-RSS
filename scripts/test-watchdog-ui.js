@@ -33,6 +33,8 @@ try {
     });
     await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
     database(`await db.initSchema();
+        const { DEFAULT_FEEDS_MARKER } = await import('./scripts/default-feeds.js');
+        await db.run("INSERT INTO app_metadata (key,value,updatedAt) VALUES (?, '1', datetime('now'))", [DEFAULT_FEEDS_MARKER]);
         await db.exec("INSERT INTO sources (name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES ('Research feed','https://example.test','https://example.test/',datetime('now'),datetime('now')); INSERT INTO feeds (sourceId,name,feedUrl,watchdogInitializedAt,createdAt,updatedAt) VALUES (1,'Research feed','https://example.test/rss',datetime('now'),datetime('now'),datetime('now'));");
         for (const [index, title] of ['OpenAI research in Europe','Anthropic research report','Sponsored OpenAI research'].entries()) {
             await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (1,?,?,?,?,'https://example.test/article','fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [String(index),title,'A local research summary.','Stored research article content.']);
@@ -321,7 +323,7 @@ try {
     const preference = async () => (await (await page.request.get(`${origin}/api/watchdogs/notifications`)).json()).enabled;
     async function allowNotifications(expectedStatus) {
         await enable.click();
-        await desktop.getByRole('button', { name: 'Allow notifications', exact: true }).click();
+        await desktop.locator('dialog[open]').getByRole('button', { name: 'Allow notifications', exact: true }).click();
         await desktop.waitForFunction(expected => document.querySelector('#watchdog-notification-status').textContent.startsWith(expected), expectedStatus);
         await desktop.waitForFunction(() => !document.querySelector('#watchdog-notifications').disabled);
     }
@@ -356,6 +358,18 @@ try {
     assert.equal(await enable.textContent(), 'Disable notifications');
     assert.match(await status.textContent(), /^Notifications enabled/);
     assert.deepEqual(await desktop.evaluate(() => window.permissionCalls), [{ request: true }], 'Granting permission must not immediately invoke native permission again');
+    // A previously saved preference can outlive macOS permission state. The UI
+    // must offer authorization again instead of reporting that banners work.
+    await desktop.evaluate(() => { window.permissionResult = 'prompt'; });
+    await desktop.locator('[data-view="main"]').click();
+    await desktop.locator('[data-view="settings"]').click();
+    await desktop.waitForFunction(() => document.querySelector('#watchdog-notification-status').textContent.startsWith('macOS permission is missing.'));
+    assert.equal(await enable.textContent(), 'Allow notifications');
+    assert.equal(await preference(), true);
+    await desktop.evaluate(() => { window.permissionResult = 'granted'; window.permissionCalls = []; });
+    await allowNotifications('Notifications enabled.');
+    assert.equal(await preference(), true);
+    assert.deepEqual(await desktop.evaluate(() => window.permissionCalls), [{ request: true }]);
     await enable.click();
     await waitFor(async () => !await preference(), 'disable notifications');
     await desktop.evaluate(() => { window.permissionResult = 'unavailable'; });

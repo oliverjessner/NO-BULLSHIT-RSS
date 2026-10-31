@@ -1,6 +1,13 @@
 use serde::Deserialize;
 use std::sync::Mutex;
+#[cfg(target_os = "macos")]
+use std::{
+    ffi::{CStr, CString},
+    os::raw::c_char,
+    sync::OnceLock,
+};
 use tauri::{AppHandle, Manager};
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_notification::NotificationExt;
 
 #[derive(Default)]
@@ -33,7 +40,9 @@ impl Notice {
             && notice.watchdog_id > 0
             && !notice.name.trim().is_empty()
             && notice.name.len() <= 800
+            && !notice.name.contains('\0')
             && notice.title.len() <= 4000
+            && !notice.title.contains('\0')
             && notice.count > 0)
             .then_some(notice)
     }
@@ -49,6 +58,25 @@ impl Notice {
 #[cfg(target_os = "macos")]
 unsafe extern "C" {
     fn nbs_notification_permission(request: bool) -> i32;
+    fn nbs_notification_setup(open_target: extern "C" fn(i64));
+    fn nbs_notification_send(
+        title: *const c_char,
+        body: *const c_char,
+        match_id: i64,
+        error: *mut c_char,
+        error_size: usize,
+    ) -> bool;
+}
+
+#[cfg(target_os = "macos")]
+static NOTIFICATION_APP: OnceLock<AppHandle> = OnceLock::new();
+
+#[cfg(target_os = "macos")]
+extern "C" fn notification_open_target(id: i64) {
+    if let Some(app) = NOTIFICATION_APP.get() {
+        // open_target schedules all window work on AppKit's main thread.
+        open_target(app, id);
+    }
 }
 
 fn permission(request: bool) -> String {
@@ -98,6 +126,7 @@ pub fn open_target(app: &AppHandle, id: i64) {
     });
 }
 
+#[cfg(any(not(target_os = "macos"), test))]
 fn action_target(action: &tauri_plugin_notification::ActionPerformed) -> Option<i64> {
     if action.action_id() != "tap" {
         return None;
@@ -111,29 +140,68 @@ fn action_target(action: &tauri_plugin_notification::ActionPerformed) -> Option<
 }
 
 pub fn setup(app: &AppHandle) -> tauri_plugin_notification::Result<()> {
-    let handle = app.clone();
-    app.notification().on_action(move |action| {
-        if let Some(id) = action_target(action) {
-            open_target(&handle, id);
-        }
-    })
+    #[cfg(target_os = "macos")]
+    {
+        NOTIFICATION_APP.get_or_init(|| app.clone());
+        unsafe { nbs_notification_setup(notification_open_target) };
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let handle = app.clone();
+        app.notification().on_action(move |action| {
+            if let Some(id) = action_target(action) {
+                open_target(&handle, id);
+            }
+        })
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_notice(_app: &AppHandle, notice: &Notice) -> Result<(), String> {
+    let title =
+        CString::new(format!("Watchdog: {}", notice.name)).map_err(|error| error.to_string())?;
+    let body = CString::new(notice.body()).map_err(|error| error.to_string())?;
+    let mut error = [0 as c_char; 1024];
+    let accepted = unsafe {
+        nbs_notification_send(
+            title.as_ptr(),
+            body.as_ptr(),
+            notice.match_id,
+            error.as_mut_ptr(),
+            error.len(),
+        )
+    };
+    if accepted {
+        Ok(())
+    } else {
+        Err(unsafe { CStr::from_ptr(error.as_ptr()) }
+            .to_string_lossy()
+            .into_owned())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_notice(app: &AppHandle, notice: &Notice) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(format!("Watchdog: {}", notice.name))
+        .body(notice.body())
+        .extra("watchdogMatchId", notice.match_id)
+        .show()
+        .map_err(|error| error.to_string())
 }
 
 pub fn dispatch(app: &AppHandle, line: &str) {
     let Some(notice) = Notice::parse(line) else {
         return;
     };
-    if permission(false) != "granted" {
+    let permission = permission(false);
+    if permission != "granted" {
+        eprintln!("Watchdog notification skipped: native permission is {permission}");
         return;
     }
-    if let Err(error) = app
-        .notification()
-        .builder()
-        .title(format!("Watchdog: {}", notice.name))
-        .body(notice.body())
-        .extra("watchdogMatchId", notice.match_id)
-        .show()
-    {
+    if let Err(error) = show_notice(app, &notice) {
         eprintln!("Watchdog notification failed: {error}");
     }
 }
@@ -194,6 +262,8 @@ mod tests {
             "NBS_DESKTOP_READY".into(),
             "NBS_DESKTOP_EVENT {}".into(),
             line(1, 1).replace("watchdog.notification", "other"),
+            line(1, 1).replace("News", "News\\u0000"),
+            line(1, 1).replace("Article", "Article\\u0000"),
         ] {
             assert!(Notice::parse(&invalid).is_none());
         }

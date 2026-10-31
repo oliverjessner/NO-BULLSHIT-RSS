@@ -2,7 +2,7 @@ import { api } from '../api/client.js';
 import { isDesktop, invokeDesktop } from './desktop.js';
 import { confirmDialog } from '../ui/design-system.js';
 import { toast } from '../ui/toast.js';
-import { enableWatchdogNotifications } from '../utils/watchdog.js';
+import { enableWatchdogNotifications, watchdogNotificationStatus } from '../utils/watchdog.js';
 
 const byId = id => document.getElementById(id);
 let initialized = false;
@@ -21,13 +21,11 @@ export async function refreshWatchdogNotifications({ permission: knownPermission
     if (request !== refreshId) return;
     cachedPermission = permission;
     unavailable = permission === 'unavailable';
+    const status = watchdogNotificationStatus({ desktop: isDesktop, enabled, permission });
     button.dataset.enabled = String(enabled);
-    button.textContent = enabled ? 'Disable notifications' : 'Enable notifications';
-    button.disabled = !isDesktop || (!enabled && permission === 'unavailable');
-    byId('watchdog-notification-status').textContent = !isDesktop ? 'Native notifications are available in the macOS app.'
-        : permission === 'unavailable' ? 'Notifications require the bundled macOS app. Open NO BULLSHIT RSS.app to enable them.'
-        : enabled && permission === 'denied' ? 'Blocked by macOS. Allow notifications for NO BULLSHIT RSS in System Settings.'
-        : enabled ? 'Notifications enabled. The app keeps watching when its window is closed.' : 'Notifications are off. Matches are still saved locally.';
+    button.textContent = status.label;
+    button.disabled = status.disabled;
+    byId('watchdog-notification-status').textContent = status.message;
 }
 async function toggleNotifications() {
     const trigger = byId('watchdog-notifications');
@@ -35,7 +33,7 @@ async function toggleNotifications() {
     busy = true; ++refreshId;
     trigger.disabled = true;
     try {
-        if (trigger.dataset.enabled === 'true') {
+        if (trigger.dataset.enabled === 'true' && cachedPermission !== 'prompt') {
             await api.setWatchdogNotifications(false);
             await refreshWatchdogNotifications({ force: true });
             return;

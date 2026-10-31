@@ -7,6 +7,7 @@
 - Seed the 40 production RSS feeds on new or incomplete installations while preserving existing preferences and later deletions.
 - Include the 13 production Bullshit rules for new installations and add missing defaults without changing existing rule preferences.
 - Clean saved and displayed feed, website and article URLs with Linkary, removing tracking parameters and fragments while retaining functional query parameters.
+- Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
 
 # 1.6.0
 

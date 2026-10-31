@@ -1,3 +1,7 @@
+# 1.7.0
+
+- Update Tauri's opener to 2.7.2 (Dependabot #14).
+
 # 1.6.0
 
 - icons for menu buttons

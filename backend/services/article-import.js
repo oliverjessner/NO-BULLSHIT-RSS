@@ -1,6 +1,7 @@
 import { all, get, run } from '../database/datenbank.js';
 import { canonicalizeArticleUrl } from '../routes/digest.js';
 import { ingestArticle } from './article-ingest.js';
+import { cleanHttpUrl } from '../utils/url.js';
 
 export const MANUAL_IMPORT_FEED_PREFIX = 'nbs-import:';
 
@@ -9,16 +10,7 @@ export function isManualImportFeedUrl(value) {
 }
 
 export function normalizeImportUrl(value) {
-    const text = String(value || '').trim();
-    if (!text || text.length > 2_048) return null;
-    try {
-        const url = new URL(text);
-        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
-        url.hash = '';
-        return url.toString();
-    } catch {
-        return null;
-    }
+    return cleanHttpUrl(value);
 }
 
 export function normalizeImportDomain(value) {

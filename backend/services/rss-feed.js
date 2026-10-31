@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { decodeBuffer, detectEncoding } from '../utils/encoding.js';
+import { cleanHttpUrl } from '../utils/url.js';
 
 const headers = {
     'User-Agent': 'no-bullshit-rss',
@@ -25,6 +26,8 @@ function httpError(status) {
 }
 
 export async function fetchRssFeed(url, { timeoutMs = 10_000, retries = 2, fetchImpl = fetch } = {}) {
+    url = cleanHttpUrl(url);
+    if (!url) throw new RssFeedError('Invalid HTTP(S) feed URL');
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
         const controller = new AbortController();

@@ -246,7 +246,7 @@ function bindFeedActions() {
     dom.settings.feedTest.addEventListener('click', async () => {
         const url = dom.settings.feedUrl.value.trim(); if (!url) { text(dom.settings.feedStatus, 'Please enter a feed URL.'); return; }
         dom.settings.feedTest.disabled = true; text(dom.settings.feedStatus, 'Testing feed…');
-        try { const result = await api.testFeed(url); text(dom.settings.feedStatus, `OK: ${result.itemCount} Items. ${result.sampleTitles?.length ? `Examples: ${result.sampleTitles.join(' · ')}` : ''}`); }
+        try { const result = await api.testFeed(url); if (result.url) dom.settings.feedUrl.value = result.url; text(dom.settings.feedStatus, `OK: ${result.itemCount} Items. ${result.sampleTitles?.length ? `Examples: ${result.sampleTitles.join(' · ')}` : ''}`); }
         catch (error) { text(dom.settings.feedStatus, `Error: ${error.message}`); }
         finally { dom.settings.feedTest.disabled = false; }
     });

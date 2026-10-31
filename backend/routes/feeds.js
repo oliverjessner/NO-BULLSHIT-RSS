@@ -2,7 +2,7 @@ import express from 'express';
 import { all, get, run, transaction } from '../database/datenbank.js';
 import { auth } from '../middleware/auth.js';
 import { positiveIdParamsSchema, requestSchema as schema } from '../middleware/validate-request.js';
-import { isValidUrl } from '../utils/validation.js';
+import { cleanHttpUrl } from '../utils/url.js';
 import { fetchRssFeed } from '../services/rss-feed.js';
 import { fetchSiteLogo } from '../services/logo.js';
 import { publish } from '../services/events.js';
@@ -34,7 +34,19 @@ const feedSelect = `SELECT feeds.id, feeds.sourceId, feeds.feedUrl, feeds.create
 function mapFeed(feed) {
     const logoDataUrl = feed.logo && feed.logoMime ? `/api/feeds/${encodeURIComponent(feed.id)}/logo` : null;
     const { logo, logoMime, ...rest } = feed;
-    return { ...rest, manual: isManualImportFeedUrl(feed.feedUrl), logoDataUrl };
+    const manual = isManualImportFeedUrl(feed.feedUrl);
+    return { ...rest, websiteUrl: cleanHttpUrl(rest.websiteUrl), feedUrl: manual ? rest.feedUrl : cleanHttpUrl(rest.feedUrl), manual, logoDataUrl };
+}
+
+async function findDuplicateFeed(feedUrl, exceptId = null) {
+    const feeds = await all('SELECT id, feedUrl FROM feeds');
+    return feeds.find(feed => Number(feed.id) !== Number(exceptId) && cleanHttpUrl(feed.feedUrl) === feedUrl);
+}
+
+function cleanFeedUrls(websiteUrl, feedUrl) {
+    const cleaned = { websiteUrl: cleanHttpUrl(websiteUrl), feedUrl: cleanHttpUrl(feedUrl) };
+    if (!cleaned.websiteUrl || !cleaned.feedUrl) throw new Error('Invalid URL format');
+    return cleaned;
 }
 
 async function upsertSource({ name, websiteUrl, logoBuffer, logoMime }) {
@@ -51,6 +63,7 @@ async function upsertSource({ name, websiteUrl, logoBuffer, logoMime }) {
 }
 
 export async function createFeedRecord({ name, websiteUrl, feedUrl, logoBuffer = null, logoMime = null }) {
+    ({ websiteUrl, feedUrl } = cleanFeedUrls(websiteUrl, feedUrl));
     return transaction(async () => {
         const source = await upsertSource({ name, websiteUrl, logoBuffer, logoMime });
         const result = await run(
@@ -63,6 +76,7 @@ export async function createFeedRecord({ name, websiteUrl, feedUrl, logoBuffer =
 }
 
 export async function updateFeedRecord({ id, name, websiteUrl, feedUrl, logoBuffer = null, logoMime = null }) {
+    ({ websiteUrl, feedUrl } = cleanFeedUrls(websiteUrl, feedUrl));
     return transaction(async () => {
         const source = await upsertSource({ name, websiteUrl, logoBuffer, logoMime });
         return run(
@@ -94,17 +108,18 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
     });
 
     router.post('/', auth, schema.validate({ body: feedBodySchema }), async (req, res) => {
-        const { name, websiteUrl, feedUrl } = req.body || {};
+        const { name, websiteUrl: rawWebsiteUrl, feedUrl: rawFeedUrl } = req.body || {};
+        const websiteUrl = cleanHttpUrl(rawWebsiteUrl), feedUrl = cleanHttpUrl(rawFeedUrl);
         let logoBuffer = null;
         let logoMime = null;
 
-        if (!name || !websiteUrl || !feedUrl) {
+        if (!name || !rawWebsiteUrl || !rawFeedUrl) {
             return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
         }
-        if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
+        if (!websiteUrl || !feedUrl) {
             return res.status(400).json({ error: 'Invalid URL format' });
         }
-        if (await get('SELECT id FROM feeds WHERE feedUrl = ?', [feedUrl])) {
+        if (await findDuplicateFeed(feedUrl)) {
             return res.status(409).json({ error: 'Feed URL already exists' });
         }
         try {
@@ -128,16 +143,17 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
 
     router.put('/:id', auth, schema.validate({ params: positiveIdParamsSchema, body: feedBodySchema }), async (req, res) => {
         const { id } = req.params;
-        const { name, websiteUrl, feedUrl } = req.body || {};
+        const { name, websiteUrl: rawWebsiteUrl, feedUrl: rawFeedUrl } = req.body || {};
+        const websiteUrl = cleanHttpUrl(rawWebsiteUrl), feedUrl = cleanHttpUrl(rawFeedUrl);
         const existing = await get(`${feedSelect} WHERE feeds.id = ? AND ? = ?`, [id, req.auth.ownerId, 'local-owner']);
 
-        if (!name || !websiteUrl || !feedUrl) {
+        if (!name || !rawWebsiteUrl || !rawFeedUrl) {
             return res.status(400).json({ error: 'name, websiteUrl, and feedUrl are required' });
         }
-        if (!isValidUrl(websiteUrl) || !isValidUrl(feedUrl)) {
+        if (!websiteUrl || !feedUrl) {
             return res.status(400).json({ error: 'Invalid URL format' });
         }
-        const duplicate = await get('SELECT id FROM feeds WHERE feedUrl = ? AND id <> ?', [feedUrl, id]);
+        const duplicate = await findDuplicateFeed(feedUrl, id);
         if (duplicate) return res.status(409).json({ error: 'Feed URL already exists' });
         try {
             await fetchRssFeed(feedUrl);
@@ -183,8 +199,9 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
         return res.status(204).end();
     });
 
-    router.get('/test/url', auth, schema.validate({ query: feedTestQuerySchema }), async ({ query: { url } }, res) => {
-        if (!isValidUrl(url)) {
+    router.get('/test/url', auth, schema.validate({ query: feedTestQuerySchema }), async ({ query: { url: rawUrl } }, res) => {
+        const url = cleanHttpUrl(rawUrl);
+        if (!url) {
             return res.status(400).json({ error: 'Invalid URL format' });
         }
 
@@ -195,7 +212,7 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
                 .map(item => item.title)
                 .filter(Boolean);
 
-            return res.json({ title: feed.title || null, itemCount: (feed.items || []).length, sampleTitles: titles });
+            return res.json({ url, title: feed.title || null, itemCount: (feed.items || []).length, sampleTitles: titles });
         } catch (err) {
             return res.status(400).json({ error: err.message });
         }

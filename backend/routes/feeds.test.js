@@ -133,3 +133,45 @@ test.after(async () => {
     await database.closeDatabase();
     await rm(testDirectory, { recursive: true, force: true });
 });
+
+test('feed records clean website and RSS tracking links while retaining functional parameters', async () => {
+    const id = await createFeedRecord({
+        name: 'Clean feed',
+        websiteUrl: 'https://clean.example/?utm_source=RSS#top',
+        feedUrl: 'https://clean.example/rss?feed=technology&utm_campaign=tracked#feed',
+    });
+    const row = await database.get(`SELECT feeds.feedUrl, sources.websiteUrl FROM feeds
+        JOIN sources ON sources.id = feeds.sourceId WHERE feeds.id = ?`, [id]);
+    assert.deepEqual(row, { feedUrl: 'https://clean.example/rss?feed=technology', websiteUrl: 'https://clean.example/' });
+    await updateFeedRecord({ id, name: 'Clean feed', websiteUrl: 'https://clean.example/#top', feedUrl: 'https://clean.example/rss?feed=science&fbclid=1#comments' });
+    assert.equal((await database.get('SELECT feedUrl FROM feeds WHERE id = ?', [id])).feedUrl, 'https://clean.example/rss?feed=science');
+});
+
+test('feed test and duplicate checks use the cleaned URL, including older saved tracking links', async () => {
+    const { createFeedsRouter } = await import('./feeds.js');
+    const { createServer } = await import('node:http');
+    const { default: express } = await import('express');
+    const fixture = createServer((req, res) => {
+        if (req.url !== '/rss?feed=tech') { res.writeHead(400); res.end(); return; }
+        res.setHeader('Content-Type', 'application/rss+xml');
+        res.end('<rss version="2.0"><channel><title>Clean</title><link>https://clean.example/</link><description>Clean</description></channel></rss>');
+    });
+    await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${fixture.address().port}/rss?feed=tech`;
+    const app = express(); app.use(express.json()); app.use('/api/feeds', createFeedsRouter({ fetchLogo: async () => null }));
+    const server = createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${server.address().port}/api/feeds`;
+    try {
+        const response = await fetch(`${base}/test/url?url=${encodeURIComponent(`${url}&UTM_Source=RSS#top`)}`);
+        assert.equal(response.status, 200);
+        assert.equal((await response.json()).url, url);
+        const id = await createFeedRecord({ name: 'Legacy tracked', websiteUrl: 'https://legacy-clean.example/', feedUrl: url });
+        await database.run('UPDATE feeds SET feedUrl = ? WHERE id = ?', [`${url}&utm_source=old`, id]);
+        const duplicate = await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Duplicate', websiteUrl: 'https://legacy-clean.example/', feedUrl: `${url}#top` }) });
+        assert.equal(duplicate.status, 409);
+    } finally {
+        await new Promise(resolve => server.close(resolve));
+        await new Promise(resolve => fixture.close(resolve));
+    }
+});

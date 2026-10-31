@@ -1,4 +1,5 @@
 import simhashPkg from '@biu/simhash';
+import { cleanHttpUrl } from '../utils/url.js';
 
 const { simhash, similarity } = simhashPkg;
 
@@ -149,7 +150,7 @@ export function mapArticleRow(row) {
             ? `data:${row.sourceLogoMime};base64,${row.sourceLogo.toString('base64')}`
             : null;
     const { sourceLogo, sourceLogoMime, hasSourceLogo, ...rest } = row;
-    return { ...rest, sourceLogoDataUrl: logoDataUrl };
+    return { ...rest, ...('url' in rest ? { url: cleanHttpUrl(rest.url) } : {}), sourceLogoDataUrl: logoDataUrl };
 }
 
 function getStartOfDay(referenceDate = new Date()) {
@@ -296,24 +297,7 @@ function toTimestampMs(value) {
 }
 
 export function canonicalizeArticleUrl(value) {
-    if (!value) {
-        return null;
-    }
-
-    try {
-        const url = new URL(String(value));
-        url.hash = '';
-        url.searchParams.delete('utm_source');
-        url.searchParams.delete('utm_medium');
-        url.searchParams.delete('utm_campaign');
-        url.searchParams.delete('utm_term');
-        url.searchParams.delete('utm_content');
-        url.searchParams.delete('gclid');
-        url.searchParams.delete('fbclid');
-        return url.toString();
-    } catch {
-        return null;
-    }
+    return cleanHttpUrl(value);
 }
 
 function getTokenOverlapScore(leftSet, rightSet) {

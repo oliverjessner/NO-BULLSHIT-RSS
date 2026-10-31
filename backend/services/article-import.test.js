@@ -31,6 +31,7 @@ test.after(async () => {
 
 test('normalizes only public-style HTTP(S) article URLs', () => {
     assert.equal(normalizeImportUrl(' https://example.com/story#comments '), 'https://example.com/story');
+    assert.equal(normalizeImportUrl('https://example.com/story?id=42&UTM_Source=rss#comments'), 'https://example.com/story?id=42');
     assert.equal(normalizeImportUrl('ftp://example.com/story'), null);
     assert.equal(normalizeImportUrl('not a url'), null);
     assert.equal(normalizeImportUrl('https://user:secret@example.com/story'), null);

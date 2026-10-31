@@ -49,7 +49,8 @@
         "json-rules-engine": "^7.3.1",
         "oj-designsystem": "0.2.1",
         "fetchary": "2.0.7",
-        "rss-parser": "^3.13.0"
+        "rss-parser": "^3.13.0",
+        "linkary": "https://codeload.github.com/oliverjessner/linkary/tar.gz/c467cacaf0048992178188e411aed129d968622f"
     },
     "allowScripts": {
         "@vscode/sqlite3": true

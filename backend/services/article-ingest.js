@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { cleanHttpUrl } from '../utils/url.js';
 import { get, run, transaction } from '../database/datenbank.js';
 import { canonicalizeArticleUrl, createDigestFingerprint } from '../routes/digest.js';
 import { getDigestPeriodsForArticle, getDigestTimezone, isPeriodInsideRebuildWindow } from './digest-periods.js';
@@ -50,7 +51,7 @@ export function normalizeIncomingArticle(input, { fetchedAt = new Date().toISOSt
         title: cleanText(input.title, 1_000),
         teaser: cleanText(input.teaser || input.summary || input.description || input.contentSnippet, 2_000),
         content: cleanText(input.content || input.body || input.description || input.summary, 20_000),
-        url: input.url ? String(input.url).trim() : null,
+        url: cleanHttpUrl(input.url),
         publishedAt: toIsoDate(input.publishedAt || input.isoDate || input.pubDate || input.published, normalizedFetchedAt),
         fetchedAt: normalizedFetchedAt,
     };

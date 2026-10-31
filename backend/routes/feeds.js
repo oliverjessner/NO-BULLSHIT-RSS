@@ -3,7 +3,7 @@ import { all, get, run, transaction } from '../database/datenbank.js';
 import { auth } from '../middleware/auth.js';
 import { positiveIdParamsSchema, requestSchema as schema } from '../middleware/validate-request.js';
 import { isValidUrl } from '../utils/validation.js';
-import Parser from 'rss-parser';
+import { fetchRssFeed } from '../services/rss-feed.js';
 import { fetchSiteLogo } from '../services/logo.js';
 import { publish } from '../services/events.js';
 import { isManualImportFeedUrl } from '../services/article-import.js';
@@ -26,23 +26,6 @@ const feedTestQuerySchema = {
     },
     additionalProperties: true,
 };
-const parser = new Parser({
-    timeout: 8000,
-    headers: {
-        'User-Agent': 'rss-parser',
-        Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
-    },
-});
-
-async function isFeedReachable(url) {
-    try {
-        await parser.parseURL(url);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 const feedSelect = `SELECT feeds.id, feeds.sourceId, feeds.feedUrl, feeds.createdAt, feeds.updatedAt,
     COALESCE(NULLIF(feeds.name, ''), sources.name) AS name,
     sources.websiteUrl, sources.logo, sources.logoMime
@@ -124,9 +107,10 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
         if (await get('SELECT id FROM feeds WHERE feedUrl = ?', [feedUrl])) {
             return res.status(409).json({ error: 'Feed URL already exists' });
         }
-        const reachable = await isFeedReachable(feedUrl);
-        if (!reachable) {
-            return res.status(400).json({ error: 'Feed URL not reachable' });
+        try {
+            await fetchRssFeed(feedUrl);
+        } catch (error) {
+            return res.status(400).json({ error: error.message });
         }
 
         const logo = await fetchLogo(websiteUrl);
@@ -155,9 +139,10 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
         }
         const duplicate = await get('SELECT id FROM feeds WHERE feedUrl = ? AND id <> ?', [feedUrl, id]);
         if (duplicate) return res.status(409).json({ error: 'Feed URL already exists' });
-        const reachable = await isFeedReachable(feedUrl);
-        if (!reachable) {
-            return res.status(400).json({ error: 'Feed URL not reachable' });
+        try {
+            await fetchRssFeed(feedUrl);
+        } catch (error) {
+            return res.status(400).json({ error: error.message });
         }
         if (!existing) {
             return res.status(404).json({ error: 'Feed not found' });
@@ -204,7 +189,7 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
         }
 
         try {
-            const feed = await parser.parseURL(url);
+            const feed = await fetchRssFeed(url);
             const titles = (feed.items || [])
                 .slice(0, 3)
                 .map(item => item.title)
@@ -212,7 +197,7 @@ export function createFeedsRouter({ fetchLogo = fetchSiteLogo } = {}) {
 
             return res.json({ title: feed.title || null, itemCount: (feed.items || []).length, sampleTitles: titles });
         } catch (err) {
-            return res.status(400).json({ error: 'Feed not reachable or invalid RSS' });
+            return res.status(400).json({ error: err.message });
         }
     });
 

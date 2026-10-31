@@ -1,16 +1,13 @@
-import Parser from 'rss-parser';
 import { all } from '../database/datenbank.js';
 import { ingestArticle } from './article-ingest.js';
 import { ensureRebuildWindowDigestPeriods, generateDirtyDigestPeriods } from './digest-store.js';
 import { logInfo, logWarn, logError } from '../utils/logger.js';
 import { publish } from './events.js';
-import { decodeBuffer, detectEncoding } from '../utils/encoding.js';
+import { fetchRssFeed } from './rss-feed.js';
 import { MANUAL_IMPORT_FEED_PREFIX } from './article-import.js';
 import { refreshAllFeedLogos } from './logo.js';
 import { processWatchdogArticles, dispatchWatchdogNotifications } from './watchdogs.js';
 import { sendDesktopNotification } from './desktop-events.js';
-
-const parser = new Parser({ timeout: 8000 });
 
 let lastFetchStatus = {
     at: null,
@@ -21,29 +18,6 @@ let lastFetchStatus = {
 
 export function getLastFetchStatus() {
     return lastFetchStatus;
-}
-
-async function fetchWithRetry(url, { timeoutMs = 10000, retries = 2 } = {}) {
-    let lastError;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const arrayBuffer = await res.arrayBuffer();
-            const contentType = res.headers.get('content-type') || '';
-            const snippet = Buffer.from(arrayBuffer).subarray(0, 512).toString('utf-8');
-            const encoding = detectEncoding(contentType, snippet);
-            const text = decodeBuffer(arrayBuffer, encoding);
-            return text;
-        } catch (err) {
-            lastError = err;
-        } finally {
-            clearTimeout(timeout);
-        }
-    }
-    throw lastError;
 }
 
 let activeFetch = null;
@@ -66,8 +40,7 @@ async function fetchFeeds({ refreshLogos = refreshAllFeedLogos, notify = sendDes
             const feedStart = Date.now();
 
             try {
-                const xml = await fetchWithRetry(feed.feedUrl, { timeoutMs: 10000, retries: 2 });
-                const parsed = await parser.parseString(xml);
+                const parsed = await fetchRssFeed(feed.feedUrl);
                 fetchedFeedIds.push(feed.id);
                 let newCount = 0;
                 const fetchedAt = new Date().toISOString();

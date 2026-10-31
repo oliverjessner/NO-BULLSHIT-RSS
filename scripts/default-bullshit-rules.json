@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Black Friday",
+    "field": "title",
+    "operator": "contains",
+    "value": "Black Friday",
+    "enabled": 1
+  },
+  {
+    "name": "Sponsored",
+    "field": "title",
+    "operator": "contains",
+    "value": "Sponsored",
+    "enabled": 1
+  },
+  {
+    "name": "Deals",
+    "field": "url",
+    "operator": "contains",
+    "value": "/deals/",
+    "enabled": 1
+  },
+  {
+    "name": "Anzeige",
+    "field": "title",
+    "operator": "contains",
+    "value": "Anzeige:",
+    "enabled": 1
+  },
+  {
+    "name": "Coupon",
+    "field": "title",
+    "operator": "contains",
+    "value": "coupon",
+    "enabled": 1
+  },
+  {
+    "name": "Promo Code",
+    "field": "title",
+    "operator": "contains",
+    "value": "promo code",
+    "enabled": 1
+  },
+  {
+    "name": "Anzeige: (Teaser)",
+    "field": "teaser",
+    "operator": "contains",
+    "value": "Anzeige:",
+    "enabled": 1
+  },
+  {
+    "name": "Fritzbox (Title)",
+    "field": "title",
+    "operator": "contains",
+    "value": "Fritzbox",
+    "enabled": 1
+  },
+  {
+    "name": "Fritzbox (Teaser)",
+    "field": "teaser",
+    "operator": "contains",
+    "value": "Fritzbox",
+    "enabled": 1
+  },
+  {
+    "name": "Promo Codes (Title)",
+    "field": "title",
+    "operator": "contains",
+    "value": "Promo Codes",
+    "enabled": 1
+  },
+  {
+    "name": "Promo Codes (Teaser)",
+    "field": "teaser",
+    "operator": "contains",
+    "value": "Promo Codes",
+    "enabled": 1
+  },
+  {
+    "name": "Coupons: (Title)",
+    "field": "title",
+    "operator": "contains",
+    "value": "Coupons:",
+    "enabled": 1
+  },
+  {
+    "name": "Coupons: (Teaser)",
+    "field": "teaser",
+    "operator": "contains",
+    "value": "Coupons:",
+    "enabled": 1
+  }
+]

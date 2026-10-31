@@ -121,7 +121,7 @@ async function prepareLockedDesktop() {
             });
         }
         await mkdir(path.join(staged, 'scripts'));
-        for (const file of ['scripts/init-db.js', 'scripts/default-feeds.js', 'scripts/sources.json', 'topics.rules.json', 'LICENSE']) {
+        for (const file of ['scripts/init-db.js', 'scripts/default-feeds.js', 'scripts/sources.json', 'scripts/default-bullshit-rules.js', 'scripts/default-bullshit-rules.json', 'topics.rules.json', 'LICENSE']) {
             await copyFile(path.join(root, file), path.join(staged, file));
         }
         await copyFile(license, path.join(staged, 'NODE-LICENSE'));

@@ -5,6 +5,7 @@
 - Keep Compact feed rows at their content height when scrolling or switching layouts.
 - Share RSS decoding and validation across Settings and scheduled imports and report publisher access blocks such as VentureBeat's HTTP 429.
 - Seed the 40 production RSS feeds on new or incomplete installations while preserving existing preferences and later deletions.
+- Include the 13 production Bullshit rules for new installations and add missing defaults without changing existing rule preferences.
 
 # 1.6.0
 

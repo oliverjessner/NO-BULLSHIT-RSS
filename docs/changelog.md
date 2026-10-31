@@ -4,6 +4,7 @@
 - Update the cc build dependency to 1.10.0 (Dependabot #21).
 - Keep Compact feed rows at their content height when scrolling or switching layouts.
 - Share RSS decoding and validation across Settings and scheduled imports and report publisher access blocks such as VentureBeat's HTTP 429.
+- Seed the 40 production RSS feeds on new or incomplete installations while preserving existing preferences and later deletions.
 
 # 1.6.0
 

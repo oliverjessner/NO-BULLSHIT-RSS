@@ -3,67 +3,433 @@
         "name": "golem",
         "url": "https://www.golem.de/",
         "hasFeed": true,
-        "feeds": ["https://rss.golem.de/rss.php?feed=RSS2.0"]
+        "feeds": [
+            {
+                "name": "golem",
+                "url": "https://rss.golem.de/rss.php?feed=RSS2.0"
+            }
+        ]
     },
     {
         "name": "heise-ix",
         "url": "https://www.heise.de/ix",
         "hasFeed": true,
-        "feeds": ["https://www.heise.de/ix/feed.xml"]
+        "feeds": [
+            {
+                "name": "heise-ix",
+                "url": "https://www.heise.de/ix/feed.xml"
+            }
+        ]
     },
     {
         "name": "techcrunch",
         "url": "https://techcrunch.com/",
         "hasFeed": true,
-        "feeds": ["https://techcrunch.com/feed/"]
+        "feeds": [
+            {
+                "name": "techcrunch",
+                "url": "https://techcrunch.com/feed/"
+            }
+        ]
     },
     {
         "name": "derstandard",
         "url": "https://www.derstandard.at/web",
         "hasFeed": true,
-        "feeds": ["https://www.derstandard.at/rss/web"]
+        "feeds": [
+            {
+                "name": "derstandard",
+                "url": "https://www.derstandard.at/rss/web"
+            }
+        ]
     },
     {
         "name": "sueddeutsche-wirtschaft",
         "url": "https://www.sueddeutsche.de/wirtschaft",
         "hasFeed": true,
-        "feeds": ["https://rss.sueddeutsche.de/rss/Wirtschaft?format=rss"]
+        "feeds": [
+            {
+                "name": "sueddeutsche-wirtschaft",
+                "url": "https://rss.sueddeutsche.de/rss/Wirtschaft?format=rss"
+            }
+        ]
     },
     {
         "name": "gizmodo",
         "url": "https://gizmodo.com/tech",
         "hasFeed": true,
-        "feeds": ["https://gizmodo.com/rss"]
+        "feeds": [
+            {
+                "name": "gizmodo",
+                "url": "https://gizmodo.com/rss"
+            }
+        ]
     },
     {
         "name": "tomshardware",
         "url": "https://www.tomshardware.com/",
         "hasFeed": true,
-        "feeds": ["https://www.tomshardware.com/feeds/all"]
+        "feeds": [
+            {
+                "name": "tomshardware",
+                "url": "https://www.tomshardware.com/feeds/all"
+            }
+        ]
     },
     {
         "name": "absatzwirtschaft",
         "url": "https://www.absatzwirtschaft.de/",
         "hasFeed": true,
-        "feeds": ["https://www.absatzwirtschaft.de/feed"]
+        "feeds": [
+            {
+                "name": "absatzwirtschaft",
+                "url": "https://www.absatzwirtschaft.de/feed"
+            }
+        ]
     },
-
     {
         "name": "404media",
         "url": "https://www.404media.co/",
         "hasFeed": true,
-        "feeds": ["https://www.404media.co/rss"]
+        "feeds": [
+            {
+                "name": "404media",
+                "url": "https://www.404media.co/rss"
+            }
+        ]
     },
     {
         "name": "omgubuntu",
         "url": "https://www.omgubuntu.co.uk/",
         "hasFeed": true,
-        "feeds": ["http://feeds.feedburner.com/d0od?format=xml"]
+        "feeds": [
+            {
+                "name": "omgubuntu",
+                "url": "http://feeds.feedburner.com/d0od?format=xml"
+            }
+        ]
     },
     {
         "name": "linux-magazine",
         "url": "https://www.linux-magazine.com/",
         "hasFeed": true,
-        "feeds": ["https://www.linux-magazine.com/rss/feed/lmi_news"]
+        "feeds": [
+            {
+                "name": "linux-magazine",
+                "url": "https://www.linux-magazine.com/rss/feed/lmi_news"
+            }
+        ]
+    },
+    {
+        "name": "businessinsider Tech",
+        "url": "https://www.businessinsider.de/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "businessinsider Tech",
+                "url": "https://www.businessinsider.de/tech/feed/"
+            },
+            {
+                "name": "businessinsider Startup",
+                "url": "https://www.businessinsider.de/wirtschaft/startups/feed/"
+            }
+        ]
+    },
+    {
+        "name": "arstechnica",
+        "url": "https://arstechnica.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "arstechnica",
+                "url": "https://feeds.arstechnica.com/arstechnica/index"
+            }
+        ]
+    },
+    {
+        "name": "computerbase",
+        "url": "https://www.computerbase.de",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "computerbase",
+                "url": "https://www.computerbase.de/rss/news.xml"
+            }
+        ]
+    },
+    {
+        "name": "netzpolitik",
+        "url": "https://netzpolitik.org/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "netzpolitik",
+                "url": "https://netzpolitik.org/feed/"
+            }
+        ]
+    },
+    {
+        "name": "WIRED",
+        "url": "https://www.wired.com/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "WIRED",
+                "url": "https://www.wired.com/feed/rss"
+            }
+        ]
+    },
+    {
+        "name": "The Verge",
+        "url": "https://www.theverge.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "The Verge",
+                "url": "https://www.theverge.com/rss/index.xml"
+            }
+        ]
+    },
+    {
+        "name": "engadget",
+        "url": "https://www.engadget.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "engadget",
+                "url": "https://www.engadget.com/rss.xml"
+            }
+        ]
+    },
+    {
+        "name": "IEEE",
+        "url": "https://spectrum.ieee.org",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "IEEE",
+                "url": "https://spectrum.ieee.org/feeds/feed.rss"
+            }
+        ]
+    },
+    {
+        "name": "github",
+        "url": "https://github.blog/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "github",
+                "url": "https://github.blog/feed/"
+            }
+        ]
+    },
+    {
+        "name": "9to5mac",
+        "url": "https://9to5mac.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "9to5mac",
+                "url": "https://9to5mac.com/feed/"
+            }
+        ]
+    },
+    {
+        "name": "openai",
+        "url": "https://openai.com/news/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "openai",
+                "url": "https://openai.com/news/rss.xml"
+            }
+        ]
+    },
+    {
+        "name": "IGN Nintendo",
+        "url": "https://de.ign.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "IGN Nintendo",
+                "url": "https://de.ign.com/nintendo.xml"
+            }
+        ]
+    },
+    {
+        "name": "oliverjessner",
+        "url": "https://oliverjessner.at/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "oliverjessner",
+                "url": "https://oliverjessner.at/feed.xml"
+            }
+        ]
+    },
+    {
+        "name": "www.zdnet.com",
+        "url": "https://www.zdnet.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "www.zdnet.com",
+                "url": "https://www.zdnet.com/rss/news/"
+            }
+        ]
+    },
+    {
+        "name": "MIT Technology Review",
+        "url": "https://www.technologyreview.com/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "MIT Technology Review",
+                "url": "https://www.technologyreview.com/feed/"
+            }
+        ]
+    },
+    {
+        "name": "winfuture",
+        "url": "https://winfuture.de/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "winfuture",
+                "url": "https://static.winfuture.de/feeds/WinFuture-News-rss2.0.xml"
+            }
+        ]
+    },
+    {
+        "name": "heise-online",
+        "url": "https://www.heise.de/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "heise-online",
+                "url": "https://www.heise.de/newsticker/heise-atom.xml"
+            }
+        ]
+    },
+    {
+        "name": "t3n",
+        "url": "https://t3n.de",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "t3n",
+                "url": "https://t3n.de/rss.xml"
+            }
+        ]
+    },
+    {
+        "name": "Spiegel Netzwelt",
+        "url": "https://www.spiegel.de",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "Spiegel Netzwelt",
+                "url": "https://www.spiegel.de/netzwelt/index.rss"
+            }
+        ]
+    },
+    {
+        "name": "handelsblatt technologie",
+        "url": "https://handelsblatt.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "handelsblatt technologie",
+                "url": "https://feeds.cms.handelsblatt.com/technologie"
+            }
+        ]
+    },
+    {
+        "name": "bloomberg tếch",
+        "url": "https://www.bloomberg.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "bloomberg tech",
+                "url": "https://www.bloomberg.com/feeds/technology/news.rss"
+            }
+        ]
+    },
+    {
+        "name": "futurezone",
+        "url": "https://futurezone.at",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "futurezone",
+                "url": "https://futurezone.at/xml/rss"
+            }
+        ]
+    },
+    {
+        "name": "brutkasten",
+        "url": "https://brutkasten.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "brutkasten",
+                "url": "https://brutkasten.com/feed/"
+            }
+        ]
+    },
+    {
+        "name": "projectzero google",
+        "url": "https://projectzero.google",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "projectzero google",
+                "url": "https://projectzero.google/feed.xml"
+            }
+        ]
+    },
+    {
+        "name": "computerwoche",
+        "url": "https://www.computerwoche.de",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "computerwoche",
+                "url": "https://www.computerwoche.de/feed"
+            }
+        ]
+    },
+    {
+        "name": "deutsche startups",
+        "url": "https://www.deutsche-startups.de",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "deutsche startups",
+                "url": "https://www.deutsche-startups.de/feed/"
+            }
+        ]
+    },
+    {
+        "name": "bleepingcomputer",
+        "url": "https://www.bleepingcomputer.com/",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "bleepingcomputer",
+                "url": "https://www.bleepingcomputer.com/feed/"
+            }
+        ]
+    },
+    {
+        "name": "cloudflare",
+        "url": "https://blog.cloudflare.com",
+        "hasFeed": true,
+        "feeds": [
+            {
+                "name": "cloudflare",
+                "url": "https://blog.cloudflare.com/rss/"
+            }
+        ]
     }
 ]

@@ -1,5 +1,7 @@
 import { loadTopicsByArticleIds } from './article-queries.js';
 import { getDigestPeriodDefinition, getDigestTimezone } from './digest-periods.js';
+import { cleanHttpUrl } from '../utils/url.js';
+import { readMostReadRankings } from './most-read-reader.js';
 
 export async function loadActiveClusters(period, database) {
     if (!period?.activeGenerationId) return [];
@@ -46,7 +48,7 @@ export async function loadActiveClusters(period, database) {
             });
         }
         const article = {
-            id: Number(row.id), feedId: Number(row.feedId), title: row.title, teaser: row.teaser, url: row.url,
+            id: Number(row.id), feedId: Number(row.feedId), title: row.title, teaser: row.teaser, url: cleanHttpUrl(row.url),
             publishedAt: row.publishedAt, guidOrHash: row.guidOrHash, sourceName: row.sourceName,
             sourceLogoDataUrl: row.hasSourceLogo ? `/api/feeds/${encodeURIComponent(row.feedId)}/logo` : null,
             topics: topicsByArticleId.get(Number(row.id)) || [],
@@ -80,5 +82,6 @@ export async function readStoredDigestPayload(type = 'day', database, referenceD
         totalArticles: clusters.reduce((sum, cluster) => sum + cluster.items.length, 0),
         totalClusters: clusters.length,
         clusters,
+        rankings: await readMostReadRankings(database),
     };
 }

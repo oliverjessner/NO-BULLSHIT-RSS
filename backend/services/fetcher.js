@@ -8,6 +8,7 @@ import { MANUAL_IMPORT_FEED_PREFIX } from './article-import.js';
 import { refreshAllFeedLogos } from './logo.js';
 import { processWatchdogArticles, dispatchWatchdogNotifications } from './watchdogs.js';
 import { sendDesktopNotification } from './desktop-events.js';
+import { refreshMostReadRankings } from './most-read.js';
 
 let lastFetchStatus = {
     at: null,
@@ -26,7 +27,7 @@ export function updateAllFeeds(options = {}) {
     return activeFetch;
 }
 
-async function fetchFeeds({ refreshLogos = refreshAllFeedLogos, notify = sendDesktopNotification } = {}) {
+async function fetchFeeds({ refreshLogos = refreshAllFeedLogos, notify = sendDesktopNotification, refreshRankings = refreshMostReadRankings } = {}) {
     const start = Date.now();
     const feeds = await all('SELECT * FROM feeds WHERE feedUrl NOT LIKE ? ORDER BY id', [`${MANUAL_IMPORT_FEED_PREFIX}%`]);
     let totalNew = 0;
@@ -93,6 +94,11 @@ async function fetchFeeds({ refreshLogos = refreshAllFeedLogos, notify = sendDes
             logWarn('Watchdog processing failed', { error: error.message });
         }
         await refreshLogos({ missingOnly: true });
+        try {
+            await refreshRankings();
+        } catch (error) {
+            logWarn('Publisher rankings update failed', { error: error.message });
+        }
         await ensureRebuildWindowDigestPeriods();
         await generateDirtyDigestPeriods();
     } catch (err) {

@@ -25,7 +25,7 @@
         "desktop:prepare": "node scripts/prepare-desktop.js",
         "test:desktop": "node --test scripts/desktop.test.js && cargo test --manifest-path src-tauri/Cargo.toml",
         "dev:server": "node --watch backend/server.js",
-        "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/logo.test.js backend/services/rss-feed.test.js backend/services/watchdogs.test.js backend/routes/watchdogs.test.js backend/services/statistics.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js backend/routes/digest-filters.test.js cli/*.test.js public/js/utils/*.test.js scripts/*.test.js",
+        "test": "node --test backend/database/migrations.test.js backend/middleware/validate-request.test.js backend/services/topics.test.js backend/services/topics-persistence.test.js backend/services/bullshit-rules.test.js backend/services/article-import.test.js backend/services/logo.test.js backend/services/rss-feed.test.js backend/services/golem-rankings.test.js backend/services/most-read.test.js backend/services/watchdogs.test.js backend/routes/watchdogs.test.js backend/services/statistics.test.js backend/services/digest-periods.test.js backend/services/digest-store.test.js backend/routes/articles-triage.test.js backend/routes/feeds.test.js backend/routes/digest-filters.test.js cli/*.test.js public/js/utils/*.test.js scripts/*.test.js",
         "test:watchdog-ui": "node scripts/test-watchdog-ui.js",
         "test:topics": "node --test backend/services/topics.test.js",
         "db:init": "node scripts/init-db.js",
@@ -48,9 +48,10 @@
         "iconv-lite": "^0.7.3",
         "json-rules-engine": "^7.3.1",
         "oj-designsystem": "0.2.1",
-        "fetchary": "2.0.7",
+        "fetchary": "2.1.1",
         "rss-parser": "^3.13.0",
-        "linkary": "https://codeload.github.com/oliverjessner/linkary/tar.gz/c467cacaf0048992178188e411aed129d968622f"
+        "linkary": "https://codeload.github.com/oliverjessner/linkary/tar.gz/c467cacaf0048992178188e411aed129d968622f",
+        "linkedom": "0.18.13"
     },
     "allowScripts": {
         "@vscode/sqlite3": true

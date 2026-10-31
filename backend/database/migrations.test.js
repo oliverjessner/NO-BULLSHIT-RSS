@@ -27,6 +27,7 @@ test('applies versioned migrations in order and only once', async () => {
             { version: '0005_unified_digest_filters.sql' },
             { version: '0006_watchdogs.sql' },
             { version: '0007_watchdog_export_index.sql' },
+            { version: '0008_most_read.sql' },
         ],
     );
 
@@ -46,7 +47,7 @@ test('applies versioned migrations in order and only once', async () => {
 
     await database.initSchema();
 
-    assert.deepEqual(await database.get('SELECT COUNT(*) AS count FROM schema_migrations'), { count: 7 });
+    assert.deepEqual(await database.get('SELECT COUNT(*) AS count FROM schema_migrations'), { count: 8 });
     assert.deepEqual(await database.get('PRAGMA integrity_check'), { integrity_check: 'ok' });
     assert.deepEqual(await database.all('PRAGMA foreign_key_check'), []);
 });

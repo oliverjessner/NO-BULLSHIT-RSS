@@ -90,6 +90,51 @@ html {
     inline-size: 100%;
 }
 
+.digest-rankings {
+    display: grid;
+    gap: var(--oj-space-2);
+    margin-block-end: var(--oj-space-6);
+    min-inline-size: 0;
+}
+
+.digest-rankings[hidden] { display: none; }
+.digest-rankings-title, .digest-rankings-note, .digest-ranking-title, .digest-ranking-captured { margin: 0; }
+.digest-rankings-note, .digest-ranking-captured { font-size: var(--oj-text-xs); line-height: var(--oj-leading-normal); }
+.digest-rankings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--oj-space-4);
+    margin-block-start: var(--oj-space-2);
+}
+.digest-ranking-panel { min-inline-size: 0; padding: var(--oj-space-4); }
+.digest-ranking-title { font-size: var(--oj-text-md); overflow-wrap: anywhere; }
+.digest-ranking-captured { margin-block-start: var(--oj-space-1); }
+.digest-ranking-list {
+    display: grid;
+    gap: var(--oj-space-2);
+    margin-block: var(--oj-space-3) 0;
+    padding-inline-start: var(--oj-space-6);
+}
+.digest-ranking-list > li { padding-inline-start: var(--oj-space-1); }
+.digest-ranking-list > li::marker { color: var(--oj-text-muted); font-family: var(--oj-font-mono); font-size: var(--oj-text-xs); }
+.digest-ranking-link {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--oj-space-2);
+    padding-block: var(--oj-space-1);
+    color: var(--oj-text);
+    font-size: var(--oj-text-sm);
+    line-height: var(--oj-leading-normal);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    border-radius: var(--oj-radius-sm);
+}
+.digest-ranking-link > span { min-inline-size: 0; }
+.digest-ranking-link > i { flex-shrink: 0; color: var(--oj-text-muted); font-size: var(--oj-text-xs); }
+.digest-ranking-link:hover { color: var(--oj-accent-text); text-decoration: underline; }
+.digest-ranking-link:focus-visible { outline: var(--oj-focus-width) solid var(--oj-focus-color); outline-offset: var(--oj-focus-offset); }
+
 .search-input {
     inline-size: var(--size-full);
     min-inline-size: 15rem;

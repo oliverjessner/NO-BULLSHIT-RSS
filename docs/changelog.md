@@ -8,6 +8,7 @@
 - Include the 13 production Bullshit rules for new installations and add missing defaults without changing existing rule preferences.
 - Clean saved and displayed feed, website and article URLs with Linkary, removing tracking parameters and fragments while retaining functional query parameters and recognizing legacy import URLs.
 - Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
+- Show Golem's most-read and most-commented articles in Digest using Fetchary with consent interaction disabled, atomic ranking history and canonical RSS matching.
 
 # 1.6.0
 

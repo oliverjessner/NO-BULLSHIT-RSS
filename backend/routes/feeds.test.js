@@ -88,7 +88,7 @@ test('testing, adding, editing and scheduled import share compressed RSS and cha
     const feedUrl = `${base}/feed`;
     const preview = await fetch(`${base}/api/feeds/test/url?${new URLSearchParams({ url: feedUrl })}`);
     assert.equal(preview.status, 200);
-    assert.deepEqual(await preview.json(), { title: 'Märkte', itemCount: 1, sampleTitles: ['Neue Größe'] });
+    assert.deepEqual(await preview.json(), { url: feedUrl, title: 'Märkte', itemCount: 1, sampleTitles: ['Neue Größe'] });
 
     const body = { name: 'Test feed', websiteUrl: base, feedUrl };
     const created = await fetch(`${base}/api/feeds`, {

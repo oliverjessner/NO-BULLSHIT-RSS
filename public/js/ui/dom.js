@@ -21,7 +21,7 @@ export const dom = Object.freeze({
         exportTrigger: byId('feed-export-trigger'), exportPopover: byId('feed-export-popover'),
     }),
     digest: Object.freeze({
-        state: byId('digest-state'), list: byId('digest-list'), subtitle: byId('digest-subtitle'),
+        state: byId('digest-state'), list: byId('digest-list'), subtitle: byId('digest-subtitle'), rankings: byId('digest-rankings'),
         layout: byId('digest-layout'), template: byId('digest-cluster-template'), range: byId('digest-range-toggle'),
         rangeOptions: document.querySelectorAll('#digest-range-toggle .digest-range-option'),
         sort: byId('digest-sort-toggle'), sortOptions: document.querySelectorAll('#digest-sort-toggle .digest-sort-option'),

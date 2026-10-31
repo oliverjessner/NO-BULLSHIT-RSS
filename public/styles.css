@@ -632,8 +632,12 @@ html {
 }
 
 .cards.is-list .feed-card {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
     grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     grid-template-areas: 'meta actions' 'content actions';
+    align-content: start;
     gap: var(--space-4) var(--space-18);
     padding: var(--space-14) var(--space-18);
 }

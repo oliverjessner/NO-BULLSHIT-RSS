@@ -2,6 +2,7 @@
 
 - Update Tauri's opener to 2.7.2 (Dependabot #14).
 - Update the cc build dependency to 1.10.0 (Dependabot #21).
+- Keep Compact feed rows at their content height when scrolling or switching layouts.
 
 # 1.6.0
 

@@ -118,6 +118,12 @@ html {
 .publisher-ranking-list > li { min-inline-size: 0; }
 .publisher-ranking-card { block-size: 100%; }
 .publisher-ranking-rank { color: var(--oj-accent-text); font-size: var(--oj-text-xs); }
+.publisher-top-list { margin: 0; padding: 0; list-style: none; }
+.publisher-top-list > li { min-inline-size: 0; }
+.publisher-ranking-provenances { display: flex; flex-wrap: wrap; gap: var(--oj-space-1); margin-block-start: var(--oj-space-2); }
+.publisher-ranking-provenance { font-size: var(--oj-text-xs); color: var(--oj-text-muted); overflow-wrap: anywhere; }
+.rankings-load-more { display: block; margin: var(--oj-space-4) auto; }
+.rankings-load-more[hidden] { display: none; }
 
 .view-rankings { padding-inline: 0; }
 .rankings-scroll { padding-inline: var(--padding-page-inline); padding-block-end: var(--space-40); }

@@ -52,6 +52,10 @@ export const store = {
         fingerprint: '',
         needsRefresh: true,
         initialized: false,
+        loadedPages: 0,
+        loadingMore: false,
+        pageError: false,
+        displayStatus: null,
     },
     settings: {
         initialized: false,
@@ -62,7 +66,7 @@ export const store = {
     },
     ui: {
         activeView: 'main',
-        rankingsMedium: 'golem',
+        rankingsMedium: 'all',
         listLayout: readStorage(STORAGE_KEYS.layout, 'cards') === 'list',
         digestSort: readStorage(STORAGE_KEYS.digestSort, 'desc') === 'asc' ? 'asc' : 'desc',
         digestRange: ['day', 'week', 'month'].includes(readStorage(STORAGE_KEYS.digestRange, 'day'))

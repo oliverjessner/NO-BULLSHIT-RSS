@@ -31,6 +31,7 @@ export const dom = Object.freeze({
     rankings: Object.freeze({
         medium: byId('rankings-medium'), refresh: byId('rankings-refresh'),
         content: byId('publisher-rankings'), header: byId('rankings-header'),
+        loadMore: byId('rankings-load-more'),
     }),
     viewer: Object.freeze({
         feed: Object.freeze({ layout: byId('dashboard-layout'), panel: byId('article-viewer'), title: byId('article-viewer-title'), message: byId('article-viewer-message'), frame: byId('article-viewer-frame'), hide: byId('article-viewer-hide') }),

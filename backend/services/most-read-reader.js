@@ -3,10 +3,11 @@ import { loadTopicsByArticleIds } from './article-queries.js';
 
 const articleUrlKeys = row => [...new Set([cleanHttpUrl(row.canonicalUrl), cleanHttpUrl(row.url)].filter(Boolean))];
 
-export async function loadRankingArticleIndex(sourceId, database, canonicalUrls) {
+export async function loadRankingArticleIndex(sourceId, database, canonicalUrls, { includeContent = true, includeTeaser = true } = {}) {
     const requested = new Set((canonicalUrls || []).map(cleanHttpUrl).filter(Boolean));
     if (!requested.size) return new Map();
-    const select = `SELECT articles.id, articles.feedId, articles.title, articles.teaser, articles.content,
+    const select = `SELECT articles.id, articles.feedId, articles.title,
+            ${includeTeaser ? 'articles.teaser' : 'NULL AS teaser'}, ${includeContent ? 'articles.content' : 'NULL AS content'},
             articles.url, articles.canonicalUrl, articles.publishedAt, articles.externalId AS guidOrHash,
             articles.createdAt, articles.updatedAt, article_state.readAt, article_state.dismissedAt,
             EXISTS (SELECT 1 FROM list_items WHERE list_items.articleId = articles.id) AS saved,
@@ -22,8 +23,9 @@ export async function loadRankingArticleIndex(sourceId, database, canonicalUrls)
         AND (articles.canonicalUrl IN (SELECT value FROM json_each(?)) OR articles.url IN (SELECT value FROM json_each(?)))`,
     [sourceId, urlsJson, urlsJson]);
     const known = new Set(rows.map(row => row.id));
-    const unresolved = new Set([...requested].filter(url => !rows.some(row =>
-        articleUrlKeys(row).includes(url) && cleanHttpUrl(row.feedUrl) && !row.excluded && !row.bullshit && !row.dismissedAt)));
+    const eligibleKeys = new Set(rows.filter(row => cleanHttpUrl(row.feedUrl) && !row.excluded && !row.bullshit && !row.dismissedAt)
+        .flatMap(articleUrlKeys));
+    const unresolved = new Set([...requested].filter(url => !eligibleKeys.has(url)));
     if (unresolved.size) {
         // Legacy URLs may still contain tracking parameters. Only scan their
         // small URL fields, then hydrate the few matching articles.

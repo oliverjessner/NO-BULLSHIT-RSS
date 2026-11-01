@@ -42,3 +42,19 @@ test('ranking API no longer exposes manual session management', () => {
         assert.equal(Object.hasOwn(api, method), false);
     }
 });
+
+test('mixed top API forwards opaque pagination and cancellation without refreshing feeds', async () => {
+    const previousFetch = globalThis.fetch;
+    const controller = new AbortController();
+    const requests = [];
+    globalThis.fetch = async (url, options) => { requests.push({ url, options }); return Response.json({ medium: 'all', items: [] }); };
+    try {
+        await api.topArticles({ cursor: 'opaque+/=&?', signal: controller.signal });
+        const url = new URL(requests[0].url, 'http://localhost');
+        assert.equal(url.pathname, '/api/rankings/top');
+        assert.equal(url.searchParams.get('medium'), 'all');
+        assert.equal(url.searchParams.get('limit'), '40');
+        assert.equal(url.searchParams.get('cursor'), 'opaque+/=&?');
+        assert.equal(requests[0].options.signal, controller.signal);
+    } finally { globalThis.fetch = previousFetch; }
+});

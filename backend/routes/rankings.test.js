@@ -13,6 +13,7 @@ const { createRankingsRouter } = await import('./rankings.js');
 
 async function fixture(t, overrides = {}) {
     const calls = [];
+    const topCalls = [];
     const state = {
         rankingStatus: { state: 'ready', attemptedAt: '2026-11-01T00:00:00Z', errorCode: null, message: null },
     };
@@ -22,6 +23,12 @@ async function fixture(t, overrides = {}) {
     const app = express(); app.use(express.json());
     app.use('/api/rankings', createRankingsRouter({
         readPayload: async medium => payload(medium),
+        readTop: async options => {
+            topCalls.push(options);
+            return { medium: options.medium || 'all', media: payload('golem').media, configured: true,
+                items: [{ canonicalUrl: 'https://www.golem.de/news/saved.html', title: 'Saved top article' }],
+                hasMore: false, nextCursor: null, rankingStatus: state.rankingStatus };
+        },
         refresh: async () => { calls.push('refresh'); },
         isRefreshing: () => false,
         ...overrides,
@@ -33,7 +40,7 @@ async function fixture(t, overrides = {}) {
     const request = (route = '', body, method = 'POST') => fetch(`${base}${route}`, {
         method, ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
     });
-    return { base, request, state, calls };
+    return { base, request, state, calls, topCalls };
 }
 
 test('GET rankings is read-only and exposes the supported publisher media', async t => {
@@ -98,6 +105,39 @@ test('t3n most-read rankings can be selected and refreshed independently', async
     assert.equal(response.status, 200);
     assert.equal((await response.json()).medium, 't3n');
     assert.deepEqual(captured, { medium: 't3n' });
+});
+
+test('collected top pages validate and forward medium, bounded size and cursor without starting a capture', async t => {
+    const f = await fixture(t);
+    const response = await fetch(`${f.base}/top?medium=t3n&limit=40&cursor=opaque-cursor`);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).items[0].title, 'Saved top article');
+    assert.deepEqual(f.topCalls, [{ medium: 't3n', limit: 40, cursor: 'opaque-cursor' }]);
+    assert.deepEqual(f.calls, []);
+    for (const query of ['medium=unknown', 'limit=0', 'limit=101', 'limit=1.5', 'url=https://evil.test', 'cursor=']) {
+        assert.equal((await fetch(`${f.base}/top?${query}`)).status, 400, query);
+    }
+    assert.equal(f.topCalls.length, 1);
+});
+
+test('malformed collected-page cursors return a safe client error', async t => {
+    const f = await fixture(t, { readTop: async () => { throw Object.assign(new Error('Invalid top-article cursor.'), { status: 400 }); } });
+    const response = await fetch(`${f.base}/top?cursor=bad`);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'Invalid top-article cursor.' });
+});
+
+test('All media refresh captures all publishers and returns a collected page including saved data on failure', async t => {
+    const refreshOptions = [];
+    const f = await fixture(t, { refresh: async options => { refreshOptions.push(options); } });
+    let response = await f.request('/refresh', { medium: 'all' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).items[0].title, 'Saved top article');
+    assert.deepEqual(refreshOptions, [{}]);
+    f.state.rankingStatus = { state: 'error', message: 'Publisher rankings could not be refreshed.' };
+    response = await f.request('/refresh', { medium: 'all' });
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).items[0].title, 'Saved top article');
 });
 
 test('TechCrunch Top Headlines can be selected and refreshed independently', async t => {

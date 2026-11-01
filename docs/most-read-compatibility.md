@@ -17,7 +17,7 @@ Choose **All media** for a combined feed. It starts with 40 articles and loads a
 
 The combined feed and the CLI collect distinct article URLs from saved ranking history, including all supported selection types. Articles are ordered by RSS publication time, falling back to their capture time when RSS metadata is unavailable. A URL appears once, with its selection names and publisher attached. Individual medium views show the latest saved selection of each supported type.
 
-New ranking captures do not move the pagination window while you browse its later pages. Refresh starts a new window. Current dismissal and Bullshit filters continue to apply.
+Each set of pages uses a fixed ranking-history watermark. Refresh and live updates can start a new window while preserving the loaded page depth and the article in view. Current dismissal and Bullshit filters continue to apply.
 
 ## RSS matching and access
 

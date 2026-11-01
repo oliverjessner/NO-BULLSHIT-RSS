@@ -12,6 +12,7 @@ The **Most read** menu collects publisher selections. Their original names remai
 | TechCrunch (`techcrunch`) | Top Headlines | [TechCrunch homepage](https://techcrunch.com/) | [RSS](https://techcrunch.com/feed/) |
 | Ars Technica (`arstechnica`) | Most read | [Ars Technica homepage](https://arstechnica.com/) | [RSS](https://feeds.arstechnica.com/arstechnica/index) |
 | WIRED (`wired`) | Most Popular | [WIRED sitemap](https://www.wired.com/about/sitemap/) | [Top Stories RSS](https://www.wired.com/feed/rss) |
+| The Verge (`theverge`) | Top Stories | [The Verge Top Stories](https://www.theverge.com/#topStories) | [RSS](https://www.theverge.com/rss/index.xml) |
 
 ## Browsing collected articles
 
@@ -30,6 +31,8 @@ At least one RSS feed for the medium must be configured. heise iX additionally r
 Capture starts with an HTTP request and validates the actual selection before saving it. A missing selection can trigger browser rendering. Fetchary accepts cookie consent automatically; browser fallback requires a complete Chrome installation available through the app's packaged browser, installed Google Chrome, a configured `PUPPETEER_EXECUTABLE_PATH`, or Puppeteer's managed browser.
 
 t3n loads its list with UpScore JavaScript and currently needs browser rendering. WinFuture supports both its 24-hour popular sidebar and its current public “Meistgelesene” tab. TechCrunch's RSS feed supplies article data; its homepage supplies the Top Headlines selection. WIRED's Most Popular selection comes from its `/about/sitemap/` page; its [official RSS page](https://www.wired.com/about/rss-feeds/) provides the Top Stories feed used for article matching.
+
+The Verge captures its Top Stories homepage hero: the lead story and four editorial picks. Other curated sections, Most Popular and Latest are excluded; RSS supplies matching article data.
 
 ## Updates and saved data
 

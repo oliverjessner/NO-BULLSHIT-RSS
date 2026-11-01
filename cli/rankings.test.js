@@ -4,284 +4,232 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import sqlite3 from '@vscode/sqlite3';
-import { parseCliArgs } from './lib/arguments.js';
-import { formatPublisherRankings } from './lib/output.js';
+import { parseCliArgs, getHelpText } from './lib/arguments.js';
+import { formatTopArticles, formatChosenTopArticle } from './lib/output.js';
+import { RANKING_MEDIA } from '../backend/services/ranking-media.js';
 import { runCli } from './main.js';
 
-test('publisher CLI validates media and flags before opening a database', () => {
-    assert.deepEqual(parseCliArgs(['--most-read', 'golem', '--json']), {
-        command: 'publisher-rankings', medium: 'golem', rankingKey: 'most_read', json: true,
+const capture = () => {
+    let text = '';
+    return { write: chunk => { text += String(chunk); }, read: () => text };
+};
+const defaults = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, choose: false };
+
+test('articles top defaults to 40 across all media and validates explicit options', () => {
+    assert.deepEqual(parseCliArgs(['articles', 'top']), defaults);
+    assert.deepEqual(parseCliArgs(['articles', 'top', '100', '--list']), { ...defaults, count: 100, list: true });
+    assert.deepEqual(parseCliArgs(['articles', 'top', '1000', '--medium', ' GOLEM ', '--choose', '--json']), {
+        ...defaults, count: 1000, medium: 'golem', choose: true, json: true,
     });
-    assert.equal(parseCliArgs(['--most-commented', 'Golem']).rankingKey, 'most_commented');
-    assert.deepEqual(parseCliArgs(['--most-read', 'WinFuture']), {
-        command: 'publisher-rankings', medium: 'winfuture', rankingKey: 'most_read', json: false,
-    });
-    assert.deepEqual(parseCliArgs(['--most-read', 'ComputerBase', '--json']), {
-        command: 'publisher-rankings', medium: 'computerbase', rankingKey: 'most_read', json: true,
-    });
-    assert.throws(() => parseCliArgs(['--most-commented', 'computerbase']), /Most-commented rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
-    assert.deepEqual(parseCliArgs(['--top-news', 'Heise-IX', '--json']), {
-        command: 'publisher-rankings', medium: 'heise-ix', rankingKey: 'top_news', json: true,
-    });
-    assert.throws(() => parseCliArgs(['--most-read', 'heise-ix']), /Most-read rankings are not supported for heise iX\. Use --top-news heise-ix\./);
-    assert.throws(() => parseCliArgs(['--most-commented', 'heise-ix']), /Most-commented rankings are not supported for heise iX\. Use --top-news heise-ix\./);
-    assert.throws(() => parseCliArgs(['--top-news', 'computerbase']), /Top-News rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
-    assert.deepEqual(parseCliArgs(['--most-read', 'T3N', '--json']), {
-        command: 'publisher-rankings', medium: 't3n', rankingKey: 'most_read', json: true,
-    });
-    assert.throws(() => parseCliArgs(['--most-commented', 't3n']), /Most-commented rankings are not supported for t3n\. Use --most-read t3n\./);
-    assert.throws(() => parseCliArgs(['--top-news', 't3n']), /Top-News rankings are not supported for t3n\. Use --most-read t3n\./);
-    assert.deepEqual(parseCliArgs(['--top-news', 'TechCrunch', '--json']), {
-        command: 'publisher-rankings', medium: 'techcrunch', rankingKey: 'top_news', json: true,
-    });
-    assert.throws(() => parseCliArgs(['--most-read', 'techcrunch']), /Most-read rankings are not supported for TechCrunch\. Use --top-news techcrunch\./);
-    assert.throws(() => parseCliArgs(['--most-commented', 'techcrunch']), /Most-commented rankings are not supported for TechCrunch\. Use --top-news techcrunch\./);
-    for (const args of [['--most-read'], ['--most-read', 'unknown'], ['--top-news'], ['--top-news', 'unknown'], ['--most-read', 'golem', '--most-commented', 'golem'], ['--top-news', 'heise-ix', '--most-read', 'heise-ix'], ['--most-read', 'golem', '--url']]) {
-        assert.throws(() => parseCliArgs(args));
+    assert.deepEqual(parseCliArgs(['articles', 'top', '--list', '--medium', 'ALL']), { ...defaults, list: true });
+    for (const medium of RANKING_MEDIA) {
+        assert.equal(parseCliArgs(['articles', 'top', '--medium', medium.id.toUpperCase()]).medium, medium.id);
     }
 });
 
-test('unsupported ComputerBase most-commented rankings fail before opening a database', async () => {
-    let opened = false;
-    let stdout = '', stderr = '';
-    const code = await runCli(['--most-commented', 'computerbase'], {
-        stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-        discoverDatabase: async () => { opened = true; throw new Error('Must not open a database'); },
+test('invalid counts, media, duplicate flags and conflicting output formats fail before database discovery', async () => {
+    for (const args of [
+        ...['0', '-1', '1.5', 'word', '9007199254740992'].map(count => ['articles', 'top', count]),
+        ['articles', 'top', '--medium'], ['articles', 'top', '--medium', 'unknown'],
+        ['articles', 'top', '--medium', 'golem', '--medium', 'winfuture'],
+        ['articles', 'top', '--json', '--json'], ['articles', 'top', '--list', '--json'],
+        ['articles', 'top', '--url'], ['articles', 'top', '10', '20'], ['articles', 'top', '--medium', '--choose'],
+    ]) {
+        let discovered = false;
+        const stdout = capture(), stderr = capture();
+        assert.equal(await runCli(args, { stdout, stderr, discoverDatabase: async () => { discovered = true; throw new Error('Must not discover'); } }), 1);
+        assert.equal(discovered, false);
+        assert.equal(stdout.read(), '');
+        assert.match(stderr.read(), /^Error: /);
+        assert.doesNotMatch(stderr.read(), /Must not discover/);
+    }
+});
+
+test('removed ranking flags have no aliases and point to articles top before opening a database', async () => {
+    for (const flag of ['--most-read', '--most-commented', '--top-news']) {
+        for (const args of [[flag, 'golem'], ['articles', 'top', flag, 'golem'], [`${flag}=golem`]]) {
+            const stdout = capture(), stderr = capture();
+            assert.equal(await runCli(args, { stdout, stderr, discoverDatabase: async () => { throw new Error('Must not discover'); } }), 1);
+            assert.equal(stdout.read(), '');
+            assert.match(stderr.read(), /is no longer supported\. Use "articles top/);
+            assert.doesNotMatch(stderr.read(), /Must not discover/);
+        }
+    }
+});
+
+test('help describes the unified top command and all supported media without legacy flags', () => {
+    const text = getHelpText();
+    assert.match(text, /articles top \[count\]/);
+    assert.match(text, /default: 40/);
+    for (const medium of RANKING_MEDIA) assert.ok(text.includes(medium.id));
+    assert.doesNotMatch(text, /--most-read|--most-commented|--top-news/);
+});
+
+test('text output keeps article details and publisher labels, with terminal controls cleaned', () => {
+    const article = { id: null, title: 'Title\nwith\x1bcontrols', url: 'https://example.test/a', sourceName: 'Publisher',
+        teaser: 'A\t teaser', publishedAt: null, capturedAt: '2026-11-01T00:00:00.000Z', medium: 'techcrunch',
+        rankings: [{ rankingKey: 'top_news', label: 'Top\nHeadlines\t', rank: 2, capturedAt: '2026-11-01T00:00:00.000Z' }] };
+    const text = formatTopArticles([article]);
+    assert.match(text, /1\. Title with controls/);
+    assert.match(text, /Publisher · Captured 2026-11-01/);
+    assert.match(text, /Top Headlines #2/);
+    assert.match(text, /https:\/\/example.test\/a/);
+    assert.match(text, /A teaser/);
+    assert.doesNotMatch(text, /\x1b/);
+    assert.deepEqual(JSON.parse(formatTopArticles([article], { json: true })), [article]);
+    assert.deepEqual(JSON.parse(formatChosenTopArticle(article, { json: true })), article);
+    assert.equal(formatChosenTopArticle(article, { list: true }), text);
+    assert.match(formatTopArticles([], { medium: 'golem' }), /No saved top articles for golem/);
+    assert.deepEqual(JSON.parse(formatTopArticles([], { json: true })), []);
+});
+
+const fixtureMedia = [
+    ['golem', 'Golem', 'https://www.golem.de/', 'https://rss.golem.de/rss.php', i => `https://www.golem.de/news/fixture-${i}.html`],
+    ['winfuture', 'WinFuture', 'https://winfuture.de/', 'https://static.winfuture.de/feed', i => `https://winfuture.de/news,${100000 + i}.html`],
+    ['computerbase', 'ComputerBase', 'https://www.computerbase.de/', 'https://www.computerbase.de/rss/news.xml', i => `https://www.computerbase.de/news/fixture.${100000 + i}/`],
+    ['heise-ix', 'heise iX', 'https://www.heise.de/ix/', 'https://www.heise.de/ix/feed.xml', i => `https://www.heise.de/news/fixture-${100000 + i}.html`],
+    ['t3n', 't3n', 'https://t3n.de/', 'https://t3n.de/rss.xml', i => `https://t3n.de/news/fixture-${100000 + i}/`],
+    ['techcrunch', 'TechCrunch', 'https://techcrunch.com/', 'https://techcrunch.com/feed/', i => `https://techcrunch.com/2026/10/01/fixture-${i}/`],
+];
+
+async function fixtureDatabase(t) {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'nbs-top-cli-'));
+    const databasePath = path.join(directory, 'data-v2.db');
+    let before, filesBefore;
+    t.after(async () => {
+        try {
+            if (before) {
+                assert.deepEqual(await readFile(databasePath), before, 'CLI must not modify database bytes');
+                assert.deepEqual((await readdir(directory)).sort(), filesBefore, 'CLI must not create SQLite sidecars or other files');
+            }
+        } finally { await rm(directory, { recursive: true, force: true }); }
     });
-    assert.equal(code, 1);
-    assert.equal(opened, false);
-    assert.equal(stdout, '');
-    assert.match(stderr, /Most-commented rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
-});
-
-test('unsupported heise iX ranking kinds suggest editorial Top-News before opening a database', async () => {
-    for (const flag of ['--most-read', '--most-commented']) {
-        let stdout = '', stderr = '';
-        const code = await runCli([flag, 'heise-ix'], {
-            stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-            discoverDatabase: async () => { throw new Error('Must not open a database'); },
-        });
-        assert.equal(code, 1);
-        assert.equal(stdout, '');
-        assert.match(stderr, /not supported for heise iX\. Use --top-news heise-ix\./);
-        assert.doesNotMatch(stderr, /Must not open a database/);
-    }
-});
-
-test('empty editorial selections keep the Top-News label', () => {
-    const text = formatPublisherRankings({ medium: 'heise-ix', configured: true, rankings: [] }, { rankingKey: 'top_news' });
-    assert.equal(text, 'No saved Top-News rankings for heise-ix. Refresh rankings in the app first.');
-    assert.doesNotMatch(text, /most-read|most-commented/);
-});
-
-test('unsupported t3n ranking kinds suggest most-read before opening a database', async () => {
-    for (const [flag, label] of [['--most-commented', 'Most-commented'], ['--top-news', 'Top-News']]) {
-        let stdout = '', stderr = '';
-        let opened = false;
-        const code = await runCli([flag, 't3n'], {
-            stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-            discoverDatabase: async () => { opened = true; throw new Error('Must not open a database'); },
-        });
-        assert.equal(code, 1);
-        assert.equal(opened, false);
-        assert.equal(stdout, '');
-        assert.equal(stderr.trim(), `Error: ${label} rankings are not supported for t3n. Use --most-read t3n.`);
-    }
-});
-
-test('unsupported TechCrunch ranking kinds suggest Top-News before opening a database', async () => {
-    for (const [flag, label] of [['--most-read', 'Most-read'], ['--most-commented', 'Most-commented']]) {
-        let stdout = '', stderr = '';
-        let opened = false;
-        const code = await runCli([flag, 'techcrunch'], {
-            stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-            discoverDatabase: async () => { opened = true; throw new Error('Must not open a database'); },
-        });
-        assert.equal(code, 1);
-        assert.equal(opened, false);
-        assert.equal(stdout, '');
-        assert.equal(stderr.trim(), `Error: ${label} rankings are not supported for TechCrunch. Use --top-news techcrunch.`);
-    }
-});
-
-test('human editorial labels are bounded, cleaned and limited to Top-News groups', () => {
-    const group = { sourceName: 'TechCrunch', rankingKey: 'top_news', capturedAt: '2026-11-01', label: ' Top\nHeadlines\t', items: [] };
-    const format = item => formatPublisherRankings({ medium: 'techcrunch', configured: true, rankings: [item] }, { rankingKey: item.rankingKey });
-    assert.equal(format(group), 'TechCrunch · Top Headlines · 2026-11-01');
-    assert.equal(format({ ...group, label: 'x'.repeat(100) }), `TechCrunch · ${'x'.repeat(80)} · 2026-11-01`);
-    for (const label of ['', ' \n ', null, { text: 'Other' }]) {
-        assert.equal(format({ ...group, label }), 'TechCrunch · Top-News · 2026-11-01');
-    }
-    assert.equal(format({ ...group, rankingKey: 'most_read' }), 'TechCrunch · Most read · 2026-11-01');
-});
-
-test('publisher CLI help includes all supported media and Top-News without opening a database', async () => {
-    let stdout = '', stderr = '';
-    const code = await runCli(['--help'], {
-        stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-        discoverDatabase: async () => { throw new Error('Help must not open a database'); },
+    const database = await new Promise((resolve, reject) => {
+        const db = new sqlite3.Database(databasePath, error => error ? reject(error) : resolve(db));
     });
-    assert.equal(code, 0);
-    assert.equal(stderr, '');
-    assert.match(stdout, /Publisher media:[^\n]*computerbase/);
-    assert.match(stdout, /Publisher media:[^\n]*heise-ix/);
-    assert.match(stdout, /Publisher media:[^\n]*t3n/);
-    assert.match(stdout, /Publisher media:[^\n]*techcrunch/);
-    assert.match(stdout, /--top-news <medium>/);
-    assert.match(stdout, /--top-news heise-ix/);
-});
-
-test('publisher CLI reads latest ranked RSS data without writes or refreshes', async () => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-rankings-cli-'));
-    const databasePath = path.join(directory, 'rankings.db');
-    let connection;
+    const exec = sql => new Promise((resolve, reject) => database.exec(sql, error => error ? reject(error) : resolve()));
+    const run = (sql, params) => new Promise((resolve, reject) => database.run(sql, params, error => error ? reject(error) : resolve()));
     try {
-        connection = await new Promise((resolve, reject) => {
-            const db = new sqlite3.Database(databasePath, error => error ? reject(error) : resolve(db));
-        });
-        const exec = sql => new Promise((resolve, reject) => connection.exec(sql, error => error ? reject(error) : resolve()));
         for (const filename of ['0001_schema.sql', '0002_feed_names.sql', '0003_bullshit_rules.sql', '0005_unified_digest_filters.sql', '0008_most_read.sql', '0009_top_news.sql']) {
             await exec(await readFile(new URL(`../migrations/${filename}`, import.meta.url), 'utf8'));
         }
-        await exec(`INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (1,'Golem','https://www.golem.de/','https://www.golem.de/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (1,1,'Golem RSS','https://rss.golem.de/rss.php','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (1,1,'one','RSS title','RSS teaser','https://www.golem.de/news/one.html','https://www.golem.de/news/one.html','one','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (1,NULL,'https://www.golem.de/news/old.html','Old',1,'most_read','2026-10-31T00:00:00.000Z'),
-            (1,1,'https://www.golem.de/news/one.html','Ranking title',1,'most_read','2026-11-01T00:00:00.000Z'),
-            (1,NULL,'https://www.golem.de/news/two.html','Unmatched',2,'most_read','2026-11-01T00:00:00.000Z'),
-            (1,NULL,'https://www.golem.de/news/three.html','Comments',1,'most_commented','2026-11-01T00:00:00.000Z');
-            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (2,'WinFuture','https://winfuture.de/','https://winfuture.de/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (2,2,'WinFuture RSS','https://static.winfuture.de/feed','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (2,2,'wf-one','WinFuture RSS title','WinFuture teaser','https://winfuture.de/news,162334.html','https://winfuture.de/news,162334.html','two','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (2,2,'https://winfuture.de/news,162334.html','WinFuture ranking title',1,'most_read','2026-11-01T00:00:00.000Z'),
-            (2,NULL,'https://winfuture.de/news,162318.html','WinFuture comments',1,'most_commented','2026-11-01T00:00:00.000Z');
-            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (3,'ComputerBase','https://www.computerbase.de/','https://www.computerbase.de/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (3,3,'ComputerBase RSS','https://www.computerbase.de/rss/news.xml','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (3,3,'cb-one','ComputerBase RSS title','ComputerBase RSS teaser','https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','three','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (3,3,'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','ComputerBase ranking title',1,'most_read','2026-11-01T00:00:00.000Z');
-            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (4,'Generic Heise','https://www.heise.de/','https://www.heise.de/','2026-11-01','2026-11-01'),
-                (5,'heise iX','https://www.heise.de/ix/','https://www.heise.de/ix/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (4,4,'Generic Heise RSS','https://www.heise.de/rss/heise-atom.xml','2026-11-01','2026-11-01'),
-                (5,5,'heise iX RSS','https://www.heise.de/ix/feed.xml','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (5,5,'ix-one','heise iX RSS title','heise iX RSS teaser','https://www.heise.de/ix/news/heise-ix-fixture-12345.html','https://www.heise.de/ix/news/heise-ix-fixture-12345.html','five','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (4,NULL,'https://www.heise.de/news/generic.html','Generic Heise article',1,'most_read','2026-11-01T00:00:00.000Z'),
-            (5,5,'https://www.heise.de/ix/news/heise-ix-fixture-12345.html','heise iX editorial title',1,'top_news','2026-11-01T00:00:00.000Z'),
-            (5,NULL,'https://www.heise.de/ix/news/second-12346.html','heise iX editorial second story',2,'top_news','2026-11-01T00:00:00.000Z');
-            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (6,'t3n','https://t3n.de/','https://t3n.de/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (6,6,'t3n RSS','https://t3n.de/rss.xml','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (6,6,'t3n-one','t3n RSS title','t3n RSS teaser','https://t3n.de/news/t3n-fixture-1234567/','https://t3n.de/news/t3n-fixture-1234567/','six','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (6,6,'https://t3n.de/news/t3n-fixture-1234567/','t3n publisher title',1,'most_read','2026-11-01T00:00:00.000Z');
-            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
-            VALUES (7,'TechCrunch','https://techcrunch.com/','https://techcrunch.com/','2026-11-01','2026-11-01');
-            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
-            VALUES (7,7,'TechCrunch RSS','https://techcrunch.com/feed/','2026-11-01','2026-11-01');
-            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
-            VALUES (7,7,'tc-one','TechCrunch RSS title','TechCrunch RSS teaser','https://techcrunch.com/2026/11/01/techcrunch-fixture/','https://techcrunch.com/2026/11/01/techcrunch-fixture/','seven','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
-            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (7,7,'https://techcrunch.com/2026/11/01/techcrunch-fixture/','TechCrunch editorial title',1,'top_news','2026-11-01T00:00:00.000Z');`);
-        await new Promise((resolve, reject) => connection.close(error => error ? reject(error) : resolve()));
-        connection = null;
-        const before = await readFile(databasePath);
-        const filesBefore = await readdir(directory);
-        const run = async args => {
-            let stdout = '', stderr = '';
-            const code = await runCli(args, {
-                stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
-                discoverDatabase: async () => databasePath,
-                fetchApi: () => { throw new Error('CLI must not fetch'); },
-            });
-            assert.equal(code, 0, stderr);
-            assert.equal(stderr, '');
-            return stdout;
-        };
-        const result = JSON.parse(await run(['--most-read', 'golem', '--json']));
-        assert.equal(result.rankings.length, 1);
-        assert.deepEqual(result.rankings[0].items.map(item => item.rank), [1, 2]);
-        assert.equal(result.rankings[0].items[0].article.teaser, 'RSS teaser');
-        assert.equal(result.rankings[0].items[1].article, null);
-        const text = await run(['--most-read', 'golem']);
-        assert.match(text, /1\tRSS title\thttps:\/\/www.golem.de\/news\/one.html/);
-        assert.doesNotMatch(text, /Old|Comments/);
-        assert.match(await run(['--most-commented', 'golem']), /Comments/);
-        const winfuture = JSON.parse(await run(['--most-read', 'winfuture', '--json']));
-        assert.equal(winfuture.medium, 'winfuture');
-        assert.equal(winfuture.rankings.length, 1);
-        assert.equal(winfuture.rankings[0].sourceName, 'WinFuture');
-        assert.equal(winfuture.rankings[0].items[0].article.teaser, 'WinFuture teaser');
-        assert.match(await run(['--most-commented', 'winfuture']), /WinFuture comments/);
-        const computerbase = JSON.parse(await run(['--most-read', 'computerbase', '--json']));
-        assert.equal(computerbase.medium, 'computerbase');
-        assert.equal(computerbase.rankings.length, 1);
-        assert.equal(computerbase.rankings[0].rankingKey, 'most_read');
-        assert.equal(computerbase.rankings[0].sourceName, 'ComputerBase');
-        assert.equal(computerbase.rankings[0].items[0].article.title, 'ComputerBase RSS title');
-        assert.equal(computerbase.rankings[0].items[0].article.teaser, 'ComputerBase RSS teaser');
-        assert.match(await run(['--most-read', 'computerbase']), /ComputerBase RSS title/);
-        const heiseIx = JSON.parse(await run(['--top-news', 'heise-ix', '--json']));
-        assert.equal(heiseIx.medium, 'heise-ix');
-        assert.equal(heiseIx.rankingKey, 'top_news');
-        assert.equal(heiseIx.rankings.length, 1);
-        assert.equal(heiseIx.rankings[0].sourceId, 5);
-        assert.equal(heiseIx.rankings[0].rankingKey, 'top_news');
-        assert.equal(heiseIx.rankings[0].sourceName, 'heise iX');
-        assert.equal(heiseIx.rankings[0].items[0].article.title, 'heise iX RSS title');
-        assert.equal(heiseIx.rankings[0].items[0].article.teaser, 'heise iX RSS teaser');
-        assert.equal(heiseIx.rankings[0].items[1].article, null);
-        const heiseIxText = await run(['--top-news', 'heise-ix']);
-        assert.match(heiseIxText, /heise iX · Top-News · 2026-11-01T00:00:00\.000Z/);
-        assert.match(heiseIxText, /1\theise iX RSS title\thttps:\/\/www.heise.de\/ix\/news\/heise-ix-fixture-12345.html/);
-        assert.doesNotMatch(heiseIxText, /Most read|Most commented|Generic Heise/);
-        const t3n = JSON.parse(await run(['--most-read', 't3n', '--json']));
-        assert.equal(t3n.medium, 't3n');
-        assert.equal(t3n.rankingKey, 'most_read');
-        assert.equal(t3n.rankings.length, 1);
-        assert.equal(t3n.rankings[0].sourceId, 6);
-        assert.equal(t3n.rankings[0].rankingKey, 'most_read');
-        assert.equal(t3n.rankings[0].sourceName, 't3n');
-        assert.equal(t3n.rankings[0].items[0].article.title, 't3n RSS title');
-        assert.equal(t3n.rankings[0].items[0].article.teaser, 't3n RSS teaser');
-        const t3nText = await run(['--most-read', 't3n']);
-        assert.match(t3nText, /t3n · Most read · 2026-11-01T00:00:00\.000Z/);
-        assert.match(t3nText, /1\tt3n RSS title\thttps:\/\/t3n.de\/news\/t3n-fixture-1234567\//);
-        assert.doesNotMatch(t3nText, /Most commented|Top-News|heise iX|ComputerBase|WinFuture|Golem/);
-        const techCrunch = JSON.parse(await run(['--top-news', 'techcrunch', '--json']));
-        assert.equal(techCrunch.medium, 'techcrunch');
-        assert.equal(techCrunch.rankingKey, 'top_news');
-        assert.equal(techCrunch.rankings.length, 1);
-        assert.equal(techCrunch.rankings[0].sourceId, 7);
-        assert.equal(techCrunch.rankings[0].rankingKey, 'top_news');
-        assert.equal(techCrunch.rankings[0].label, 'Top Headlines');
-        assert.equal(techCrunch.rankings[0].sourceName, 'TechCrunch');
-        assert.equal(techCrunch.rankings[0].items[0].article.title, 'TechCrunch RSS title');
-        assert.equal(techCrunch.rankings[0].items[0].article.teaser, 'TechCrunch RSS teaser');
-        const techCrunchText = await run(['--top-news', 'techcrunch']);
-        assert.match(techCrunchText, /TechCrunch · Top Headlines · 2026-11-01T00:00:00\.000Z/);
-        assert.match(techCrunchText, /1\tTechCrunch RSS title\thttps:\/\/techcrunch.com\/2026\/11\/01\/techcrunch-fixture\//);
-        assert.doesNotMatch(techCrunchText, /Most read|Most commented|Top-News|heise iX|ComputerBase|WinFuture|Golem|t3n/);
-        assert.deepEqual(await readFile(databasePath), before);
-        assert.deepEqual(await readdir(directory), filesBefore);
+        for (const [index, [, name, website, feed]] of fixtureMedia.entries()) {
+            await run('INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (?,?,?,?,?,?)',
+                [index + 1, name, website, website, '2026-10-01', '2026-10-01']);
+            await run('INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (?,?,?,?,?,?)',
+                [index + 1, index + 1, name, feed, '2026-10-01', '2026-10-01']);
+        }
+        for (let i = 1; i <= 135; i += 1) {
+            const sourceId = (i - 1) % fixtureMedia.length + 1;
+            const medium = fixtureMedia[sourceId - 1];
+            const publisher = RANKING_MEDIA.find(item => item.id === medium[0]);
+            const url = medium[4](i);
+            const publishedAt = new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString();
+            await run(`INSERT INTO articles (id,feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [i, sourceId, `fixture-${i}`, `RSS title ${i}`, `RSS teaser ${i}`, `Body fixture ${i}`,
+                url, url, `hash-${i}`, publishedAt, '2026-10-02', '2026-10-02', '2026-10-02']);
+            await run('INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES (?,?,?,?,?,?,?)',
+                [sourceId, i, url, `Publisher title ${i}`, i, publisher.rankingKeys[0], '2026-10-02T00:00:00.000Z']);
+            // A newer snapshot contains only a few old URLs: history must remain visible.
+            if (i > 125) await run('INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES (?,?,?,?,?,?,?)',
+                [sourceId, i, `${url}?utm_source=new-snapshot`, `New publisher title ${i}`, i, publisher.rankingKeys[0], '2026-10-03T00:00:00.000Z']);
+            if (publisher.rankingKeys.includes('most_commented')) await run('INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES (?,?,?,?,?,?,?)',
+                [sourceId, i, url, `Commented title ${i}`, i, 'most_commented', '2026-10-03T00:00:00.000Z']);
+        }
+        await exec(`INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
+            (6,NULL,'https://techcrunch.com/2026/10/04/unmatched/','Unmatched publisher headline',1,'top_news','2026-10-04T00:00:00.000Z');
+            INSERT INTO topics (id,slug,label,configJson,ruleHash,ruleVersion,createdAt,updatedAt)
+            VALUES (1,'fixture','Fixture topic','{}','fixture',1,'2026-10-01','2026-10-01');
+            INSERT INTO article_topics (articleId,topicId,score,matchedTermsJson,classificationVersion,createdAt)
+            VALUES (135,1,1,'{}','fixture','2026-10-01');
+            INSERT INTO lists (id,name,createdAt,updatedAt) VALUES (1,'Saved','2026-10-01','2026-10-01');
+            INSERT INTO list_items (listId,articleId,createdAt) VALUES (1,135,'2026-10-01');`);
     } finally {
-        if (connection) await new Promise(resolve => connection.close(resolve));
-        await rm(directory, { recursive: true, force: true });
+        await new Promise((resolve, reject) => database.close(error => error ? reject(error) : resolve()));
     }
+    before = await readFile(databasePath);
+    filesBefore = (await readdir(directory)).sort();
+    return { databasePath, run: async (args, options = {}) => {
+        const stdout = capture(), stderr = capture();
+        const code = await runCli(args, { stdout, stderr, env: { DB_PATH: databasePath }, cwd: directory,
+            fetchApi: () => assert.fail('Top articles must not fetch'), ...options });
+        return { code, stdout: stdout.read(), stderr: stderr.read() };
+    } };
+}
+
+test('top 100 returns 100 unique newest articles from all media and stored history without writes', async t => {
+    const fixture = await fixtureDatabase(t);
+    const defaultResult = await fixture.run(['articles', 'top', '--json']);
+    assert.equal(defaultResult.code, 0, defaultResult.stderr);
+    assert.equal(JSON.parse(defaultResult.stdout).length, 40);
+    const result = await fixture.run(['articles', 'top', '100', '--json']);
+    assert.equal(result.code, 0, result.stderr);
+    const items = JSON.parse(result.stdout);
+    assert.equal(items.length, 100);
+    assert.equal(new Set(items.map(item => item.canonicalUrl)).size, 100);
+    assert.deepEqual(items.map(item => item.id), [null, ...Array.from({ length: 99 }, (_, index) => 135 - index)]);
+    assert.deepEqual(new Set(items.map(item => item.medium)), new Set(fixtureMedia.map(item => item[0])));
+    assert.equal(items[0].title, 'Unmatched publisher headline');
+    assert.equal(items[0].rankings[0].label, 'Top Headlines');
+    assert.equal(items[1].title, 'RSS title 135');
+    assert.equal(items[1].teaser, 'RSS teaser 135');
+    assert.equal(items[1].saved, true);
+    assert.equal(items[1].topics[0].slug, 'fixture');
+    assert.doesNotMatch(result.stdout, /Body fixture/);
+    const allResult = await fixture.run(['articles', 'top', '1000', '--json']);
+    assert.equal(allResult.code, 0, allResult.stderr);
+    assert.equal(JSON.parse(allResult.stdout).length, 136);
+});
+
+test('medium filters include all supported ranking kinds and text/list output agree', async t => {
+    const fixture = await fixtureDatabase(t);
+    const result = await fixture.run(['articles', 'top', '100', '--medium', 'golem', '--json']);
+    assert.equal(result.code, 0, result.stderr);
+    const items = JSON.parse(result.stdout);
+    assert.equal(items.length, 23);
+    assert.ok(items.every(item => item.medium === 'golem'));
+    assert.deepEqual(items.map(item => item.id), Array.from({ length: 23 }, (_, index) => 133 - index * 6));
+    assert.ok(items[0].rankings.some(item => item.rankingKey === 'most_read'));
+    assert.ok(items[0].rankings.some(item => item.rankingKey === 'most_commented'));
+    const text = await fixture.run(['articles', 'top', '--medium', 'techcrunch']);
+    const list = await fixture.run(['articles', 'top', '--medium', 'techcrunch', '--list']);
+    assert.equal(text.code, 0, text.stderr);
+    assert.equal(list.code, 0, list.stderr);
+    assert.equal(text.stdout, list.stdout);
+    assert.match(text.stdout, /Top Headlines/);
+    assert.match(text.stdout, /Unmatched publisher headline/);
+    assert.doesNotMatch(text.stdout, /RSS title 135|Body fixture/);
+});
+
+test('top chooser receives the unified list and terminal streams, then emits only the chosen full record', async t => {
+    const fixture = await fixtureDatabase(t);
+    const stdin = {}, stdout = capture(), stderr = capture();
+    let selected;
+    const result = await fixture.run(['articles', 'top', '100', '--choose', '--json'], {
+        stdin, stdout, stderr, chooseArticle: async (articles, streams) => {
+            assert.equal(articles.length, 100);
+            assert.equal(streams.input, stdin);
+            assert.equal(streams.output, stderr);
+            selected = articles[1];
+            return selected;
+        },
+    });
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(JSON.parse(stdout.read()), selected);
+    assert.equal(stderr.read(), '');
+    const text = await fixture.run(['articles', 'top', '--choose', '--list'], { chooseArticle: async articles => articles[0] });
+    assert.equal(text.code, 0, text.stderr);
+    assert.match(text.stdout, /^1\. Unmatched publisher headline/);
+});
+
+test('top chooser requires a terminal and closes its read-only database on cancellation or errors', async t => {
+    const fixture = await fixtureDatabase(t);
+    const noTerminal = await fixture.run(['articles', 'top', '--choose'], { stdin: {} });
+    assert.equal(noTerminal.code, 1);
+    assert.equal(noTerminal.stdout, '');
+    assert.match(noTerminal.stderr, /requires an interactive terminal/);
+    const cancelled = await fixture.run(['articles', 'top', '--choose'], { chooseArticle: async () => { throw new Error('Selection cancelled.'); } });
+    assert.equal(cancelled.code, 1);
+    assert.equal(cancelled.stdout, '');
+    assert.match(cancelled.stderr, /Selection cancelled/);
 });

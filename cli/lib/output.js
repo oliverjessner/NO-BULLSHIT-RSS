@@ -8,21 +8,29 @@ export function compactArticle(article) {
     };
 }
 
-export function formatPublisherRankings(payload, { rankingKey, json = false }) {
-    const rankings = payload.rankings.filter(group => group.rankingKey === rankingKey);
-    const result = { medium: payload.medium, rankingKey, configured: payload.configured, rankings };
-    if (json) return JSON.stringify(result, null, 2);
-    const label = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' }[rankingKey];
-    const emptyLabel = { most_read: 'most-read', most_commented: 'most-commented', top_news: 'Top-News' }[rankingKey];
-    if (!rankings.length) return `No saved ${emptyLabel} rankings for ${payload.medium}. Refresh rankings in the app first.`;
-    const clean = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim();
-    return rankings.map(group => {
-        const editorialLabel = rankingKey === 'top_news' && typeof group.label === 'string' ? clean(group.label).slice(0, 80) : '';
+const cleanTopText = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').replace(/\s+/gu, ' ').trim();
+
+export function formatTopArticles(articles, { json = false, medium = 'all' } = {}) {
+    if (json) return JSON.stringify(articles, null, 2);
+    if (!articles.length) return `No saved top articles${medium === 'all' ? '' : ` for ${cleanTopText(medium)}`}. Refresh publisher selections in the app first.`;
+    const labels = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' };
+    return articles.map((article, index) => {
+        const rankings = (article.rankings || []).map(item => {
+            const label = cleanTopText(item.label || labels[item.rankingKey] || 'Publisher selection').slice(0, 80);
+            return `${label} #${cleanTopText(item.rank)} · ${cleanTopText(item.capturedAt)}`;
+        }).join('; ');
         return [
-            `${clean(group.sourceName)} · ${editorialLabel || label} · ${clean(group.capturedAt)}`,
-            ...group.items.map(item => `${item.rank}\t${clean(item.article?.title || item.title)}\t${clean(item.article?.url || item.canonicalUrl)}`),
+            `${index + 1}. ${cleanTopText(article.title) || 'Untitled'}`,
+            `   ${cleanTopText(article.sourceName)} · ${article.publishedAt ? cleanTopText(article.publishedAt) : `Captured ${cleanTopText(article.capturedAt)}`}`,
+            ...(rankings ? [`   ${rankings}`] : []),
+            `   ${cleanTopText(article.url || article.canonicalUrl)}`,
+            ...(article.teaser ? [`   ${cleanTopText(article.teaser)}`] : []),
         ].join('\n');
     }).join('\n\n');
+}
+
+export function formatChosenTopArticle(article, options = {}) {
+    return options.json ? JSON.stringify(article, null, 2) : formatTopArticles([article], options);
 }
 
 export function formatStatistics(statistics, { json = false } = {}) {

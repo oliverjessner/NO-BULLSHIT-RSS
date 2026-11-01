@@ -263,15 +263,16 @@
                     <header id="rankings-header" class="rankings-header oj-panel">
                         <h1 id="rankings-heading">Most read</h1>
                         <div class="rankings-controls">
-                            <label class="rankings-medium"><span class="oj-label">Medium</span><select id="rankings-medium" data-oj-select-dropdown><option value="golem">Golem</option><option value="winfuture">WinFuture</option><option value="computerbase">ComputerBase</option><option value="heise-ix">heise iX</option><option value="t3n">t3n</option><option value="techcrunch">TechCrunch</option></select></label>
-                            <button id="rankings-refresh" class="oj-button oj-button-primary" type="button" title="Refresh Golem rankings"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>
+                            <label class="rankings-medium"><span class="oj-label">Medium</span><select id="rankings-medium" data-oj-select-dropdown><option value="all">All media</option><option value="golem">Golem</option><option value="winfuture">WinFuture</option><option value="computerbase">ComputerBase</option><option value="heise-ix">heise iX</option><option value="t3n">t3n</option><option value="techcrunch">TechCrunch</option></select></label>
+                            <button id="rankings-refresh" class="oj-button oj-button-primary" type="button" title="Refresh all media"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>
                         </div>
                     </header>
                     <div id="rankings-layout" class="dashboard-layout rankings-layout">
                         <div class="dashboard-primary">
-                            <section id="publisher-rankings" class="publisher-rankings" aria-label="Most read and most commented">
+                            <section id="publisher-rankings" class="publisher-rankings" aria-label="Publisher selections">
                                 <p class="publisher-rankings-status oj-muted" role="status" aria-live="polite">Loading…</p>
                             </section>
+                            <button id="rankings-load-more" class="oj-button oj-button-ghost rankings-load-more" type="button" hidden>Load more</button>
                         </div>
                         <aside id="rankings-article-viewer" class="article-viewer oj-panel hide" aria-live="polite">
                             <div class="article-viewer-header">

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parseHTML } from 'linkedom';
-import { publisherRankingsFingerprint, normalizePublisherRankings, renderPublisherRankings } from '../components/publisher-rankings.js';
+import { publisherRankingsFingerprint, normalizePublisherRankings, renderPublisherRankings, normalizeTopArticles, renderTopArticles } from '../components/publisher-rankings.js';
 
 const markup = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
 
@@ -69,12 +69,13 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
     assert.equal(container.querySelector('.publisher-rankings-note'), null);
-    assert.match(document.querySelector('#rankings-refresh').title, /Refresh Golem rankings/);
+    assert.match(document.querySelector('#rankings-refresh').title, /Refresh all media/);
+    assert.ok(document.querySelector('#rankings-load-more[hidden]'));
     assert.equal(document.querySelector('[id^="rankings-access-"]'), null);
     assert.equal(container.querySelector('h2'), null);
     assert.match(container.querySelector('[role="status"]').textContent, /Loading/);
@@ -325,5 +326,45 @@ test('ranking status updates refresh even when captured articles remain unchange
         { attemptedAt: '2026-11-01T07:05:00Z' },
     ]) {
         assert.notEqual(fingerprint, publisherRankingsFingerprint(rankings, { ...status, ...change }));
+    }
+});
+
+test('mixed articles deduplicate canonical URLs and preserve functional links and ranking provenance', () => {
+    const article = { ...snapshot()[0].items[0].article, canonicalUrl: 'https://example.test/story?id=7#comments', rankings: [{ medium: 'techcrunch', rankingKey: 'top_news', label: 'Top Headlines', rank: 2 }] };
+    const result = normalizeTopArticles([article, { ...article, id: 99, canonicalUrl: 'https://example.test/story?id=7#other' },
+        { id: null, canonicalUrl: 'https://example.test/unknown', title: 'Publisher-only article' }, { canonicalUrl: 'javascript:alert(1)' }]);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].id, 7);
+    assert.equal(result[0].canonicalUrl, 'https://example.test/story?id=7');
+    assert.equal(result[0].rankings[0].label, 'Top Headlines');
+    assert.equal(result[1].id, null);
+});
+
+test('mixed Feed cards append without replacing unchanged rows and update saved RSS data in place', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const items = Array.from({ length: 80 }, (_, index) => ({ ...snapshot()[0].items[0].article,
+            id: index + 1, saved: false, title: `RSS article ${index + 1}`, canonicalUrl: `https://example.test/story/${index + 1}`,
+            rankings: [{ medium: 'golem', rankingKey: 'most_read', rank: index + 1, capturedAt: '2026-11-01T00:00:00Z' }],
+        }));
+        const container = document.querySelector('#publisher-rankings');
+        const options = { status: { state: 'ready' }, media: [{ id: 'golem', name: 'Golem' }] };
+        renderTopArticles(container, items.slice(0, 40), new Map(), options);
+        const first = container.querySelector('.publisher-top-list > li');
+        renderTopArticles(container, items, new Map(), options);
+        assert.equal(container.querySelectorAll('.feed-card').length, 80);
+        assert.equal(container.querySelector('.publisher-top-list > li'), first);
+        assert.match(container.querySelector('.publisher-ranking-provenance').textContent, /Golem · Most read #1/);
+        const articles = new Map();
+        renderTopArticles(container, items.map(item => item.id === 61 ? { ...item, saved: true } : item), articles, options);
+        assert.equal(container.querySelector('.publisher-top-list > li'), first);
+        assert.equal(container.querySelector('[data-article-id="61"] .article-save-btn').classList.contains('is-saved'), true);
+        assert.equal(articles.size, 80);
+        assert.equal(container.querySelector('.publisher-ranking-panel'), null);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
     }
 });

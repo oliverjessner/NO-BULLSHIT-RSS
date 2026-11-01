@@ -125,6 +125,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     try {
         rankings = await import('../views/rankings.js');
         const { store } = await import('../state/store.js');
+        store.ui.rankingsMedium = 'golem';
         const { initNavigation, navigate } = await import('../ui/navigation.js');
         initNavigation(name => name === 'rankings' ? rankings.activateRankings() : undefined);
         await navigate('rankings');

@@ -56,6 +56,7 @@ export const api = Object.freeze({
     dismissArticle: (id, dismissed) => apiFetch(`/api/articles/${id}/dismissed`, json('PATCH', { dismissed })),
     digest: (range, signal) => apiFetch(`/api/articles/digest?${new URLSearchParams({ variant: range })}`, { signal }),
     rankings: (medium = 'golem', signal) => apiFetch(`/api/rankings?${new URLSearchParams({ medium })}`, { signal }),
+    topArticles: ({ medium = 'all', limit = 40, cursor, signal } = {}) => apiFetch(`/api/rankings/top?${new URLSearchParams({ medium, limit: String(limit), ...(cursor ? { cursor } : {}) })}`, { signal }),
     refreshRankings: (medium = 'golem') => apiFetch('/api/rankings/refresh', json('POST', { medium })),
     markDigested: (ids, variant = 'day') => apiFetch('/api/articles/digest/state', json('POST', { articleIds: ids, variant, completed: true })),
     restoreDigested: (ids, variant = 'day') => apiFetch('/api/articles/digest/state', json('POST', { articleIds: ids, variant, completed: false })),

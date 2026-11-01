@@ -24,6 +24,15 @@ const techCrunchSelection = Array.from({ length: 5 }, (_, index) => ({
     canonicalUrl: index ? `https://techcrunch.com/2026/11/01/techcrunch-fixture-${index + 1}/` : techCrunchUrl,
     title: `TechCrunch editorial fixture headline ${index + 1}`, rank: index + 1,
 }));
+const historyProviders = [
+    { sourceId: 1, name: 'Golem', keys: ['most_read', 'most_commented'], prefix: 'https://www.golem.de/news/mixed-history-', suffix: '.html' },
+    { sourceId: 2, name: 'WinFuture', keys: ['most_read', 'most_commented'], prefix: 'https://winfuture.de/news,9100', suffix: '.html' },
+    { sourceId: 3, name: 'ComputerBase', keys: ['most_read'], prefix: 'https://www.computerbase.de/news/pc-systeme/mixed-history.9200', suffix: '/' },
+    { sourceId: 5, name: 'heise iX', keys: ['top_news'], prefix: 'https://www.heise.de/ix/news/mixed-history-9300', suffix: '.html' },
+    { sourceId: 6, name: 't3n', keys: ['most_read'], prefix: 'https://t3n.de/news/mixed-history-9400', suffix: '/' },
+    { sourceId: 7, name: 'TechCrunch', keys: ['top_news'], prefix: 'https://techcrunch.com/2025/12/31/mixed-history-', suffix: '/' },
+];
+const watermarkUrl = 'https://www.golem.de/news/new-watermark-ui-fixture.html';
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -32,6 +41,15 @@ async function waitFor(condition, label) {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
     throw new Error(`Timed out: ${label}`);
+}
+
+function mutateFixture(code) {
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+        const db = await import('./backend/database/datenbank.js');
+        ${code}
+        await db.closeDatabase();
+    `], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
 }
 
 try {
@@ -80,6 +98,19 @@ try {
         await saveMostReadSnapshot({ sourceId: 7, capturedAt: new Date().toISOString(), rankings: {
             top_news: ${JSON.stringify(techCrunchSelection)}
         } });
+        const historyProviders = ${JSON.stringify(historyProviders)};
+        for (const [providerIndex, provider] of historyProviders.entries()) {
+            const entries = [];
+            for (let index = 1; index <= 14; index += 1) {
+                const canonicalUrl = provider.prefix + index + provider.suffix;
+                const title = 'Mixed ' + provider.name + ' RSS article ' + index;
+                const publishedAt = new Date(Date.UTC(2025, 11, 31, 23, 59 - ((index - 1) * 6 + providerIndex))).toISOString();
+                await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,'mixed-fixture',?,datetime('now'),datetime('now'),datetime('now'))", [provider.sourceId, 'mixed-' + provider.sourceId + '-' + index, title, 'Stored mixed RSS teaser from ' + provider.name + '.', 'Stored mixed RSS article body.', canonicalUrl, canonicalUrl, publishedAt]);
+                entries.push({ canonicalUrl, title: 'Historical publisher title ' + index, rank: index });
+            }
+            if (provider.sourceId === 1) entries.push({ canonicalUrl: ${JSON.stringify(url)}, title: 'Older duplicate of the current Golem article', rank: 15 });
+            await saveMostReadSnapshot({ sourceId: provider.sourceId, capturedAt: '2026-01-01T00:00:00.000Z', rankings: Object.fromEntries(provider.keys.map(key => [key, entries])) });
+        }
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
     `], { cwd: root, env, encoding: 'utf8' });
@@ -102,13 +133,152 @@ try {
         if (route.request().url().startsWith(origin)) return route.continue();
         return route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>Isolated ranking article viewer fixture.</body></html>' });
     });
-    await page.addInitScript(() => { window.openedFixtureUrls = []; window.open = url => { window.openedFixtureUrls.push(String(url)); return null; }; });
+    await page.addInitScript(() => {
+        window.openedFixtureUrls = [];
+        window.open = url => { window.openedFixtureUrls.push(String(url)); return null; };
+        // Retain native observers for the rest of the app, but let this fixture
+        // trigger ranking pagination without viewport timing or click scrolling.
+        const NativeIntersectionObserver = window.IntersectionObserver;
+        const observers = [];
+        window.IntersectionObserver = class extends NativeIntersectionObserver {
+            constructor(callback, options) {
+                super(callback, options);
+                this.fixtureCallback = callback;
+                this.fixtureTargets = new Set();
+                observers.push(this);
+            }
+            observe(target) { this.fixtureTargets.add(target); if (target.id !== 'rankings-load-more') super.observe(target); }
+            unobserve(target) { this.fixtureTargets.delete(target); super.unobserve(target); }
+            disconnect() { this.fixtureTargets.clear(); super.disconnect(); }
+        };
+        window.triggerRankingsIntersection = () => {
+            const target = document.getElementById('rankings-load-more');
+            let count = 0;
+            for (const observer of observers) if (observer.fixtureTargets.has(target)) {
+                observer.fixtureCallback([{ target, isIntersecting: true, intersectionRatio: 1 }], observer);
+                count += 1;
+            }
+            return count;
+        };
+    });
     const list = await (await page.request.post(`${origin}/api/lists`, { data: { name: 'Ranking reading list' } })).json();
     await page.goto(origin);
     await page.locator('[data-view="rankings"]').click();
     const cards = page.locator('#publisher-rankings .feed-card');
     const matched = () => page.locator(`#publisher-rankings .feed-card[data-article-id="${articleId}"]`);
     const unmatched = page.locator('#publisher-rankings .feed-card:not([data-article-id])');
+    await waitFor(async () => await cards.count() === 40, 'initial mixed page of forty Feed cards');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'all');
+    assert.equal(await matched().count(), 1, 'Mixed cards deduplicate current ranking kinds and older snapshots');
+    assert.equal(await page.locator('.publisher-ranking-title').count(), 0, 'All media is one Feed card collection');
+    assert.ok(await page.locator('.publisher-ranking-provenance').count() >= 40);
+    const initialTop = await (await page.request.get(`${origin}/api/rankings/top?medium=all&limit=40`)).json();
+    assert.equal(initialTop.items.length, 40);
+    assert.equal(initialTop.hasMore, true);
+    assert.ok(initialTop.nextCursor);
+    assert.deepEqual([...new Set(initialTop.items.flatMap(item => item.rankings.map(ranking => ranking.medium)))].sort(), ['computerbase', 'golem', 'heise-ix', 't3n', 'techcrunch', 'winfuture']);
+    assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 40);
+    const mixedProvenance = (await matched().locator('.publisher-ranking-provenance').allTextContents()).join(' ');
+    assert.match(mixedProvenance, /Most read/);
+    assert.match(mixedProvenance, /Most commented/);
+    await matched().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), url);
+    await page.locator('#rankings-article-viewer-hide').click();
+    const mixedExternal = unmatched.first();
+    const mixedExternalUrl = await mixedExternal.getAttribute('data-item-url');
+    await mixedExternal.locator('.article-title-button').click();
+    assert.deepEqual(await page.evaluate(() => window.openedFixtureUrls), [mixedExternalUrl]);
+    await page.evaluate(() => { window.openedFixtureUrls = []; });
+
+    mutateFixture(`
+        const { saveMostReadSnapshot } = await import('./backend/services/most-read.js');
+        await saveMostReadSnapshot({ sourceId: 1, capturedAt: new Date(Date.now() + 1000).toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(watermarkUrl)}, title: 'New watermark fixture article', rank: 1 }],
+            most_commented: [{ canonicalUrl: ${JSON.stringify(watermarkUrl)}, title: 'New watermark fixture article', rank: 1 }]
+        } });
+    `);
+    await page.locator('#rankings-load-more').click();
+    await waitFor(async () => await cards.count() === 80, 'second mixed page of forty Feed cards');
+    assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 80);
+    assert.ok(await page.evaluate(() => window.triggerRankingsIntersection()) > 0, 'Mixed view must register its pagination observer');
+    await waitFor(async () => await cards.count() === 96, 'observer loads the final sixteen historical articles');
+    assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 96);
+    assert.equal(await page.locator('#rankings-load-more').isVisible(), false);
+    assert.equal(await page.locator(`#publisher-rankings .feed-card[data-item-url="${watermarkUrl}"]`).count(), 0, 'Continuation stays pinned to the initial snapshot watermark');
+    const freshTop = await (await page.request.get(`${origin}/api/rankings/top?medium=all&limit=40`)).json();
+    assert.equal(freshTop.items.some(item => item.canonicalUrl === watermarkUrl), true, 'A fresh request sees the new snapshot watermark');
+    mutateFixture(`await db.run('DELETE FROM most_read WHERE canonicalUrl = ?', [${JSON.stringify(watermarkUrl)}]);`);
+
+    // Save while looking at a later page, keeping that card in the viewport so
+    // opening its list dialog does not itself scroll the collection.
+    const mixedLast = cards.last();
+    await mixedLast.scrollIntoViewIfNeeded();
+    const laterPageArticleId = await mixedLast.getAttribute('data-article-id');
+    assert.ok(laterPageArticleId);
+    const loadedCount = await cards.count();
+    const scrollBeforeSave = await page.evaluate(() => window.scrollY);
+    await mixedLast.locator('.article-save-btn').click();
+    await page.locator('#modal-backdrop').waitFor({ state: 'visible' });
+    await page.locator('#modal-list-select').selectOption(String(list.id), { force: true });
+    await page.locator('#modal-confirm').click();
+    await waitFor(async () => await page.locator(`#publisher-rankings .feed-card[data-article-id="${laterPageArticleId}"] .article-save-btn.is-saved`).count() === 1, 'save updates the later mixed card');
+    assert.equal(await cards.count(), loadedCount, 'Saving preserves every loaded mixed page');
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - scrollBeforeSave) < 80, 'Saving retains the mixed-view scroll position');
+    await page.locator(`#publisher-rankings .feed-card[data-article-id="${laterPageArticleId}"] .article-save-btn`).click();
+    await page.locator('#modal-existing-lists [data-action="remove-list"]').click();
+    await waitFor(async () => await page.locator(`#publisher-rankings .feed-card[data-article-id="${laterPageArticleId}"] .article-save-btn.is-saved`).count() === 0, 'remove later mixed card list membership');
+    await page.locator('#modal-cancel').click();
+    await page.locator(`#publisher-rankings .feed-card[data-article-id="${laterPageArticleId}"] .article-dismiss-btn`).click();
+    await waitFor(async () => await cards.count() === loadedCount - 1, 'dismiss removes only the later mixed card');
+    assert.ok(await cards.count() > 40, 'Dismiss must not collapse mixed pagination');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await waitFor(async () => await cards.count() === loadedCount, 'mixed dismiss Undo restores the loaded collection');
+    await page.locator('.oj-toast-dismiss').evaluateAll(buttons => buttons.forEach(button => button.click()));
+
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForFunction(() => [...document.querySelectorAll('.publisher-top-list .feed-card')].filter(card => {
+            const bounds = card.getBoundingClientRect(); return bounds.top < innerHeight && bounds.bottom > 0;
+        }).every(card => card.checkVisibility({ contentVisibilityAuto: true })));
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `All media ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-all-${name}.png`), fullPage: false });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
+    await waitFor(async () => await cards.count() === 4, 'source selector filters back to current Golem groups');
+    assert.equal(await page.locator('#rankings-load-more').isVisible(), false);
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'All media', exact: true }).click();
+    await waitFor(async () => await cards.count() === 40, 'return to the first mixed page');
+    let releasePagination;
+    const paginationHeld = new Promise(resolve => { releasePagination = resolve; });
+    let paginationStarted, paginationCompleted;
+    const paginationRequestStarted = new Promise(resolve => { paginationStarted = resolve; });
+    const paginationRequestCompleted = new Promise(resolve => { paginationCompleted = resolve; });
+    const paginationRoute = requestUrl => requestUrl.pathname === '/api/rankings/top' && requestUrl.searchParams.has('cursor');
+    await page.route(paginationRoute, async route => {
+        try {
+            const response = await route.fetch();
+            paginationStarted();
+            await paginationHeld;
+            try { await route.fulfill({ response }); }
+            catch (error) { if (!route.request().failure()?.errorText?.includes('ABORTED')) throw error; }
+        } finally { paginationCompleted(); }
+    });
+    await page.locator('#rankings-load-more').click();
+    await paginationRequestStarted;
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
+    await waitFor(async () => await cards.count() === 4, 'source switch completes while a mixed page is pending');
+    releasePagination();
+    await paginationRequestCompleted;
+    await page.unroute(paginationRoute);
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'golem');
     await waitFor(async () => await cards.count() === 4, 'ranked Feed cards');
     assert.equal(await matched().count(), 2);
     assert.equal(await matched().first().locator('.article-title-button').textContent(), 'RSS fixture headline');
@@ -317,7 +487,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: all six media, TechCrunch Top Headlines editorial selection, ComputerBase/t3n most-read-only and heise iX Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: All media 40/80/96 pagination, canonical dedup, snapshot watermark, source-switch race, loaded-depth save/dismiss/Undo and scroll; all six grouped media, RSS viewers/actions, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

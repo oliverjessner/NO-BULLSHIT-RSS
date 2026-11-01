@@ -3,6 +3,7 @@ import { createArticleCard } from './article-card.js';
 
 const rankingLabels = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' };
 const positiveId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+const topRowFingerprints = new WeakMap();
 
 function rankingUrl(value) {
     try {
@@ -13,6 +14,12 @@ function rankingUrl(value) {
     } catch {
         return null;
     }
+}
+
+function rankingLabel(group) {
+    const editorialLabel = group.rankingKey === 'top_news' && typeof group.label === 'string'
+        ? group.label.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim().slice(0, 80) : '';
+    return editorialLabel || rankingLabels[group.rankingKey];
 }
 
 export function normalizePublisherRankings(rankings) {
@@ -37,17 +44,94 @@ export function normalizePublisherRankings(rankings) {
         }).sort((left, right) => left.rank - right.rank);
         if (!items.length) return [];
         const captured = new Date(group.capturedAt);
-        const editorialLabel = group.rankingKey === 'top_news' && typeof group.label === 'string'
-            ? group.label.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim().slice(0, 80) : '';
         return [{
             sourceId: positiveId(group.sourceId),
             sourceName: String(group.sourceName || 'Unknown source'),
             rankingKey: group.rankingKey,
-            label: editorialLabel || rankingLabels[group.rankingKey],
+            label: rankingLabel(group),
             capturedAt: group.capturedAt && Number.isFinite(captured.getTime()) ? captured.toISOString() : null,
             items,
         }];
     }).sort((left, right) => Number(left.rankingKey === 'most_commented') - Number(right.rankingKey === 'most_commented'));
+}
+
+export function normalizeTopArticles(items) {
+    const seen = new Set();
+    return (Array.isArray(items) ? items : []).flatMap(item => {
+        const canonicalUrl = rankingUrl(item?.canonicalUrl || item?.url);
+        if (!canonicalUrl || seen.has(canonicalUrl)) return [];
+        seen.add(canonicalUrl);
+        const rankings = (Array.isArray(item.rankings) ? item.rankings : []).flatMap(group => {
+            if (!group || !Object.hasOwn(rankingLabels, group.rankingKey) || !positiveId(group.rank)) return [];
+            return [{ ...group, rank: positiveId(group.rank), label: rankingLabel(group) }];
+        });
+        return [{ ...item, id: positiveId(item.id), canonicalUrl, url: rankingUrl(item.url) || canonicalUrl, rankings }];
+    });
+}
+
+export function renderTopArticles(container, items, articleMap, { status, configured, media = [], template = document.getElementById('article-card-template') } = {}) {
+    const articles = normalizeTopArticles(items);
+    let list = container.querySelector('.publisher-top-list');
+    if (!list) {
+        container.replaceChildren();
+        list = document.createElement('ul');
+        list.className = 'publisher-top-list cards';
+        const state = document.createElement('p');
+        state.className = 'publisher-rankings-status oj-muted';
+        state.setAttribute('role', 'status');
+        state.setAttribute('aria-live', 'polite');
+        container.append(state, list);
+    }
+    container.hidden = false;
+    const state = container.querySelector('.publisher-rankings-status');
+    state.classList.toggle('is-error', status?.state === 'error');
+    state.textContent = articles.length ? '' : configured === false ? 'Add a supported RSS feed in Settings.'
+        : status?.state === 'loading' ? 'Loading…' : status?.state === 'refreshing' ? 'Refreshing…'
+            : status?.state === 'error' ? 'Could not load articles. Retry refresh.' : 'No articles yet. Select Refresh.';
+    state.hidden = !state.textContent;
+    const existing = new Map([...list.children].map(row => [row.dataset.itemUrl, row]));
+    const retained = new Set();
+    articles.forEach((article, index) => {
+        if (article.id) articleMap.set(article.id, article);
+        const fingerprint = JSON.stringify({ ...article, content: undefined });
+        let row = existing.get(article.canonicalUrl);
+        if (!row || topRowFingerprints.get(row) !== fingerprint) {
+            const replacement = document.createElement('li');
+            replacement.dataset.itemUrl = article.canonicalUrl;
+            topRowFingerprints.set(replacement, fingerprint);
+            const fragment = createArticleCard(article, template);
+            const card = fragment.querySelector('.feed-card');
+            card.classList.add('publisher-ranking-card');
+            card.dataset.itemUrl = article.canonicalUrl;
+            if (!article.teaser) card.querySelector('.teaser').hidden = true;
+            if (!article.id) {
+                card.removeAttribute('data-article-id');
+                card.querySelector('.meta-source').disabled = true;
+                card.querySelector('.meta-source').removeAttribute('data-action');
+                card.querySelector('.meta-date').hidden = !article.publishedAt;
+                card.querySelector('.meta-separator').hidden = !article.publishedAt;
+                card.querySelector('.btn-open-external').disabled = false;
+                for (const action of card.querySelectorAll('.article-save-btn, .article-dismiss-btn')) action.title = 'Available when this article is in your RSS feeds';
+            }
+            const provenance = document.createElement('div');
+            provenance.className = 'publisher-ranking-provenances';
+            for (const ranking of article.rankings) {
+                const chip = document.createElement('span');
+                chip.className = 'publisher-ranking-provenance oj-badge';
+                const publisher = media.find(item => item.id === ranking.medium)?.name || ranking.medium || article.sourceName;
+                chip.textContent = `${publisher} · ${ranking.label} #${ranking.rank}`;
+                if (ranking.capturedAt) chip.title = `Captured ${ranking.capturedAt}`;
+                provenance.appendChild(chip);
+            }
+            card.querySelector('.content').appendChild(provenance);
+            replacement.appendChild(fragment);
+            if (row) row.replaceWith(replacement);
+            row = replacement;
+        }
+        retained.add(row);
+        if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+    });
+    for (const row of [...list.children]) if (!retained.has(row)) row.remove();
 }
 
 export function publisherRankingsFingerprint(rankings, status, configured) {

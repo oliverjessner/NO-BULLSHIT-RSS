@@ -37,11 +37,13 @@ export function normalizePublisherRankings(rankings) {
         }).sort((left, right) => left.rank - right.rank);
         if (!items.length) return [];
         const captured = new Date(group.capturedAt);
+        const editorialLabel = group.rankingKey === 'top_news' && typeof group.label === 'string'
+            ? group.label.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim().slice(0, 80) : '';
         return [{
             sourceId: positiveId(group.sourceId),
             sourceName: String(group.sourceName || 'Unknown source'),
             rankingKey: group.rankingKey,
-            label: rankingLabels[group.rankingKey],
+            label: editorialLabel || rankingLabels[group.rankingKey],
             capturedAt: group.capturedAt && Number.isFinite(captured.getTime()) ? captured.toISOString() : null,
             items,
         }];

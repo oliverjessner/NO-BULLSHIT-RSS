@@ -16,7 +16,7 @@ async function fixture(t, overrides = {}) {
     const state = {
         rankingStatus: { state: 'ready', attemptedAt: '2026-11-01T00:00:00Z', errorCode: null, message: null },
     };
-    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }], configured: true,
+    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }], configured: true,
         rankings: [{ sourceId: 1, rankingKey: 'most_read', items: [{ rank: 1, title: 'Saved article', canonicalUrl: 'https://www.golem.de/news/saved.html' }] }],
         rankingStatus: state.rankingStatus });
     const app = express(); app.use(express.json());
@@ -41,7 +41,7 @@ test('GET rankings is read-only and exposes the supported publisher media', asyn
     const response = await fetch(`${f.base}?medium=golem`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }]);
+    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }]);
     assert.equal(body.medium, 'golem');
     assert.equal(body.rankings[0].items[0].title, 'Saved article');
     assert.equal(Object.hasOwn(body, 'access'), false);
@@ -98,6 +98,16 @@ test('t3n most-read rankings can be selected and refreshed independently', async
     assert.equal(response.status, 200);
     assert.equal((await response.json()).medium, 't3n');
     assert.deepEqual(captured, { medium: 't3n' });
+});
+
+test('TechCrunch Top Headlines can be selected and refreshed independently', async t => {
+    let captured;
+    const f = await fixture(t, { refresh: async options => { captured = options; } });
+    assert.equal((await fetch(`${f.base}?medium=techcrunch`)).status, 200);
+    const response = await f.request('/refresh', { medium: 'techcrunch' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).medium, 'techcrunch');
+    assert.deepEqual(captured, { medium: 'techcrunch' });
 });
 
 test('failed Golem refresh returns actionable consent status and keeps the last saved articles', async t => {

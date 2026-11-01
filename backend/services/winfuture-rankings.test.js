@@ -58,7 +58,7 @@ test('matches WinFuture source host independently of source IDs/names and lists 
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.winfuture.de/' }).id, 'winfuture');
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://winfuture.de/', name: 'Other' }).id, 'winfuture');
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://winfuture.de.evil.test/', name: 'WinFuture' }), null);
-    assert.deepEqual(RANKING_MEDIA.map(({ id, name }) => ({ id, name })), [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }]);
+    assert.deepEqual(RANKING_MEDIA.map(({ id, name }) => ({ id, name })), [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }]);
 });
 
 test('uses complete HTTP HTML without loading a browser and preserves capture metadata', async () => {

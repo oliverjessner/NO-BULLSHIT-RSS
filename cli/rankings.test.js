@@ -26,6 +26,11 @@ test('publisher CLI validates media and flags before opening a database', () => 
     assert.throws(() => parseCliArgs(['--most-read', 'heise-ix']), /Most-read rankings are not supported for heise iX\. Use --top-news heise-ix\./);
     assert.throws(() => parseCliArgs(['--most-commented', 'heise-ix']), /Most-commented rankings are not supported for heise iX\. Use --top-news heise-ix\./);
     assert.throws(() => parseCliArgs(['--top-news', 'computerbase']), /Top-News rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
+    assert.deepEqual(parseCliArgs(['--most-read', 'T3N', '--json']), {
+        command: 'publisher-rankings', medium: 't3n', rankingKey: 'most_read', json: true,
+    });
+    assert.throws(() => parseCliArgs(['--most-commented', 't3n']), /Most-commented rankings are not supported for t3n\. Use --most-read t3n\./);
+    assert.throws(() => parseCliArgs(['--top-news', 't3n']), /Top-News rankings are not supported for t3n\. Use --most-read t3n\./);
     for (const args of [['--most-read'], ['--most-read', 'unknown'], ['--top-news'], ['--top-news', 'unknown'], ['--most-read', 'golem', '--most-commented', 'golem'], ['--top-news', 'heise-ix', '--most-read', 'heise-ix'], ['--most-read', 'golem', '--url']]) {
         assert.throws(() => parseCliArgs(args));
     }
@@ -64,7 +69,22 @@ test('empty editorial selections keep the Top-News label', () => {
     assert.doesNotMatch(text, /most-read|most-commented/);
 });
 
-test('publisher CLI help includes heise iX and Top-News without opening a database', async () => {
+test('unsupported t3n ranking kinds suggest most-read before opening a database', async () => {
+    for (const [flag, label] of [['--most-commented', 'Most-commented'], ['--top-news', 'Top-News']]) {
+        let stdout = '', stderr = '';
+        let opened = false;
+        const code = await runCli([flag, 't3n'], {
+            stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
+            discoverDatabase: async () => { opened = true; throw new Error('Must not open a database'); },
+        });
+        assert.equal(code, 1);
+        assert.equal(opened, false);
+        assert.equal(stdout, '');
+        assert.equal(stderr.trim(), `Error: ${label} rankings are not supported for t3n. Use --most-read t3n.`);
+    }
+});
+
+test('publisher CLI help includes all supported media and Top-News without opening a database', async () => {
     let stdout = '', stderr = '';
     const code = await runCli(['--help'], {
         stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
@@ -74,6 +94,7 @@ test('publisher CLI help includes heise iX and Top-News without opening a databa
     assert.equal(stderr, '');
     assert.match(stdout, /Publisher media:[^\n]*computerbase/);
     assert.match(stdout, /Publisher media:[^\n]*heise-ix/);
+    assert.match(stdout, /Publisher media:[^\n]*t3n/);
     assert.match(stdout, /--top-news <medium>/);
     assert.match(stdout, /--top-news heise-ix/);
 });
@@ -129,7 +150,15 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
             INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
             (4,NULL,'https://www.heise.de/news/generic.html','Generic Heise article',1,'most_read','2026-11-01T00:00:00.000Z'),
             (5,5,'https://www.heise.de/ix/news/heise-ix-fixture-12345.html','heise iX editorial title',1,'top_news','2026-11-01T00:00:00.000Z'),
-            (5,NULL,'https://www.heise.de/ix/news/second-12346.html','heise iX editorial second story',2,'top_news','2026-11-01T00:00:00.000Z');`);
+            (5,NULL,'https://www.heise.de/ix/news/second-12346.html','heise iX editorial second story',2,'top_news','2026-11-01T00:00:00.000Z');
+            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
+            VALUES (6,'t3n','https://t3n.de/','https://t3n.de/','2026-11-01','2026-11-01');
+            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
+            VALUES (6,6,'t3n RSS','https://t3n.de/rss.xml','2026-11-01','2026-11-01');
+            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
+            VALUES (6,6,'t3n-one','t3n RSS title','t3n RSS teaser','https://t3n.de/news/t3n-fixture-1234567/','https://t3n.de/news/t3n-fixture-1234567/','six','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
+            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
+            (6,6,'https://t3n.de/news/t3n-fixture-1234567/','t3n publisher title',1,'most_read','2026-11-01T00:00:00.000Z');`);
         await new Promise((resolve, reject) => connection.close(error => error ? reject(error) : resolve()));
         connection = null;
         const before = await readFile(databasePath);
@@ -182,6 +211,19 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
         assert.match(heiseIxText, /heise iX · Top-News · 2026-11-01T00:00:00\.000Z/);
         assert.match(heiseIxText, /1\theise iX RSS title\thttps:\/\/www.heise.de\/ix\/news\/heise-ix-fixture-12345.html/);
         assert.doesNotMatch(heiseIxText, /Most read|Most commented|Generic Heise/);
+        const t3n = JSON.parse(await run(['--most-read', 't3n', '--json']));
+        assert.equal(t3n.medium, 't3n');
+        assert.equal(t3n.rankingKey, 'most_read');
+        assert.equal(t3n.rankings.length, 1);
+        assert.equal(t3n.rankings[0].sourceId, 6);
+        assert.equal(t3n.rankings[0].rankingKey, 'most_read');
+        assert.equal(t3n.rankings[0].sourceName, 't3n');
+        assert.equal(t3n.rankings[0].items[0].article.title, 't3n RSS title');
+        assert.equal(t3n.rankings[0].items[0].article.teaser, 't3n RSS teaser');
+        const t3nText = await run(['--most-read', 't3n']);
+        assert.match(t3nText, /t3n · Most read · 2026-11-01T00:00:00\.000Z/);
+        assert.match(t3nText, /1\tt3n RSS title\thttps:\/\/t3n.de\/news\/t3n-fixture-1234567\//);
+        assert.doesNotMatch(t3nText, /Most commented|Top-News|heise iX|ComputerBase|WinFuture|Golem/);
         assert.deepEqual(await readFile(databasePath), before);
         assert.deepEqual(await readdir(directory), filesBefore);
     } finally {

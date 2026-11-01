@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 
 const payload = (title = 'Saved Golem story') => ({
-    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }], configured: true,
+    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }], configured: true,
     rankingStatus: { state: 'ready', message: null, attemptedAt: '2026-11-01T07:00:00Z' },
     rankings: [{ sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-11-01T07:00:00Z', items: [
         { id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/saved.html', title,
@@ -45,6 +45,17 @@ function heiseIxPayload(title = 'Saved heise iX editorial story') {
     }] };
 }
 
+function t3nPayload(title = 'Saved t3n story') {
+    const base = payload(title);
+    const url = 'https://t3n.de/news/t3n-fixture-1234567/';
+    return { ...base, medium: 't3n', rankings: [{
+        ...base.rankings[0], sourceId: 6, sourceName: 't3n', items: [{
+            ...base.rankings[0].items[0], canonicalUrl: url, articleId: 47,
+            article: { ...base.rankings[0].items[0].article, id: 47, url, teaser: 't3n RSS teaser.' },
+        }],
+    }] };
+}
+
 test('Most read uses automatic consent refresh with its own viewer, saved snapshots and request ordering', async () => {
     const previous = { document: globalThis.document, window: globalThis.window, fetch: globalThis.fetch, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -77,6 +88,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     globalThis.fetch = async (url, options) => {
         requests.push({ url, options });
         if (url === '/api/rankings/refresh') {
+            if (JSON.parse(options.body).medium === 't3n') return Response.json(t3nPayload('Refreshed t3n story'));
             if (JSON.parse(options.body).medium === 'heise-ix') return Response.json(heiseIxPayload('Refreshed heise iX editorial story'));
             if (JSON.parse(options.body).medium === 'computerbase') return Response.json(computerBasePayload('Refreshed ComputerBase story'));
             if (JSON.parse(options.body).medium === 'winfuture') return Response.json(winFuturePayload('Refreshed WinFuture story'));
@@ -91,6 +103,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         }
         if (url === '/api/rankings?medium=computerbase') return Response.json(computerBasePayload());
         if (url === '/api/rankings?medium=heise-ix') return Response.json(heiseIxPayload());
+        if (url === '/api/rankings?medium=t3n') return Response.json(t3nPayload());
         assert.equal(url, '/api/rankings?medium=golem');
         if (mode === 'delayed-read') return new Promise(resolve => { completeOldRead = resolve; });
         return Response.json({ ...payload(), configured, rankings: configured ? payload().rankings : [], rankingStatus: configured ? payload().rankingStatus : { state: 'idle' } });
@@ -221,6 +234,20 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         await rankings.refreshRankings();
         assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'heise-ix' });
         assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed heise iX editorial story/);
+        select.value = 't3n';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 't3n');
+        assert.deepEqual([...document.querySelectorAll('.publisher-ranking-title')].map(title => title.textContent), ['Most read']);
+        assert.equal(document.querySelectorAll('#publisher-rankings .feed-card').length, 1);
+        assert.equal(document.querySelector('#publisher-rankings .teaser').textContent, 't3n RSS teaser.');
+        assert.equal(store.rankings.articlesById.has(37), false);
+        assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Most commented|Top-News/);
+        click(document.querySelector('.publisher-ranking-card[data-article-id="47"] .article-title-button'));
+        assert.equal(document.querySelector('#rankings-article-viewer-frame').dataset.loadedUrl, 'https://t3n.de/news/t3n-fixture-1234567/');
+        await rankings.refreshRankings();
+        assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 't3n' });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed t3n story/);
         select.value = 'golem';
         select.dispatchEvent(new window.Event('change'));
         await new Promise(setImmediate);

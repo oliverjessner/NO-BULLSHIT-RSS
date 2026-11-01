@@ -49,7 +49,7 @@ no-bullshit-rss stats --json
 
 ## Publisher rankings
 
-Read the latest saved Golem, WinFuture, ComputerBase or heise iX publisher selections, independently of the Digest period:
+Read the latest saved Golem, WinFuture, ComputerBase, heise iX or t3n publisher selections, independently of the Digest period:
 
 ```bash
 no-bullshit-rss --most-read golem
@@ -61,6 +61,8 @@ no-bullshit-rss --most-read computerbase
 no-bullshit-rss --most-read computerbase --json
 no-bullshit-rss --top-news heise-ix
 no-bullshit-rss --top-news heise-ix --json
+no-bullshit-rss --most-read t3n
+no-bullshit-rss --most-read t3n --json
 ```
 
 Text output contains publisher, capture time and ranked titles with URLs. JSON also includes the matched RSS article data when available. These commands read the existing database without fetching or changing anything; use Refresh in the app to capture new rankings. The help lists supported media when an invalid medium is supplied.
@@ -68,6 +70,8 @@ Text output contains publisher, capture time and ranked titles with URLs. JSON a
 The ComputerBase integration supports most-read news from the last 72 hours. Most-commented rankings are not supported for ComputerBase; `--most-commented computerbase` reports this and suggests `--most-read computerbase`.
 
 heise iX supports editorial **Top-News**, stored separately from most-read and most-commented rankings. Use `--top-news heise-ix`; unsupported flags such as `--most-read heise-ix` report the supported command before opening the database.
+
+t3n supports **most-read** articles. Use `--most-read t3n`; `--most-commented t3n` and `--top-news t3n` report that those selections are unsupported and suggest the most-read command before opening the database.
 
 ## Latest articles
 

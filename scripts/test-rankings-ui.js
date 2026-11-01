@@ -18,6 +18,7 @@ const unmatchedUrl = 'https://www.golem.de/news/unmatched-ui-fixture.html';
 const winFutureUrl = 'https://winfuture.de/news,162334.html';
 const computerBaseUrl = 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/';
 const heiseIxUrl = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
+const t3nUrl = 'https://t3n.de/news/t3n-fixture-1234567/';
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -62,6 +63,11 @@ try {
         await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (5,'heise-ix-ui','heise iX RSS fixture headline','heise iX stored RSS teaser.','heise iX article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(heiseIxUrl)}, ${JSON.stringify(heiseIxUrl)}]);
         await saveMostReadSnapshot({ sourceId: 5, capturedAt: new Date().toISOString(), rankings: {
             top_news: [{ canonicalUrl: ${JSON.stringify(heiseIxUrl)}, title: 'heise iX editorial headline', rank: 1 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (6,'t3n','https://t3n.de/','https://t3n.de/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (6,6,'t3n RSS','https://t3n.de/rss.xml',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (6,'t3n-ui','t3n RSS fixture headline','t3n stored RSS teaser.','t3n article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(t3nUrl)}, ${JSON.stringify(t3nUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 6, capturedAt: new Date().toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(t3nUrl)}, title: 't3n publisher headline', rank: 1 }]
         } });
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
@@ -164,6 +170,33 @@ try {
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 't3n', exact: true }).click();
+    await waitFor(async () => await cards.count() === 1 && (await cards.first().textContent()).includes('t3n RSS fixture headline'), 't3n most-read RSS card');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 't3n');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most read']);
+    assert.equal(await page.locator('[data-ranking-key="most_commented"], [data-ranking-key="top_news"]').count(), 0, 't3n must only show its available most-read group');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 't3n stored RSS teaser.');
+    assert.equal(await cards.first().locator('.article-save-btn').isEnabled(), true);
+    assert.equal(await cards.first().locator('.article-dismiss-btn').isEnabled(), true);
+    const t3n = await (await page.request.get(`${origin}/api/rankings?medium=t3n`)).json();
+    assert.equal(t3n.medium, 't3n');
+    assert.equal(t3n.rankings.length, 1);
+    assert.equal(t3n.rankings[0].sourceId, 6);
+    assert.equal(t3n.rankings[0].rankingKey, 'most_read');
+    assert.equal(t3n.rankings[0].items[0].article.sourceName, 't3n RSS');
+    assert.ok(Number.isFinite(Date.parse(t3n.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), t3nUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `t3n ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-t3n-${name}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
     await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
     await waitFor(async () => await cards.count() === 4 && await matched().count() === 2, 'return to Golem rankings');
     assert.equal(await page.locator('#rankings-article-viewer').isVisible(), false);
@@ -243,7 +276,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: Golem, WinFuture, ComputerBase and heise iX selection, ComputerBase most-read-only and heise iX editorial Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: Golem, WinFuture, ComputerBase, heise iX and t3n selection, ComputerBase/t3n most-read-only and heise iX editorial Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

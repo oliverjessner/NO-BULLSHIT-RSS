@@ -80,6 +80,18 @@ const heiseIxRankings = () => ({ top_news: [
     { rank: 2, canonicalUrl: 'https://www.heise.de/news/ix-second-11505793.html', title: 'Second iX top news' },
 ] });
 
+async function t3nSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (901, 't3n', 'https://t3n.de/', 'https://t3n.de/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (1001, 901, 't3n RSS', 'https://t3n.de/rss.xml', datetime('now'), datetime('now'))`);
+}
+const t3nUrl = 'https://t3n.de/news/t3n-fixture-1769905/';
+const t3nRankings = () => ({ most_read: [
+    { rank: 1, canonicalUrl: t3nUrl, title: 't3n publisher headline' },
+    { rank: 2, canonicalUrl: 'https://t3n.de/news/second-fixture-1770379/', title: 'Second publisher headline' },
+] });
+
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
         (feedId, externalId, title, teaser, content, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
@@ -222,7 +234,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -453,6 +465,62 @@ test('all-publisher updates include iX Top-News while a failed manual iX refresh
     assert.equal(payload.rankings[0].capturedAt, firstCapture);
     assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
     assert.equal((await readRankingRefreshStatus(db, 'golem')).state, 'ready');
+});
+
+test('t3n stores only genuine most-read snapshots and matches RSS by URL within that source', async () => {
+    await t3nSource();
+    await article('other-t3n', 203, { url: t3nUrl, canonicalUrl: t3nUrl });
+    const rssId = await article('actual-t3n', 1001, { url: `${t3nUrl}?utm_source=rss`, canonicalUrl: t3nUrl, title: 'Actual t3n RSS headline' });
+    const snapshot = { sourceId: 901, capturedAt: firstCapture, rankings: t3nRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 2, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('t3n', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'most_read');
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'Actual t3n RSS headline');
+        assert.equal(payload.rankings[0].items[0].article.teaser, 'Teaser');
+        assert.equal(payload.rankings[0].items[1].articleId, null);
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { ...t3nRankings(), most_commented: t3nRankings().most_read } }), /Invalid ranking keys/);
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { most_read: [] } }), /complete most-read/);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read WHERE sourceId = 901')).count, 2);
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.t3n.de/' }).id, 't3n');
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://t3n.de.evil.test/' }), null);
+});
+
+test('a failed manual t3n refresh keeps its last captured list without fetching other media or changing the all-publisher cadence', async () => {
+    await t3nSource();
+    await saveMostReadSnapshot({ sourceId: 901, capturedAt: firstCapture, rankings: t3nRankings() });
+    const cadence = JSON.stringify({ state: 'ready', attemptedAt: firstCapture });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, cadence]);
+    const captured = [];
+    const result = await refreshMostReadRankings({ medium: 't3n', capture: async ({ medium }) => {
+        captured.push(medium);
+        throw new Error('UpScore list unavailable');
+    } });
+    assert.deepEqual(captured, ['t3n']);
+    assert.deepEqual(result, { updated: 0, total: 1 });
+    const payload = await readPublisherRankingsPayload('t3n', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
+});
+
+test('the all-publisher schedule captures t3n alongside all existing media and their supported list types', async () => {
+    await winFutureSource(); await computerBaseSource(); await heiseIxSources(); await t3nSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings(), 'heise-ix': heiseIxRankings(), t3n: t3nRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n']);
+    assert.deepEqual(result, { updated: 5, total: 5 });
+    for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
 });
 
 test('migration constraints, source deletion and article deletion preserve ranking history safely', async () => {

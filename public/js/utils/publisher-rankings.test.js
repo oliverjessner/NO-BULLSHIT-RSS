@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -236,6 +236,35 @@ test('heise iX editorial Top-News keeps its distinct label and matched RSS Feed 
         assert.equal(container.querySelector('.feed-card .teaser').textContent, 'heise iX RSS teaser.');
         assert.equal(articles.get(7).sourceName, 'heise iX RSS');
         assert.doesNotMatch(container.textContent, /Most read|Most commented|Golem|WinFuture/);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('t3n renders only its most-read selection with matched RSS metadata and Feed actions', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 6, sourceName: 't3n' });
+        Object.assign(rankings[0].items[0], {
+            canonicalUrl: 'https://t3n.de/news/t3n-fixture-1234567/',
+            article: { ...rankings[0].items[0].article, sourceName: 't3n RSS', title: 't3n RSS headline', teaser: 't3n RSS teaser.', url: 'https://t3n.de/news/t3n-fixture-1234567/' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 't3n' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Most read');
+        assert.equal(container.querySelector('[data-ranking-key="most_commented"], [data-ranking-key="top_news"]'), null);
+        assert.equal(container.querySelector('.feed-card .article-title-button').textContent, 't3n RSS headline');
+        assert.equal(container.querySelector('.feed-card .teaser').textContent, 't3n RSS teaser.');
+        assert.equal(container.querySelector('.feed-card .article-save-btn').disabled, false);
+        assert.equal(container.querySelector('.feed-card .article-dismiss-btn').disabled, false);
+        assert.equal(articles.get(7).sourceName, 't3n RSS');
+        assert.doesNotMatch(container.textContent, /Most commented|Top-News|Golem|WinFuture|ComputerBase|heise iX/);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

@@ -6,6 +6,7 @@ export const RANKING_MEDIA = Object.freeze([
     Object.freeze({ id: 'winfuture', name: 'WinFuture', hostname: 'winfuture.de', rankingKeys: RANKING_KEYS }),
     Object.freeze({ id: 'computerbase', name: 'ComputerBase', hostname: 'computerbase.de', rankingKeys: Object.freeze(['most_read']) }),
     Object.freeze({ id: 'heise-ix', name: 'heise iX', hostname: 'heise.de', pathPrefix: '/ix', feedPath: '/ix/feed.xml', rankingKeys: Object.freeze(['top_news']) }),
+    Object.freeze({ id: 't3n', name: 't3n', hostname: 't3n.de', rankingKeys: Object.freeze(['most_read']) }),
 ]);
 
 export function rankingMediumForSource(source) {

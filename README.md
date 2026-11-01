@@ -20,7 +20,7 @@ Save useful articles to reading lists and create keyword alerts for subjects you
 - Follow RSS feeds in compact or card layouts.
 - Search articles and filter by source, topic or reading list.
 - Group related coverage into daily, weekly and monthly digests.
-- Explore publisher rankings in Most read, mixing all supported media or choosing Golem, WinFuture, ComputerBase, heise iX, t3n, TechCrunch or Ars Technica.
+- Explore publisher rankings in Most read, mixing all supported media or choosing Golem, WinFuture, ComputerBase, heise iX, t3n, TechCrunch, Ars Technica or WIRED.
 - Automatically tag articles with your own topic keywords and filter unwanted coverage with bullshit rules.
 - Track keyword matches in Watchdog, with optional macOS notifications.
 - Save articles to reading lists and dismiss finished articles or stories.
@@ -104,7 +104,7 @@ Save a story to a reading list or mark it as digested when you are done.
 
 Open **Most read** and choose **All media** for a combined feed of unique articles from saved publisher rankings, ordered by publication date. The view starts with 40 articles; scroll down or choose **Load more** to continue. Save articles to reading lists or dismiss them using the same cards as Feed.
 
-Choose **Golem**, **WinFuture**, **ComputerBase**, **heise iX**, **t3n**, **TechCrunch** or **Ars Technica** to see one publisher's current selection. Available lists include most-read, most-commented and editorial picks, depending on the publisher. See the [Most read compatibility guide](docs/most-read-compatibility.md) for supported media, selection types and access requirements.
+Choose **Golem**, **WinFuture**, **ComputerBase**, **heise iX**, **t3n**, **TechCrunch**, **Ars Technica** or **WIRED** to see one publisher's current selection. Available lists include most-read, most-commented and editorial picks, depending on the publisher. See the [Most read compatibility guide](docs/most-read-compatibility.md) for supported media, selection types and access requirements.
 
 Rankings refresh automatically every eight hours while the app runs, with the last attempt remembered across restarts. Choose **Refresh** for an immediate update; saved rankings remain available if an update fails. Regular RSS updates continue independently.
 

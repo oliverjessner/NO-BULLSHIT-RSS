@@ -116,6 +116,18 @@ const arsRankings = () => ({ most_read: [
     { rank: 5, canonicalUrl: 'https://arstechnica.com/gadgets/2026/10/second-ars-fixture/', title: 'Second Ars headline' },
 ] });
 
+async function wiredSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (1501, 'WIRED renamed source', 'https://www.wired.com/', 'https://www.wired.com/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (1601, 1501, 'WIRED RSS', 'https://www.wired.com/feed/rss', datetime('now'), datetime('now'))`);
+}
+const wiredUrl = 'https://www.wired.com/story/wired-fixture/';
+const wiredRankings = () => ({ most_read: [
+    { rank: 1, canonicalUrl: wiredUrl, title: 'WIRED publisher headline' },
+    { rank: 4, canonicalUrl: 'https://www.wired.com/story/second-wired-fixture/', title: 'Second WIRED headline' },
+] });
+
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
         (feedId, externalId, title, teaser, content, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
@@ -258,7 +270,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -658,6 +670,68 @@ test('all-publisher captures include Ars Technica with every existing medium and
     } });
     assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica']);
     assert.deepEqual(result, { updated: 7, total: 7 });
+    for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
+});
+
+test('WIRED Most Popular keeps its label and ranks, matches its RSS source and remains read-only', async () => {
+    await wiredSource();
+    await article('other-wired', 203, { url: wiredUrl, canonicalUrl: wiredUrl });
+    const rssId = await article('actual-wired', 1601, { url: `${wiredUrl}?utm_source=rss#intcid=fixture`, canonicalUrl: wiredUrl, title: 'Actual WIRED RSS title' });
+    const snapshot = { sourceId: 1501, capturedAt: firstCapture, rankings: wiredRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 2, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('wired', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'most_read');
+        assert.equal(payload.rankings[0].label, 'Most Popular');
+        assert.deepEqual(payload.rankings[0].items.map(item => item.rank), [1, 4]);
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'Actual WIRED RSS title');
+        assert.equal(payload.rankings[0].items[1].articleId, null);
+        const { readTopArticles } = await import('./top-articles-reader.js');
+        const top = await readTopArticles(readonly, { medium: 'wired' });
+        assert.equal(top.items.length, 2);
+        assert.ok(top.items.every(item => item.rankings[0].medium === 'wired' && item.rankings[0].label === 'Most Popular'));
+        const mixed = await readTopArticles(readonly);
+        assert.equal(mixed.items.filter(item => item.rankings.some(group => group.medium === 'wired')).length, 2);
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { ...wiredRankings(), most_commented: wiredRankings().most_read } }), /Invalid ranking keys/);
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://wired.com/about/sitemap/' }).id, 'wired');
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.wired.com.evil.test/' }), null);
+});
+
+test('manual WIRED refresh is scoped, preserves saved data on failure and leaves the global cadence intact', async () => {
+    await wiredSource();
+    const cadence = JSON.stringify({ state: 'ready', attemptedAt: firstCapture });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, cadence]);
+    const captured = [];
+    const result = await refreshMostReadRankings({ medium: 'wired', capture: async ({ medium }) => {
+        captured.push(medium); return { capturedAt: firstCapture, rankings: wiredRankings() };
+    } });
+    assert.deepEqual(result, { updated: 1, total: 1 });
+    assert.deepEqual(captured, ['wired']);
+    assert.equal((await readRankingRefreshStatus(db, 'wired')).state, 'ready');
+    await refreshMostReadRankings({ medium: 'wired', capture: async () => { throw new Error('WIRED unavailable'); } });
+    const payload = await readPublisherRankingsPayload('wired', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal(payload.rankings[0].items.length, 2);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
+});
+
+test('all-publisher captures include WIRED with all seven existing media and preserve selection types', async () => {
+    await winFutureSource(); await computerBaseSource(); await heiseIxSources(); await t3nSource(); await techCrunchSource(); await arsTechnicaSource(); await wiredSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings(), 'heise-ix': heiseIxRankings(), t3n: t3nRankings(), techcrunch: techCrunchRankings(), arstechnica: arsRankings(), wired: wiredRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica', 'wired']);
+    assert.deepEqual(result, { updated: 8, total: 8 });
     for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
 });
 

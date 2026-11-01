@@ -21,6 +21,7 @@ const heiseIxUrl = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
 const t3nUrl = 'https://t3n.de/news/t3n-fixture-1234567/';
 const techCrunchUrl = 'https://techcrunch.com/2026/11/01/techcrunch-fixture/';
 const arsTechnicaUrl = 'https://arstechnica.com/space/2026/10/ars-fixture/';
+const wiredUrl = 'https://www.wired.com/story/wired-fixture/';
 const techCrunchSelection = Array.from({ length: 5 }, (_, index) => ({
     canonicalUrl: index ? `https://techcrunch.com/2026/11/01/techcrunch-fixture-${index + 1}/` : techCrunchUrl,
     title: `TechCrunch editorial fixture headline ${index + 1}`, rank: index + 1,
@@ -34,7 +35,7 @@ const historyProviders = [
     { sourceId: 7, name: 'TechCrunch', keys: ['top_news'], prefix: 'https://techcrunch.com/2025/12/31/mixed-history-', suffix: '/' },
 ];
 const historyEntriesPerProvider = 14;
-const currentUniqueCount = new Set([url, `${url}?id=second`, unmatchedUrl, winFutureUrl, computerBaseUrl, heiseIxUrl, t3nUrl, arsTechnicaUrl, ...techCrunchSelection.map(item => item.canonicalUrl)]).size;
+const currentUniqueCount = new Set([url, `${url}?id=second`, unmatchedUrl, winFutureUrl, computerBaseUrl, heiseIxUrl, t3nUrl, arsTechnicaUrl, wiredUrl, ...techCrunchSelection.map(item => item.canonicalUrl)]).size;
 const mixedUniqueCount = currentUniqueCount + historyProviders.length * historyEntriesPerProvider;
 const watermarkUrl = 'https://www.golem.de/news/new-watermark-ui-fixture.html';
 
@@ -106,6 +107,11 @@ try {
         await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (8,'ars-ui','Ars Technica RSS fixture headline','Ars Technica stored RSS teaser.','Ars Technica article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(arsTechnicaUrl)}, ${JSON.stringify(arsTechnicaUrl)}]);
         await saveMostReadSnapshot({ sourceId: 8, capturedAt: new Date().toISOString(), rankings: {
             most_read: [{ canonicalUrl: ${JSON.stringify(arsTechnicaUrl)}, title: 'Ars publisher title', rank: 3 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (9,'WIRED','https://www.wired.com/','https://www.wired.com/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (9,9,'WIRED RSS','https://www.wired.com/feed/rss',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (9,'wired-ui','WIRED RSS fixture headline','WIRED stored RSS teaser.','WIRED article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(wiredUrl)}, ${JSON.stringify(wiredUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 9, capturedAt: new Date().toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(wiredUrl)}, title: 'WIRED publisher title', rank: 2 }]
         } });
         const historyProviders = ${JSON.stringify(historyProviders)};
         for (const [providerIndex, provider] of historyProviders.entries()) {
@@ -185,12 +191,17 @@ try {
     assert.equal(initialTop.items.length, 40);
     assert.equal(initialTop.hasMore, true);
     assert.ok(initialTop.nextCursor);
-    assert.deepEqual([...new Set(initialTop.items.flatMap(item => item.rankings.map(ranking => ranking.medium)))].sort(), ['arstechnica', 'computerbase', 'golem', 'heise-ix', 't3n', 'techcrunch', 'winfuture']);
+    assert.deepEqual([...new Set(initialTop.items.flatMap(item => item.rankings.map(ranking => ranking.medium)))].sort(), ['arstechnica', 'computerbase', 'golem', 'heise-ix', 't3n', 'techcrunch', 'winfuture', 'wired']);
     const mixedArs = page.locator(`#publisher-rankings .feed-card[data-item-url="${arsTechnicaUrl}"]`);
     assert.equal(await mixedArs.count(), 1);
     assert.equal(await mixedArs.locator('.article-title-button').textContent(), 'Ars Technica RSS fixture headline');
     assert.equal(await mixedArs.locator('.teaser').textContent(), 'Ars Technica stored RSS teaser.');
     assert.match(await mixedArs.locator('.publisher-ranking-provenance').textContent(), /Ars Technica · Most read #3/);
+    const mixedWired = page.locator(`#publisher-rankings .feed-card[data-item-url="${wiredUrl}"]`);
+    assert.equal(await mixedWired.count(), 1);
+    assert.equal(await mixedWired.locator('.article-title-button').textContent(), 'WIRED RSS fixture headline');
+    assert.equal(await mixedWired.locator('.teaser').textContent(), 'WIRED stored RSS teaser.');
+    assert.match(await mixedWired.locator('.publisher-ranking-provenance').textContent(), /WIRED · Most Popular #2/);
     assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 40);
     const mixedProvenance = (await matched().locator('.publisher-ranking-provenance').allTextContents()).join(' ');
     assert.match(mixedProvenance, /Most read/);
@@ -289,6 +300,36 @@ try {
         await page.setViewportSize(viewport);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `Ars Technica ${name} horizontal overflow`);
         await page.screenshot({ path: path.join(screenshots, `rankings-arstechnica-${name}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'WIRED', exact: true }).click();
+    await waitFor(async () => await cards.count() === 1 && (await cards.first().textContent()).includes('WIRED RSS fixture headline'), 'WIRED Most Popular RSS card');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'wired');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most Popular']);
+    assert.equal(await page.locator('[data-ranking-key="most_commented"], [data-ranking-key="top_news"]').count(), 0);
+    assert.equal(await cards.first().locator('.publisher-ranking-rank').textContent(), '#2');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'WIRED stored RSS teaser.');
+    assert.equal(await cards.first().locator('.article-save-btn').isEnabled(), true);
+    assert.equal(await cards.first().locator('.article-dismiss-btn').isEnabled(), true);
+    const wired = await (await page.request.get(`${origin}/api/rankings?medium=wired`)).json();
+    assert.equal(wired.medium, 'wired');
+    assert.equal(wired.rankings.length, 1);
+    assert.equal(wired.rankings[0].sourceId, 9);
+    assert.equal(wired.rankings[0].rankingKey, 'most_read');
+    assert.equal(wired.rankings[0].label, 'Most Popular');
+    assert.equal(wired.rankings[0].items[0].rank, 2);
+    assert.equal(wired.rankings[0].items[0].article.sourceName, 'WIRED RSS');
+    assert.ok(Number.isFinite(Date.parse(wired.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), wiredUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `WIRED ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-wired-${name}.png`), fullPage: true });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
@@ -530,7 +571,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: All media 40/80/${mixedUniqueCount} pagination, canonical dedup, snapshot watermark, source-switch race, loaded-depth save/dismiss/Undo and scroll; all seven grouped media including Ars Technica rank3, RSS viewers/actions, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: All media 40/80/${mixedUniqueCount} pagination, canonical dedup, snapshot watermark, source-switch race, loaded-depth save/dismiss/Undo and scroll; all eight grouped media including WIRED Most Popular, RSS viewers/actions, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

@@ -7,67 +7,36 @@ import { isAbortError } from '../utils/data.js';
 
 let initialized = false;
 let refreshPromise = null;
-let accessPromise = null;
 let pollTimer = null;
-let visibleAccess = null;
-
-const hasAccessJob = access => typeof access?.jobId === 'string' && access.jobId.length > 0;
-const hasActiveAccess = access => hasAccessJob(access) || ['opening', 'awaiting_confirmation', 'saving', 'cancelling'].includes(access?.state);
 
 function clearPoll() {
     if (pollTimer !== null) clearTimeout(pollTimer);
     pollTimer = null;
 }
 
-function schedulePoll(status = store.rankings.payload?.rankingStatus, access = store.rankings.payload?.access) {
+function schedulePoll(status = store.rankings.payload?.rankingStatus) {
     clearPoll();
-    const pendingAccess = hasActiveAccess(access);
-    if (store.ui.activeView !== 'rankings' || refreshPromise || accessPromise || (status?.state !== 'refreshing' && !pendingAccess)) return;
+    if (store.ui.activeView !== 'rankings' || refreshPromise || status?.state !== 'refreshing') return;
     pollTimer = setTimeout(() => {
         pollTimer = null;
         void loadRankings({ force: true, silent: true });
     }, 1500);
 }
 
-function updateControls(status = store.rankings.payload?.rankingStatus, access = store.rankings.payload?.access) {
-    const pendingAccess = hasActiveAccess(access);
+function updateControls(status = store.rankings.payload?.rankingStatus) {
     const refreshing = Boolean(refreshPromise) || status?.state === 'refreshing';
-    const busy = refreshing || Boolean(accessPromise);
     dom.rankings.medium.value = 'golem';
-    dom.rankings.medium.disabled = busy || pendingAccess;
-    dom.rankings.refresh.disabled = busy || pendingAccess || store.rankings.payload?.configured === false;
+    dom.rankings.medium.disabled = refreshing;
+    dom.rankings.refresh.disabled = refreshing || store.rankings.payload?.configured === false;
     dom.rankings.refresh.setAttribute('aria-busy', String(refreshing));
     const icon = document.createElement('i');
     icon.className = 'fa-solid fa-arrows-rotate';
     icon.setAttribute('aria-hidden', 'true');
     const label = refreshing ? 'Refreshing…' : status?.state === 'error' ? 'Retry refresh' : 'Refresh';
     dom.rankings.refresh.replaceChildren(icon, document.createTextNode(` ${label}`));
-    const job = hasAccessJob(access);
-    dom.rankings.accessStart.disabled = busy || pendingAccess;
-    dom.rankings.accessConfirm.hidden = access?.state !== 'awaiting_confirmation' || !job;
-    dom.rankings.accessConfirm.disabled = busy;
-    dom.rankings.accessCancel.hidden = !['opening', 'awaiting_confirmation'].includes(access?.state) || !job;
-    dom.rankings.accessCancel.disabled = busy;
-    dom.rankings.accessForget.hidden = !access?.saved && access?.state !== 'error';
-    dom.rankings.accessForget.disabled = busy || pendingAccess;
 }
 
-function renderAccess(access, status) {
-    const state = access?.state || 'idle';
-    const message = state === 'opening' ? 'Opening Golem for optional access setup…'
-        : state === 'awaiting_confirmation' ? 'Choose your consent or PUR option in the Golem window. Then return here and choose Save access.'
-        : state === 'saving' ? 'Saving access and refreshing Golem rankings…'
-        : state === 'cancelling' ? 'Closing Golem access setup…'
-        : state === 'forgetting' ? 'Removing saved Golem access…'
-        : state === 'error' && hasAccessJob(access) ? 'Golem setup is still active. Wait for it to finish before resetting access or opening another window.'
-        : status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Automatic cookie consent could not be completed. Try Refresh again, or set up optional Golem access for a manual consent or PUR choice.'
-        : state === 'error' ? 'Optional Golem access could not be completed. Try Refresh, or use Forget saved access before setting it up again.'
-        : access?.saved ? 'Golem access is saved locally. Golem may ask you to choose again later.'
-        : "Optional access has not been set up. Refresh can accept Golem's cookie consent automatically.";
-    dom.rankings.accessStatus.textContent = message;
-}
-
-function render(payload, { status = payload?.rankingStatus, access = payload?.access } = {}) {
+function render(payload, { status = payload?.rankingStatus } = {}) {
     const fingerprint = publisherRankingsFingerprint(payload?.rankings, status, payload?.configured);
     if (fingerprint !== store.rankings.fingerprint) {
         store.rankings.fingerprint = fingerprint;
@@ -75,9 +44,7 @@ function render(payload, { status = payload?.rankingStatus, access = payload?.ac
         renderPublisherRankings(dom.rankings.content, payload?.rankings, store.rankings.articlesById, { status, configured: payload?.configured });
         renderViewer();
     }
-    visibleAccess = access || null;
-    renderAccess(access, status);
-    updateControls(status, access);
+    updateControls(status);
 }
 
 function applyPayload(payload) {
@@ -88,7 +55,7 @@ function applyPayload(payload) {
 }
 
 export async function loadRankings({ force = false, silent = false } = {}) {
-    if (refreshPromise || accessPromise) { store.rankings.needsRefresh = true; return; }
+    if (refreshPromise) { store.rankings.needsRefresh = true; return; }
     if (!force && !store.rankings.needsRefresh && store.rankings.payload) return;
     clearPoll();
     store.rankings.requestController?.abort();
@@ -104,9 +71,7 @@ export async function loadRankings({ force = false, silent = false } = {}) {
     } catch (error) {
         if (isAbortError(error) || requestId !== store.rankings.requestId) return;
         store.rankings.needsRefresh = true;
-        const access = store.rankings.payload?.access;
-        render(store.rankings.payload, { status: { state: 'error' }, access: hasActiveAccess(access) ? { ...access, state: 'error' } : access });
-        if (hasActiveAccess(access)) schedulePoll({ state: 'error' }, access);
+        render(store.rankings.payload, { status: { state: 'error' } });
     } finally {
         if (store.rankings.requestController === controller) store.rankings.requestController = null;
     }
@@ -114,7 +79,6 @@ export async function loadRankings({ force = false, silent = false } = {}) {
 
 export function refreshRankings() {
     if (refreshPromise) return refreshPromise;
-    if (accessPromise) return accessPromise;
     if (store.rankings.payload?.configured === false) return Promise.resolve();
     clearPoll();
     store.rankings.requestController?.abort();
@@ -149,67 +113,6 @@ export function refreshRankings() {
     return refreshPromise;
 }
 
-function runAccessAction(action, pendingState) {
-    if (accessPromise) return accessPromise;
-    if (refreshPromise) return refreshPromise;
-    clearPoll();
-    store.rankings.requestController?.abort();
-    ++store.rankings.requestId;
-    const previousAccess = store.rankings.payload?.access || { state: 'idle', jobId: null, saved: false, savedAt: null, message: null };
-    const pendingStatus = pendingState === 'saving'
-        ? { ...store.rankings.payload?.rankingStatus, state: 'refreshing', errorCode: null }
-        : store.rankings.payload?.rankingStatus;
-    render(store.rankings.payload, { status: pendingStatus, access: { ...previousAccess, state: pendingState } });
-    accessPromise = (async () => {
-        let finalStatus = store.rankings.payload?.rankingStatus;
-        let finalAccess;
-        try {
-            const payload = await action();
-            applyPayload(payload);
-            finalStatus = payload.rankingStatus;
-            finalAccess = payload.access;
-        } catch (error) {
-            if (error.data?.medium === 'golem' && Array.isArray(error.data.rankings)) {
-                applyPayload(error.data);
-                finalStatus = error.data.rankingStatus;
-                finalAccess = error.data.access;
-            } else {
-                finalAccess = { ...previousAccess, state: 'error' };
-                render(store.rankings.payload, { access: finalAccess });
-            }
-        } finally {
-            accessPromise = null;
-            updateControls(finalStatus, finalAccess);
-            schedulePoll(finalStatus, finalAccess);
-        }
-    })();
-    updateControls(pendingStatus, { ...previousAccess, state: pendingState });
-    return accessPromise;
-}
-
-export function startRankingsAccess() {
-    if (hasActiveAccess(visibleAccess || store.rankings.payload?.access)) return Promise.resolve();
-    return runAccessAction(() => api.startRankingsAccess('golem'), 'opening');
-}
-
-export function confirmRankingsAccess() {
-    const access = store.rankings.payload?.access;
-    if (access?.state !== 'awaiting_confirmation' || !access.jobId) return Promise.resolve();
-    return runAccessAction(() => api.confirmRankingsAccess('golem', access.jobId), 'saving');
-}
-
-export function cancelRankingsAccess() {
-    const access = store.rankings.payload?.access;
-    if (!['opening', 'awaiting_confirmation'].includes(access?.state) || !access.jobId) return Promise.resolve();
-    return runAccessAction(() => api.cancelRankingsAccess('golem', access.jobId), 'cancelling');
-}
-
-export function forgetRankingsAccess() {
-    const access = visibleAccess || store.rankings.payload?.access;
-    if (hasActiveAccess(access) || (!access?.saved && access?.state !== 'error')) return Promise.resolve();
-    return runAccessAction(() => api.forgetRankingsAccess('golem'), 'forgetting');
-}
-
 function bindEvents() {
     dom.rankings.medium.addEventListener('change', () => {
         // Golem is the only supported medium until another adapter is added.
@@ -218,10 +121,6 @@ function bindEvents() {
         void loadRankings({ force: true, silent: true });
     });
     dom.rankings.refresh.addEventListener('click', () => { void refreshRankings(); });
-    dom.rankings.accessStart.addEventListener('click', () => { void startRankingsAccess(); });
-    dom.rankings.accessConfirm.addEventListener('click', () => { void confirmRankingsAccess(); });
-    dom.rankings.accessCancel.addEventListener('click', () => { void cancelRankingsAccess(); });
-    dom.rankings.accessForget.addEventListener('click', () => { void forgetRankingsAccess(); });
     dom.rankings.content.addEventListener('click', event => {
         const link = event.target.closest('.publisher-ranking-link');
         if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

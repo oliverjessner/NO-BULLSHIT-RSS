@@ -37,18 +37,8 @@ test('failed or busy ranking refreshes preserve status and last-good payload for
     } finally { globalThis.fetch = previousFetch; }
 });
 
-test('Golem access setup, confirmation, cancellation and forgetting use explicit dedicated actions', async () => {
-    const previousFetch = globalThis.fetch;
-    const requests = [];
-    const jobId = '61656422-cf36-4e1a-bb3c-1dd12e90b541';
-    globalThis.fetch = async (url, options) => { requests.push({ url, options }); return Response.json({ medium: 'golem', rankings: [] }); };
-    try {
-        await api.startRankingsAccess('golem');
-        await api.confirmRankingsAccess('golem', jobId);
-        await api.cancelRankingsAccess('golem', jobId);
-        await api.forgetRankingsAccess('golem');
-        assert.deepEqual(requests.map(request => request.url), ['/api/rankings/access/start', '/api/rankings/access/confirm', '/api/rankings/access/cancel', '/api/rankings/access?medium=golem']);
-        assert.deepEqual(requests.slice(0, 3).map(request => JSON.parse(request.options.body)), [{ medium: 'golem' }, { medium: 'golem', jobId }, { medium: 'golem', jobId }]);
-        assert.equal(requests[3].options.method, 'DELETE');
-    } finally { globalThis.fetch = previousFetch; }
+test('ranking API no longer exposes manual session management', () => {
+    for (const method of ['startRankingsAccess', 'confirmRankingsAccess', 'cancelRankingsAccess', 'forgetRankingsAccess']) {
+        assert.equal(Object.hasOwn(api, method), false);
+    }
 });

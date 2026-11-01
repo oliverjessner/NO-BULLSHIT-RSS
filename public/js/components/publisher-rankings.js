@@ -74,7 +74,7 @@ export function renderPublisherRankings(container, rankings, articleMap, { statu
     else if (status?.state === 'loading') state.textContent = 'Loading publisher rankings…';
     else if (status?.state === 'refreshing') state.textContent = groups.length
         ? 'Refreshing publisher rankings. Showing the latest saved rankings.' : 'Refreshing publisher rankings…';
-    else if (status?.state === 'error' && status?.errorCode === 'GOLEM_CONSENT_REQUIRED') state.textContent = "Golem's cookie consent could not be completed automatically. Try Refresh again, or use Set up Golem access for a manual consent or PUR choice."
+    else if (status?.state === 'error' && status?.errorCode === 'GOLEM_CONSENT_REQUIRED') state.textContent = "Golem's cookie consent could not be completed automatically. Try Refresh again."
         + (groups.length ? ' Showing the latest saved rankings.' : '');
     else if (status?.state === 'error') state.textContent = groups.length
         ? 'Publisher rankings could not be refreshed. Showing the latest saved rankings.'

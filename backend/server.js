@@ -18,7 +18,6 @@ import { getLastFetchStatus, updateAllFeeds } from './services/fetcher.js';
 import { subscribe } from './services/events.js';
 import { logLine } from './utils/logger.js';
 import { initDatabase } from '../scripts/init-db.js';
-import { cancelGolemAccess } from './services/golem-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
@@ -167,15 +166,9 @@ if (process.env.DESKTOP_PARENT_WATCHDOG === '1') {
     process.stdin.resume();
     process.stdin.once('end', () => { void shutdown(); });
 }
-async function shutdown() {
+function shutdown() {
     if (shuttingDown) return;
     shuttingDown = true;
-    let timer;
-    await Promise.race([
-        cancelGolemAccess(),
-        new Promise(resolve => { timer = setTimeout(resolve, 2_000); }),
-    ]).catch(error => logLine(`Golem access cleanup failed: ${error.message}`));
-    clearTimeout(timer);
     process.exit(0);
 }
 process.once('SIGINT', () => { void shutdown(); });

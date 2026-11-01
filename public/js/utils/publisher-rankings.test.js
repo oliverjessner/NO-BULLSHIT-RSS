@@ -71,11 +71,8 @@ test('Most read has its own main menu, Golem-only medium selector and viewer out
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
-    assert.ok(document.querySelector('#rankings-access-start'));
-    assert.equal(document.querySelector('#rankings-access-heading').textContent, 'Optional Golem access');
     assert.match(container.querySelector('.publisher-rankings-note').textContent, /automatically accepts Golem's cookie consent/);
-    assert.equal(document.querySelector('#rankings-access-confirm').hasAttribute('hidden'), true);
-    assert.equal(document.querySelector('#rankings-access-forget').hasAttribute('hidden'), true);
+    assert.equal(document.querySelector('[id^="rankings-access-"]'), null);
     assert.match(container.querySelector('h2').textContent, /Most read & most commented/);
     assert.match(container.querySelector('[role="status"]').textContent, /Loading publisher rankings/);
     assert.equal(container.querySelectorAll('li').length, 0);
@@ -93,7 +90,7 @@ test('rankings heading stays visible through idle, loading, refreshing, filtered
             [[], { state: 'refreshing' }, /Refreshing publisher rankings/],
             [[{ ...snapshot()[0], items: [] }], { state: 'ready' }, /No publisher rankings are available/],
             [[], { state: 'error', message: 'chrome --no-sandbox\nError: failed at browser.js:12' }, /Publisher rankings could not be refreshed/],
-            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /cookie consent could not be completed automatically.*Try Refresh again.*Set up Golem access.*PUR/],
+            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /cookie consent could not be completed automatically.*Try Refresh again/],
         ];
         for (const [rankings, status, message] of cases) {
             renderPublisherRankings(container, rankings, new Map(), { status });

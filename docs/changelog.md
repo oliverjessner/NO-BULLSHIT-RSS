@@ -10,7 +10,7 @@
 - Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
 - Show Golem's most-read and most-commented articles in a dedicated Most read view with Golem selection, independent refresh, ranking history and RSS matching.
 - Keep publisher rankings visible while loading or after failed updates, report refresh status, and fall back to installed Chrome when available.
-- Add explicit Golem browser access setup with user-confirmed session saving for consent or PUR access.
+- Keep Golem access automatic through Fetchary's consent acceptance without manual login, session setup or PUR controls.
 - Use Fetchary's accept consent policy for Golem and handle its cookie choice automatically during browser capture.
 
 # 1.6.0

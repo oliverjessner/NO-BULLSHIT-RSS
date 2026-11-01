@@ -93,7 +93,6 @@ function failureDetails(error) {
 
 let activeRankingRefresh = null;
 export const isRankingRefreshRunning = () => activeRankingRefresh !== null;
-export const waitForRankingRefresh = () => activeRankingRefresh || Promise.resolve();
 
 export function refreshMostReadRankings(options = {}) {
     if (!activeRankingRefresh) activeRankingRefresh = refreshRankings(options).finally(() => { activeRankingRefresh = null; });

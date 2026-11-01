@@ -19,6 +19,11 @@ const winFutureUrl = 'https://winfuture.de/news,162334.html';
 const computerBaseUrl = 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/';
 const heiseIxUrl = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
 const t3nUrl = 'https://t3n.de/news/t3n-fixture-1234567/';
+const techCrunchUrl = 'https://techcrunch.com/2026/11/01/techcrunch-fixture/';
+const techCrunchSelection = Array.from({ length: 5 }, (_, index) => ({
+    canonicalUrl: index ? `https://techcrunch.com/2026/11/01/techcrunch-fixture-${index + 1}/` : techCrunchUrl,
+    title: `TechCrunch editorial fixture headline ${index + 1}`, rank: index + 1,
+}));
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -68,6 +73,12 @@ try {
         await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (6,'t3n-ui','t3n RSS fixture headline','t3n stored RSS teaser.','t3n article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(t3nUrl)}, ${JSON.stringify(t3nUrl)}]);
         await saveMostReadSnapshot({ sourceId: 6, capturedAt: new Date().toISOString(), rankings: {
             most_read: [{ canonicalUrl: ${JSON.stringify(t3nUrl)}, title: 't3n publisher headline', rank: 1 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (7,'TechCrunch','https://techcrunch.com/','https://techcrunch.com/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (7,7,'TechCrunch RSS','https://techcrunch.com/feed/',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (7,'techcrunch-ui','TechCrunch RSS fixture headline','TechCrunch stored RSS teaser.','TechCrunch article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(techCrunchUrl)}, ${JSON.stringify(techCrunchUrl)}]);
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (7,'techcrunch-unranked','TechCrunch unranked latest RSS headline','Unranked RSS teaser.','Unranked article body.','https://techcrunch.com/2026/11/01/unranked-latest-rss/','https://techcrunch.com/2026/11/01/unranked-latest-rss/','fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))");
+        await saveMostReadSnapshot({ sourceId: 7, capturedAt: new Date().toISOString(), rankings: {
+            top_news: ${JSON.stringify(techCrunchSelection)}
         } });
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
@@ -197,6 +208,36 @@ try {
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'TechCrunch', exact: true }).click();
+    await waitFor(async () => await cards.count() === 5 && (await cards.first().textContent()).includes('TechCrunch RSS fixture headline'), 'TechCrunch Top Headlines RSS card and editorial selection');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'techcrunch');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Top Headlines']);
+    assert.equal(await page.locator('[data-ranking-key="most_read"], [data-ranking-key="most_commented"]').count(), 0, 'TechCrunch editorial headlines must not become most-read/commented lists');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'TechCrunch stored RSS teaser.');
+    assert.equal(await cards.first().locator('.article-save-btn').isEnabled(), true);
+    assert.equal(await cards.first().locator('.article-dismiss-btn').isEnabled(), true);
+    assert.doesNotMatch(await page.locator('#publisher-rankings').textContent(), /unranked latest RSS headline|Top-News/);
+    const techCrunch = await (await page.request.get(`${origin}/api/rankings?medium=techcrunch`)).json();
+    assert.equal(techCrunch.medium, 'techcrunch');
+    assert.equal(techCrunch.rankings.length, 1);
+    assert.equal(techCrunch.rankings[0].sourceId, 7);
+    assert.equal(techCrunch.rankings[0].rankingKey, 'top_news');
+    assert.equal(techCrunch.rankings[0].label, 'Top Headlines');
+    assert.deepEqual(techCrunch.rankings[0].items.map(item => item.rank), [1, 2, 3, 4, 5]);
+    assert.equal(techCrunch.rankings[0].items[0].article.sourceName, 'TechCrunch RSS');
+    assert.ok(Number.isFinite(Date.parse(techCrunch.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), techCrunchUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `TechCrunch ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-techcrunch-${name}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
     await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
     await waitFor(async () => await cards.count() === 4 && await matched().count() === 2, 'return to Golem rankings');
     assert.equal(await page.locator('#rankings-article-viewer').isVisible(), false);
@@ -276,7 +317,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: Golem, WinFuture, ComputerBase, heise iX and t3n selection, ComputerBase/t3n most-read-only and heise iX editorial Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: all six media, TechCrunch Top Headlines editorial selection, ComputerBase/t3n most-read-only and heise iX Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

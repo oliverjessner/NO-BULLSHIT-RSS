@@ -6,6 +6,7 @@ import { fetchWinFutureRankings } from './winfuture-rankings.js';
 import { fetchComputerBaseRankings } from './computerbase-rankings.js';
 import { fetchHeiseIxRankings } from './heise-ix-rankings.js';
 import { fetchT3nRankings } from './t3n-rankings.js';
+import { fetchTechCrunchRankings } from './techcrunch-rankings.js';
 import { rankingMediumForSource, RANKING_KEYS, RANKING_MEDIA } from './ranking-media.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
 import { normalizeRankingStatus, rankingStatusKey } from './ranking-status.js';
@@ -13,7 +14,14 @@ import { publish } from './events.js';
 
 const database = { all, get };
 const host = value => new URL(value).hostname.toLowerCase().replace(/^www\./, '');
-const publisherCaptures = { golem: fetchGolemRankings, winfuture: fetchWinFutureRankings, computerbase: fetchComputerBaseRankings, 'heise-ix': fetchHeiseIxRankings, t3n: fetchT3nRankings };
+const publisherCaptures = {
+    golem: fetchGolemRankings,
+    winfuture: fetchWinFutureRankings,
+    computerbase: fetchComputerBaseRankings,
+    'heise-ix': fetchHeiseIxRankings,
+    t3n: fetchT3nRankings,
+    techcrunch: fetchTechCrunchRankings,
+};
 
 function validateRankings(rankings, websiteUrl) {
     const requiredKeys = rankingMediumForSource({ websiteUrl })?.rankingKeys || RANKING_KEYS;

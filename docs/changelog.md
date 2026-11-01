@@ -1,5 +1,6 @@
 # 1.7.0
 
+- Add TechCrunch's Top Headlines from its homepage, matched to its RSS feed, with publisher selection, eight-hour updates and `--top-news techcrunch` CLI access.
 - Add t3n's dynamically loaded most-read articles to publisher selection, RSS cards, eight-hour updates and the read-only `--most-read t3n` CLI.
 - Add heise iX's Top-News as a distinct editorial list with iX RSS cards, source-specific matching, eight-hour updates and `--top-news heise-ix` CLI access while preserving saved ranking history.
 - Add ComputerBase's most-read news from the last 72 hours to publisher selection, RSS article cards, the eight-hour schedule and the read-only CLI.

@@ -16,10 +16,13 @@ export function formatPublisherRankings(payload, { rankingKey, json = false }) {
     const emptyLabel = { most_read: 'most-read', most_commented: 'most-commented', top_news: 'Top-News' }[rankingKey];
     if (!rankings.length) return `No saved ${emptyLabel} rankings for ${payload.medium}. Refresh rankings in the app first.`;
     const clean = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim();
-    return rankings.map(group => [
-        `${clean(group.sourceName)} · ${label} · ${clean(group.capturedAt)}`,
-        ...group.items.map(item => `${item.rank}\t${clean(item.article?.title || item.title)}\t${clean(item.article?.url || item.canonicalUrl)}`),
-    ].join('\n')).join('\n\n');
+    return rankings.map(group => {
+        const editorialLabel = rankingKey === 'top_news' && typeof group.label === 'string' ? clean(group.label).slice(0, 80) : '';
+        return [
+            `${clean(group.sourceName)} · ${editorialLabel || label} · ${clean(group.capturedAt)}`,
+            ...group.items.map(item => `${item.rank}\t${clean(item.article?.title || item.title)}\t${clean(item.article?.url || item.canonicalUrl)}`),
+        ].join('\n');
+    }).join('\n\n');
 }
 
 export function formatStatistics(statistics, { json = false } = {}) {

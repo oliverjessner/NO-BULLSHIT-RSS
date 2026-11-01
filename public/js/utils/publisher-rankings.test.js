@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -174,6 +174,7 @@ test('ranking changes update the standalone view fingerprint', () => {
         groups => { groups[0].sourceId = 2; },
         groups => { groups[0].sourceName = 'New source name'; },
         groups => { groups[0].rankingKey = 'most_commented'; },
+        groups => { groups[0].label = 'Top Headlines'; },
         groups => { groups[0].capturedAt = '2026-10-31T20:05:00Z'; },
         groups => { groups[0].items[0].id = 903; },
         groups => { groups[0].items[0].rank = 2; },
@@ -265,6 +266,48 @@ test('t3n renders only its most-read selection with matched RSS metadata and Fee
         assert.equal(container.querySelector('.feed-card .article-dismiss-btn').disabled, false);
         assert.equal(articles.get(7).sourceName, 't3n RSS');
         assert.doesNotMatch(container.textContent, /Most commented|Top-News|Golem|WinFuture|ComputerBase|heise iX/);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('editorial labels are bounded strings with safe defaults for existing ranking kinds', () => {
+    const group = { ...snapshot()[0], rankingKey: 'top_news', label: ' Top\nHeadlines\t' };
+    assert.equal(normalizePublisherRankings([group])[0].label, 'Top Headlines');
+    assert.equal(normalizePublisherRankings([{ ...group, label: 'x'.repeat(100) }])[0].label, 'x'.repeat(80));
+    for (const label of ['', ' \n ', null, { text: 'Other' }]) {
+        assert.equal(normalizePublisherRankings([{ ...group, label }])[0].label, 'Top-News');
+    }
+    assert.equal(normalizePublisherRankings([{ ...group, rankingKey: 'most_read' }])[0].label, 'Most read');
+    assert.equal(normalizePublisherRankings([{ ...group, rankingKey: 'most_commented' }])[0].label, 'Most commented');
+});
+
+test('TechCrunch renders Top Headlines with its matched RSS Feed card and plain text label', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 7, sourceName: 'TechCrunch', rankingKey: 'top_news', label: 'Top Headlines' });
+        Object.assign(rankings[0].items[0], {
+            canonicalUrl: 'https://techcrunch.com/2026/11/01/techcrunch-fixture/',
+            article: { ...rankings[0].items[0].article, sourceName: 'TechCrunch RSS', title: 'TechCrunch RSS headline', teaser: 'TechCrunch RSS teaser.', url: 'https://techcrunch.com/2026/11/01/techcrunch-fixture/' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 'TechCrunch' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Top Headlines');
+        assert.equal(container.querySelector('[data-ranking-key="most_read"], [data-ranking-key="most_commented"]'), null);
+        assert.equal(container.querySelector('.feed-card .article-title-button').textContent, 'TechCrunch RSS headline');
+        assert.equal(container.querySelector('.feed-card .teaser').textContent, 'TechCrunch RSS teaser.');
+        assert.equal(articles.get(7).sourceName, 'TechCrunch RSS');
+        assert.doesNotMatch(container.textContent, /Most read|Most commented|Top-News|Golem|WinFuture|ComputerBase|heise iX|t3n/);
+        rankings[0].label = '<img src=x onerror=alert(1)>';
+        renderPublisherRankings(container, rankings, new Map(), { status: { state: 'ready' }, publisherName: 'TechCrunch' });
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, '<img src=x onerror=alert(1)>');
+        assert.equal(container.querySelector('.publisher-ranking-title img'), null);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

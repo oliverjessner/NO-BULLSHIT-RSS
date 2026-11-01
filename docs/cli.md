@@ -47,35 +47,59 @@ For scripts, return the same data as JSON:
 no-bullshit-rss stats --json
 ```
 
-## Publisher rankings
+## Top articles
 
-Read the latest saved Golem, WinFuture, ComputerBase, heise iX, t3n or TechCrunch publisher selections, independently of the Digest period:
+Read the newest 40 unique articles from all saved publisher selections:
 
 ```bash
-no-bullshit-rss --most-read golem
-no-bullshit-rss --most-commented golem
-no-bullshit-rss --most-read golem --json
-no-bullshit-rss --most-read winfuture
-no-bullshit-rss --most-commented winfuture --json
-no-bullshit-rss --most-read computerbase
-no-bullshit-rss --most-read computerbase --json
-no-bullshit-rss --top-news heise-ix
-no-bullshit-rss --top-news heise-ix --json
-no-bullshit-rss --most-read t3n
-no-bullshit-rss --most-read t3n --json
-no-bullshit-rss --top-news techcrunch
-no-bullshit-rss --top-news techcrunch --json
+no-bullshit-rss articles top
+no-bullshit-rss articles top --list
 ```
 
-Text output contains publisher, capture time and ranked titles with URLs. JSON also includes the matched RSS article data when available. These commands read the existing database without fetching or changing anything; use Refresh in the app to capture new rankings. The help lists supported media when an invalid medium is supplied.
+The list combines most-read, most-commented and editorial selections across stored
+capture history. Each canonical article URL appears once. Articles with stored RSS
+data use their publication date for ordering; unmatched links use their capture
+time. The original publisher labels, ranks and capture times remain attached to
+each article, so editorial **Top-News** and **Top Headlines** retain their meaning.
 
-The ComputerBase integration supports most-read news from the last 72 hours. Most-commented rankings are not supported for ComputerBase; `--most-commented computerbase` reports this and suggests `--most-read computerbase`.
+Request a different count or filter by publisher:
 
-heise iX supports editorial **Top-News**, stored separately from most-read and most-commented rankings. Use `--top-news heise-ix`; unsupported flags such as `--most-read heise-ix` report the supported command before opening the database.
+```bash
+no-bullshit-rss articles top 100
+no-bullshit-rss articles top 1000 --medium golem
+no-bullshit-rss articles top --medium techcrunch --list
+```
 
-t3n supports **most-read** articles. Use `--most-read t3n`; `--most-commented t3n` and `--top-news t3n` report that those selections are unsupported and suggest the most-read command before opening the database.
+The count must be a positive integer and defaults to 40. It limits unique articles,
+not ranking rows. Supported media are `all` (the default), `golem`, `winfuture`,
+`computerbase`, `heise-ix`, `t3n` and `techcrunch`. A medium filter includes every
+kind of saved selection supported by that publisher.
 
-TechCrunch supports its homepage's editorial **Top Headlines**, stored as `top_news` and labelled **Top Headlines** in text output. Use `--top-news techcrunch`; most-read and most-commented flags are unsupported. The selection follows the homepage's editorial list rather than the latest RSS entries; matching articles use the stored RSS title, teaser and other details.
+Default output and `--list` print a readable text list with source, title, URL,
+publication or capture time, teaser and publisher selection details. For scripts,
+`--json` prints an article array with the same data, including matched RSS IDs,
+topics and saved state. Unmatched publisher links have a null article ID.
+
+```bash
+no-bullshit-rss articles top 100 --json
+no-bullshit-rss articles top --medium heise-ix --json
+```
+
+Choose one article interactively with the arrow keys or `j`/`k`, then Enter:
+
+```bash
+no-bullshit-rss articles top --choose
+no-bullshit-rss articles top 100 --choose --json
+```
+
+The chooser uses the terminal input and writes its interface to stderr. Stdout
+contains only the selected article: one JSON object with `--json`, or one text
+entry otherwise. Escape, `q` or Ctrl+C cancels. `--choose` requires an interactive
+terminal. `--list` and `--json` cannot be combined.
+
+These commands only read the existing database. They do not fetch articles,
+refresh publisher selections or change article state. Use Refresh in the app to
+capture new selections.
 
 ## Latest articles
 

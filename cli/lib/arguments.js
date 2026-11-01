@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { WATCHDOG_RANGES } from '../../backend/services/watchdog-filters.js';
-import { RANKING_MEDIA } from '../../backend/services/publisher-rankings-reader.js';
+import { RANKING_MEDIA } from '../../backend/services/ranking-media.js';
 
 export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 
@@ -9,9 +9,6 @@ const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 Usage:
   no-bullshit-rss mcp
   no-bullshit-rss stats [--json]
-  no-bullshit-rss --most-read <medium> [--json]
-  no-bullshit-rss --most-commented <medium> [--json]
-  no-bullshit-rss --top-news <medium> [--json]
   no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
@@ -23,6 +20,7 @@ Usage:
   no-bullshit-rss watchdog set-match <id> --data '{"read":true,"archived":false}'
   no-bullshit-rss watchdog notifications on|off
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
+  no-bullshit-rss articles top [count] [--medium <id>] [--list|--json] [--choose]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
@@ -36,22 +34,22 @@ Commands:
   lists --list <name>        Show all articles in a named list
   watchdog                   Read Watchdog rules, matches and notification settings as JSON
   articles last <count>      Show the newest stored articles
+  articles top [count]       Show saved publisher selections, newest first (default: 40)
   articles random            Show one random stored article
   articles search <count>    Search stored article titles or URLs
   articles digest <count>    Show the newest digest clusters as JSON
 
 Options:
-  --most-read <medium>       Show saved publisher most-read rankings
-  --most-commented <medium>  Show saved publisher most-commented rankings
-  --top-news <medium>        Show saved publisher editorial Top-News
-  --json                     Print stats or publisher rankings as JSON
+  --json                     Print stats or top articles as JSON
+  --medium <id>              Filter top articles by publisher (default: all)
+  --list                     Print top articles as a readable text list (default)
   --rss-url                  Print one RSS feed URL per line
   --amount                   Print the number of stored RSS feeds
   --url                      Print one URL per line
   --title, --titles          Print one title per line
   --topic <slug>             Filter newest articles by stored topic slug
   --no-topic                 Show newest articles without an assigned topic
-  --choose                   Interactively choose one of the newest articles
+  --choose                   Interactively choose one of the listed articles
   --daily                    Use today's digest (default)
   --weekly                   Use this week's digest
   --monthly                  Use this month's digest
@@ -59,15 +57,17 @@ Options:
   -h, --help                 Show this help
 
 When --url and --title are combined, each line is URL<TAB>TITLE.
-Publisher media: ${RANKING_MEDIA.map(item => item.id).join(', ')}.
+Publisher media: all, ${RANKING_MEDIA.map(item => item.id).join(', ')}.
+"articles top" combines saved most-read, most-commented and editorial selections across capture history, deduplicated by article URL.
 Without a projection flag, "articles last" prints a JSON array and "articles random" prints one JSON object.
 
 Examples:
   no-bullshit-rss stats
   no-bullshit-rss stats --json
-  no-bullshit-rss --most-read golem
-  no-bullshit-rss --most-commented golem --json
-  no-bullshit-rss --top-news heise-ix
+  no-bullshit-rss articles top
+  no-bullshit-rss articles top 100 --json
+  no-bullshit-rss articles top --medium golem --list
+  no-bullshit-rss articles top 20 --choose --json
   no-bullshit-rss rss
   no-bullshit-rss rss --rss-url
   no-bullshit-rss topics
@@ -109,6 +109,31 @@ function rejectUnknownFlags(flags, allowedFlags) {
     if (unknown) {
         throw new Error(`Unknown option: ${unknown}`);
     }
+}
+
+function parseTopArticlesArgs(args) {
+    const options = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, choose: false };
+    let index = 0;
+    if (args[0] !== undefined && !args[0].startsWith('--')) options.count = parseCount(args[index++]);
+    const seen = new Set();
+    for (; index < args.length; index += 1) {
+        const flag = args[index];
+        if (seen.has(flag)) throw new Error(`Duplicate option: ${flag}`);
+        seen.add(flag);
+        if (['--list', '--json', '--choose'].includes(flag)) {
+            options[flag.slice(2)] = true;
+            continue;
+        }
+        if (flag !== '--medium') throw new Error(`Unknown option: ${flag}`);
+        const value = args[++index];
+        if (!value || !value.trim() || value.startsWith('--')) throw new Error('Missing required medium after --medium.');
+        options.medium = value.trim().toLowerCase();
+        if (options.medium !== 'all' && !RANKING_MEDIA.some(item => item.id === options.medium)) {
+            throw new Error(`Choose a top-articles medium: all, ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
+        }
+    }
+    if (options.list && options.json) throw new Error('Only one of --list or --json may be used.');
+    return options;
 }
 
 function parseWatchdogArgs(args) {
@@ -170,23 +195,8 @@ export function parseCliArgs(argv) {
     }
 
     const [resource, action, countValue, ...flags] = args;
-    const rankingKeysByFlag = { '--most-read': 'most_read', '--most-commented': 'most_commented', '--top-news': 'top_news' };
-    if (Object.hasOwn(rankingKeysByFlag, resource)) {
-        const medium = String(action || '').trim().toLowerCase();
-        const publisher = RANKING_MEDIA.find(item => item.id === medium);
-        if (!publisher) {
-            throw new Error(`Choose a ranking medium after ${resource}: ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
-        }
-        const rankingKey = rankingKeysByFlag[resource];
-        if (!publisher.rankingKeys.includes(rankingKey)) {
-            const label = { most_read: 'Most-read', most_commented: 'Most-commented', top_news: 'Top-News' }[rankingKey];
-            const supportedFlag = `--${publisher.rankingKeys[0].replaceAll('_', '-')}`;
-            throw new Error(`${label} rankings are not supported for ${publisher.name}. Use ${supportedFlag} ${medium}.`);
-        }
-        rejectUnknownFlags(args.slice(2), new Set(['--json']));
-        return { command: 'publisher-rankings', medium,
-            rankingKey, json: args.includes('--json') };
-    }
+    const legacyFlag = args.find(value => ['--most-read', '--most-commented', '--top-news'].includes(value.split('=')[0]));
+    if (legacyFlag) throw new Error(`${legacyFlag.split('=')[0]} is no longer supported. Use "articles top [count] [--medium <id>]" instead.`);
     if (resource === 'watchdog' || resource === 'watchdogs') return parseWatchdogArgs(args.slice(1));
     if (resource === 'stats') {
         rejectUnknownFlags(args.slice(1), new Set(['--json']));
@@ -221,6 +231,7 @@ export function parseCliArgs(argv) {
     if (resource !== 'articles') {
         throw new Error(`Unknown resource: ${resource || '(missing)'}`);
     }
+    if (action === 'top') return parseTopArticlesArgs(args.slice(2));
     if (!['last', 'random', 'search', 'digest'].includes(action)) {
         throw new Error(`Unknown articles command: ${action || '(missing)'}`);
     }

@@ -25,7 +25,8 @@ Regenerates the six mockup screenshots, stages and commits pending changes,
 pushes the current branch, builds the macOS ARM64 DMG, creates and pushes an
 annotated git tag from package.json.version and
 the first section in docs/changelog.md, then creates a GitHub release and updates
-the Homebrew cask in oliverjessner/homebrew-tap. If the working tree is clean,
+the Homebrew cask in oliverjessner/homebrew-tap, then removes regenerable build
+caches after every publishing step succeeds. If the working tree is clean,
 the current HEAD is released without creating an empty commit.
 
 Options:
@@ -226,6 +227,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'Tag: %s\n\n' "$TAG_NAME"
     printf 'Homebrew: update oliverjessner/homebrew-tap after the DMG upload\n\n'
     printf 'Homebrew tap checkout: %s\n\n' "$HOMEBREW_TAP_DIR"
+    printf 'Cache cleanup: Tauri target and recognized desktop build caches after successful publication; dist and app data are preserved\n\n'
     printf 'Release notes:\n'
     cat "$RELEASE_NOTES_FILE"
     exit 0
@@ -271,3 +273,8 @@ printf 'Uploaded release artifacts for %s\n' "$TAG_NAME"
 
 printf 'Publishing Homebrew cask\n'
 node "$SCRIPT_DIR/scripts/publish-brew.js" --version "$VERSION"
+
+printf 'Publication complete; cleaning regenerable build caches\n'
+if ! node "$SCRIPT_DIR/scripts/cleanup-build-cache.js" --apply; then
+    printf 'Warning: publication succeeded, but cache cleanup could not finish. Preview remaining caches with node scripts/cleanup-build-cache.js --dry-run.\n' >&2
+fi

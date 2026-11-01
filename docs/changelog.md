@@ -16,6 +16,7 @@
 - Keep Golem access automatic through Fetchary's consent acceptance without manual login, session setup or PUR controls.
 - Use Fetchary's accept consent policy for Golem and handle its cookie choice automatically during browser capture.
 - Render publisher rankings with the Feed's article cards, RSS titles and previews, reading-list actions and dismiss/Undo controls, without repeated access or refresh explanations.
+- Remove regenerable Tauri and desktop build caches only after the release and Homebrew update succeed, preserving release artifacts and application data.
 
 # 1.6.0
 

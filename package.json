@@ -37,6 +37,7 @@
         "screenshots": "node scripts/generate-mockups.js",
         "screenshots:install": "playwright install chromium",
         "dist:mac": "node scripts/build-desktop.js",
+        "cleanup:build-cache": "node scripts/cleanup-build-cache.js",
         "publish": "bash publish.sh",
         "publish:brew": "node scripts/publish-brew.js"
     },

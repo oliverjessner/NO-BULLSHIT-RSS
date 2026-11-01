@@ -47,6 +47,18 @@ For scripts, return the same data as JSON:
 no-bullshit-rss stats --json
 ```
 
+## Publisher rankings
+
+Read the latest saved Golem rankings, independently of the Digest period:
+
+```bash
+no-bullshit-rss --most-read golem
+no-bullshit-rss --most-commented golem
+no-bullshit-rss --most-read golem --json
+```
+
+Text output contains publisher, capture time and ranked titles with URLs. JSON also includes the matched RSS article data when available. These commands read the existing database without fetching or changing anything; use Refresh in the app to capture new rankings. The help lists supported media when an invalid medium is supplied.
+
 ## Latest articles
 
 Print one URL per line:

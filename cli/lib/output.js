@@ -8,6 +8,18 @@ export function compactArticle(article) {
     };
 }
 
+export function formatPublisherRankings(payload, { rankingKey, json = false }) {
+    const rankings = payload.rankings.filter(group => group.rankingKey === rankingKey);
+    const result = { medium: payload.medium, rankingKey, configured: payload.configured, rankings };
+    if (json) return JSON.stringify(result, null, 2);
+    if (!rankings.length) return `No saved ${rankingKey === 'most_read' ? 'most-read' : 'most-commented'} rankings for ${payload.medium}. Refresh rankings in the app first.`;
+    const clean = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim();
+    return rankings.map(group => [
+        `${clean(group.sourceName)} · ${rankingKey === 'most_read' ? 'Most read' : 'Most commented'} · ${clean(group.capturedAt)}`,
+        ...group.items.map(item => `${item.rank}\t${clean(item.article?.title || item.title)}\t${clean(item.article?.url || item.canonicalUrl)}`),
+    ].join('\n')).join('\n\n');
+}
+
 export function formatStatistics(statistics, { json = false } = {}) {
     if (json) return JSON.stringify(statistics, null, 2);
     const count = value => Number(value).toLocaleString('en-US');

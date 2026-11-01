@@ -1,12 +1,13 @@
 import { queryArticles } from '../backend/services/article-queries.js';
 import { readStoredDigestPayload } from '../backend/services/digest-reader.js';
 import { readStatistics } from '../backend/services/statistics-reader.js';
+import { readPublisherRankingsPayload } from '../backend/services/publisher-rankings-reader.js';
 import { CLI_VERSION, parseCliArgs, getHelpText } from './lib/arguments.js';
 import { chooseArticle as chooseArticleInteractively } from './lib/choose.js';
 import { discoverDatabasePath } from './lib/database-path.js';
 import { readStoredFeeds } from './lib/feeds.js';
 import { readRandomStoredArticle, readStoredListArticles, readStoredLists, readStoredTopics } from './lib/library.js';
-import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles, formatStatistics } from './lib/output.js';
+import { formatChosenArticle, formatDigest, formatFeeds, formatLastArticles, formatStatistics, formatPublisherRankings } from './lib/output.js';
 import { openReadOnlyDatabase } from './lib/read-only-database.js';
 import { writeWatchdog } from './lib/watchdog-api.js';
 import { readStoredWatchdogs, readStoredWatchdog, readStoredWatchdogMatches,
@@ -77,6 +78,9 @@ export async function runCli(
             if (command.command === 'watchdog-notifications') result = await readWatchdogNotificationSettings(database);
             if (result === null) throw new Error('Watchdog or match not found.');
             writeResult(stdout, JSON.stringify(result, null, 2));
+        } else if (command.command === 'publisher-rankings') {
+            const payload = await readPublisherRankingsPayload(command.medium, database);
+            writeResult(stdout, formatPublisherRankings(payload, command));
         } else if (command.command === 'stats') {
             writeResult(stdout, formatStatistics(await readStatistics(database), command));
         } else if (command.command === 'rss') {

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { WATCHDOG_RANGES } from '../../backend/services/watchdog-filters.js';
+import { RANKING_MEDIA } from '../../backend/services/publisher-rankings-reader.js';
 
 export const CLI_VERSION = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 
@@ -8,6 +9,8 @@ const HELP_TEXT = `NO BULLSHIT RSS CLI v${CLI_VERSION}
 Usage:
   no-bullshit-rss mcp
   no-bullshit-rss stats [--json]
+  no-bullshit-rss --most-read <medium> [--json]
+  no-bullshit-rss --most-commented <medium> [--json]
   no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
@@ -37,7 +40,9 @@ Commands:
   articles digest <count>    Show the newest digest clusters as JSON
 
 Options:
-  --json                     Print stats as JSON
+  --most-read <medium>       Show saved publisher most-read rankings
+  --most-commented <medium>  Show saved publisher most-commented rankings
+  --json                     Print stats or publisher rankings as JSON
   --rss-url                  Print one RSS feed URL per line
   --amount                   Print the number of stored RSS feeds
   --url                      Print one URL per line
@@ -57,6 +62,8 @@ Without a projection flag, "articles last" prints a JSON array and "articles ran
 Examples:
   no-bullshit-rss stats
   no-bullshit-rss stats --json
+  no-bullshit-rss --most-read golem
+  no-bullshit-rss --most-commented golem --json
   no-bullshit-rss rss
   no-bullshit-rss rss --rss-url
   no-bullshit-rss topics
@@ -159,6 +166,15 @@ export function parseCliArgs(argv) {
     }
 
     const [resource, action, countValue, ...flags] = args;
+    if (resource === '--most-read' || resource === '--most-commented') {
+        const medium = String(action || '').trim().toLowerCase();
+        if (!RANKING_MEDIA.some(item => item.id === medium)) {
+            throw new Error(`Choose a ranking medium after ${resource}: ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
+        }
+        rejectUnknownFlags(args.slice(2), new Set(['--json']));
+        return { command: 'publisher-rankings', medium,
+            rankingKey: resource === '--most-read' ? 'most_read' : 'most_commented', json: args.includes('--json') };
+    }
     if (resource === 'watchdog' || resource === 'watchdogs') return parseWatchdogArgs(args.slice(1));
     if (resource === 'stats') {
         rejectUnknownFlags(args.slice(1), new Set(['--json']));

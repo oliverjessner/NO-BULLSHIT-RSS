@@ -1,21 +1,14 @@
 # 2.0.0
 
-- Add TechCrunch's Top Headlines from its homepage, matched to its RSS feed, with publisher selection, eight-hour updates and `--top-news techcrunch` CLI access.
-- Add t3n's dynamically loaded most-read articles to publisher selection, RSS cards, eight-hour updates and the read-only `--most-read t3n` CLI.
-- Add heise iX's Top-News as a distinct editorial list with iX RSS cards, source-specific matching, eight-hour updates and `--top-news heise-ix` CLI access while preserving saved ranking history.
-- Add ComputerBase's most-read news from the last 72 hours to publisher selection, RSS article cards, the eight-hour schedule and the read-only CLI.
-- Read saved publisher rankings through `--most-read <medium>` and `--most-commented <medium>`, with RSS article data and optional JSON output.
-- Refresh all publisher rankings on a separate eight-hour schedule, remember attempts across restarts, and match newly fetched RSS articles without another publisher capture.
-- Add WinFuture's most-read and most-commented rankings with publisher selection, saved ranking history and RSS matching.
-- Share RSS decoding and validation across Settings and scheduled imports and report publisher access blocks such as VentureBeat's HTTP 429.
-- Seed the 40 production RSS feeds on new or incomplete installations while preserving existing preferences and later deletions.
-- Include the 13 production Bullshit rules for new installations and add missing defaults without changing existing rule preferences.
+- Add a separate Most read view for Golem, WinFuture, ComputerBase, heise iX, t3n and TechCrunch, showing each publisher's supported most-read, most-commented or editorial lists. See the [compatibility guide](most-read-compatibility.md) for coverage and access requirements.
+- Combine saved ranking history in an All media feed, with duplicate articles removed and the newest RSS publications first. Show 40 articles initially and load more while scrolling or through Load more.
+- Display rankings with Feed-style RSS cards, previews, reading-list actions and dismiss/Undo controls. Refresh automatically accepts Golem's cookie consent when possible.
+- Unify ranking queries under `no-bullshit-rss articles top [count]`, with optional `--medium`, readable `--list`, `--json` and interactive `--choose` output.
+- Refresh all publisher rankings every eight hours, remember attempts across restarts and preserve saved history after failed updates. Match newly fetched RSS articles to saved rankings without another publisher capture.
+- Share RSS decoding and validation across Settings and scheduled imports, including clear publisher access errors. Seed 40 default feeds and 13 Bullshit rules without overwriting existing preferences or restoring deleted feeds.
 - Clean saved and displayed feed, website and article URLs with Linkary, removing tracking parameters and fragments while retaining functional query parameters and recognizing legacy import URLs.
 - Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
-- most-read menu
-- Keep publisher rankings visible while loading or after failed updates, report refresh status, and fall back to installed Chrome when available.
-- Render publisher rankings with the Feed's article cards, RSS titles and previews, reading-list actions and dismiss/Undo controls, without repeated access or refresh explanations.
-- Remove regenerable Tauri and desktop build caches only after the release and Homebrew update succeed, preserving release artifacts and application data.
+- Remove regenerable Tauri and desktop build caches after the release and Homebrew update succeed, preserving release artifacts and application data.
 
 # 1.6.0
 

@@ -75,16 +75,16 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
             Object.defineProperty(event, 'button', { value: 0 });
             link.dispatchEvent(event);
         }
-        click(document.querySelector('.publisher-ranking-link[data-article-id="7"]'));
+        click(document.querySelector('.publisher-ranking-card[data-article-id="7"] .article-title-button'));
         assert.equal(document.querySelector('#rankings-article-viewer').classList.contains('hide'), false);
         assert.equal(document.querySelector('#rankings-article-viewer-frame').dataset.loadedUrl, 'https://www.golem.de/news/saved.html');
-        click(document.querySelector('.publisher-ranking-link:not([data-article-id])'));
+        click(document.querySelector('.publisher-ranking-card:not([data-article-id]) .article-title-button'));
         assert.deepEqual(opened, ['https://www.golem.de/news/external.html']);
 
         mode = 'failed';
         await rankings.refreshRankings();
         assert.equal(document.querySelectorAll('#publisher-rankings li').length, 2);
-        assert.match(document.querySelector('#publisher-rankings [role="status"]').textContent, /Showing the latest saved rankings/);
+        assert.equal(document.querySelector('#publisher-rankings [role="status"]').hidden, true);
         assert.match(document.querySelector('#rankings-refresh').textContent, /Retry refresh/);
         assert.equal(document.querySelector('#rankings-refresh').disabled, false);
 
@@ -101,7 +101,8 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
 
         mode = 'consent-required';
         await rankings.refreshRankings();
-        assert.match(document.querySelector('#publisher-rankings [role="status"]').textContent, /could not be completed automatically.*Try Refresh again/);
+        assert.equal(document.querySelector('#publisher-rankings [role="status"]').hidden, true);
+        assert.match(document.querySelector('#publisher-rankings [role="status"]').title, /could not be completed automatically/);
         assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Set up|Save access|PUR/);
         assert.equal(document.querySelector('#rankings-refresh').disabled, false);
 

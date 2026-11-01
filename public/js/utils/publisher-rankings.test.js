@@ -4,10 +4,12 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 import { publisherRankingsFingerprint, normalizePublisherRankings, renderPublisherRankings } from '../components/publisher-rankings.js';
 
+const markup = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+
 const snapshot = () => [{
     sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-10-31T20:00:00Z',
     items: [{ id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/article.html#comments', title: 'Article',
-        article: { id: 7, url: 'https://www.golem.de/news/article.html', title: 'RSS article', content: 'Stored article' } }],
+        article: { id: 7, feedId: 201, url: 'https://www.golem.de/news/article.html', title: 'RSS article', teaser: 'RSS summary', content: 'Stored article', publishedAt: '2026-10-31T19:00:00Z', sourceName: 'Golem RSS', saved: true, topics: [{ slug: 'tech', label: 'Tech' }] } }],
 }];
 
 test('publisher rankings use RSS article IDs for the viewer and clean HTTP links', () => {
@@ -71,31 +73,32 @@ test('Most read has its own main menu, Golem-only medium selector and viewer out
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
-    assert.match(container.querySelector('.publisher-rankings-note').textContent, /automatically accepts Golem's cookie consent/);
+    assert.equal(container.querySelector('.publisher-rankings-note'), null);
+    assert.match(document.querySelector('#rankings-refresh').title, /cookie consent is accepted automatically/);
     assert.equal(document.querySelector('[id^="rankings-access-"]'), null);
-    assert.match(container.querySelector('h2').textContent, /Most read & most commented/);
-    assert.match(container.querySelector('[role="status"]').textContent, /Loading publisher rankings/);
+    assert.equal(container.querySelector('h2'), null);
+    assert.match(container.querySelector('[role="status"]').textContent, /Loading/);
     assert.equal(container.querySelectorAll('li').length, 0);
 });
 
-test('rankings heading stays visible through idle, loading, refreshing, filtered and error states', () => {
+test('rankings show one compact empty or error state without repeated introductory prose', () => {
     const previousDocument = globalThis.document;
     const { document } = parseHTML('<html><body><section id="rankings" hidden></section></body></html>');
     globalThis.document = document;
     try {
         const container = document.querySelector('#rankings');
         const cases = [
-            [[], undefined, /No publisher rankings yet/],
-            [[], { state: 'loading' }, /Loading publisher rankings/],
-            [[], { state: 'refreshing' }, /Refreshing publisher rankings/],
-            [[{ ...snapshot()[0], items: [] }], { state: 'ready' }, /No publisher rankings are available/],
-            [[], { state: 'error', message: 'chrome --no-sandbox\nError: failed at browser.js:12' }, /Publisher rankings could not be refreshed/],
-            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /cookie consent could not be completed automatically.*Try Refresh again/],
+            [[], undefined, /No rankings yet/],
+            [[], { state: 'loading' }, /Loading/],
+            [[], { state: 'refreshing' }, /Refreshing/],
+            [[{ ...snapshot()[0], items: [] }], { state: 'ready' }, /No articles available/],
+            [[], { state: 'error', message: 'chrome --no-sandbox\nError: failed at browser.js:12' }, /Could not load rankings/],
+            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /Consent could not be completed.*Retry refresh/],
         ];
         for (const [rankings, status, message] of cases) {
             renderPublisherRankings(container, rankings, new Map(), { status });
             assert.equal(container.hidden, false);
-            assert.equal(container.querySelector('h2').textContent, 'Most read & most commented');
+            assert.equal(container.querySelector('h2'), null);
             assert.match(container.querySelector('[role="status"]').textContent, message);
             assert.equal(container.querySelectorAll('li').length, 0, 'Status displays must never invent articles');
             assert.doesNotMatch(container.textContent, /--no-sandbox|browser\.js|Error:/);
@@ -108,20 +111,52 @@ test('rankings heading stays visible through idle, loading, refreshing, filtered
 
 test('refreshing or failed rankings keep the actual captured snapshot and its viewer article IDs', () => {
     const previousDocument = globalThis.document;
-    const { document } = parseHTML('<html><body><section id="rankings"></section></body></html>');
+    const { document } = parseHTML(markup);
     globalThis.document = document;
     try {
-        const container = document.querySelector('#rankings');
+        const container = document.querySelector('#publisher-rankings');
         const articles = new Map();
         for (const state of ['refreshing', 'error']) {
             renderPublisherRankings(container, snapshot(), articles, { status: { state } });
             assert.equal(container.hidden, false);
-            assert.match(container.querySelector('[role="status"]').textContent, /Showing the latest saved rankings/);
+            assert.equal(container.querySelector('[role="status"]').hidden, true);
             assert.equal(container.querySelectorAll('li').length, 1);
-            assert.equal(container.querySelector('li a').dataset.articleId, '7');
+            assert.equal(container.querySelector('.feed-card').dataset.articleId, '7');
             assert.equal(container.querySelector('time').dateTime, '2026-10-31T20:00:00.000Z');
             assert.equal(articles.get(7).id, 7);
         }
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('rankings reuse Feed cards with actual RSS details and a title-only unmatched fallback', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const input = snapshot();
+        input[0].items.push({ id: 902, articleId: null, rank: 3, canonicalUrl: 'https://www.golem.de/news/unmatched.html', title: 'Actual publisher title', article: null });
+        const container = document.querySelector('#publisher-rankings');
+        renderPublisherRankings(container, input, new Map(), { status: { state: 'ready' } });
+        const cards = container.querySelectorAll('.feed-card');
+        assert.equal(cards.length, 2);
+        assert.deepEqual([...container.querySelectorAll('.publisher-ranking-rank')].map(rank => rank.textContent), ['#1', '#3']);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Most read');
+        assert.equal(cards[0].querySelector('.article-title-button').textContent, 'RSS article');
+        assert.equal(cards[0].querySelector('.teaser').textContent, 'RSS summary');
+        assert.equal(cards[0].querySelector('.article-save-btn').classList.contains('is-saved'), true);
+        assert.equal(cards[0].querySelector('.meta-source').dataset.feedId, '201');
+        assert.equal(cards[0].querySelector('[data-action="filter-topic"]').dataset.topicSlug, 'tech');
+        assert.equal(cards[1].hasAttribute('data-article-id'), false);
+        assert.equal(cards[1].querySelector('.article-title-button').textContent, 'Actual publisher title');
+        assert.equal(cards[1].querySelector('.teaser').textContent, '');
+        assert.equal(cards[1].querySelector('.teaser').hidden, true);
+        assert.equal(cards[1].querySelector('.article-save-btn').disabled, true);
+        assert.equal(cards[1].querySelector('.article-dismiss-btn').disabled, true);
+        assert.equal(cards[1].querySelector('.btn-open-external').disabled, false);
+        assert.equal(container.querySelector('.publisher-rankings-note'), null);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

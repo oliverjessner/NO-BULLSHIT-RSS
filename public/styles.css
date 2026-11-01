@@ -98,44 +98,26 @@ html {
 }
 
 .publisher-rankings[hidden] { display: none; }
-.publisher-rankings-title, .publisher-rankings-note, .publisher-rankings-status, .publisher-ranking-title, .publisher-ranking-captured { margin: 0; }
-.publisher-rankings-note, .publisher-ranking-captured { font-size: var(--oj-text-xs); line-height: var(--oj-leading-normal); }
+.publisher-rankings-status, .publisher-ranking-title, .publisher-ranking-captured { margin: 0; }
+.publisher-ranking-captured { color: var(--oj-text-muted); font-size: var(--oj-text-xs); line-height: var(--oj-leading-normal); }
 .publisher-rankings-status { font-size: var(--oj-text-sm); line-height: var(--oj-leading-normal); }
+.publisher-rankings-status.is-error { color: var(--oj-accent-text); }
+.publisher-rankings-status[hidden], .publisher-ranking-card [hidden] { display: none; }
 .publisher-rankings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: var(--oj-space-4);
-    margin-block-start: var(--oj-space-2);
+    gap: var(--oj-space-8);
 }
-.publisher-ranking-panel { min-inline-size: 0; padding: var(--oj-space-4); }
+.publisher-ranking-panel { min-inline-size: 0; }
+.publisher-ranking-header { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: var(--oj-space-2); margin-block-end: var(--oj-space-3); }
 .publisher-ranking-title { font-size: var(--oj-text-md); overflow-wrap: anywhere; }
-.publisher-ranking-captured { margin-block-start: var(--oj-space-1); }
 .publisher-ranking-list {
-    display: grid;
-    gap: var(--oj-space-2);
-    margin-block: var(--oj-space-3) 0;
-    padding-inline-start: var(--oj-space-6);
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
-.publisher-ranking-list > li { padding-inline-start: var(--oj-space-1); }
-.publisher-ranking-list > li::marker { color: var(--oj-text-muted); font-family: var(--oj-font-mono); font-size: var(--oj-text-xs); }
-.publisher-ranking-link {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--oj-space-2);
-    padding-block: var(--oj-space-1);
-    color: var(--oj-text);
-    font-size: var(--oj-text-sm);
-    line-height: var(--oj-leading-normal);
-    text-decoration: none;
-    overflow-wrap: anywhere;
-    border-radius: var(--oj-radius-sm);
-}
-.publisher-ranking-link > span { min-inline-size: 0; }
-.publisher-ranking-link > i { flex-shrink: 0; color: var(--oj-text-muted); font-size: var(--oj-text-xs); }
-.publisher-ranking-link:hover { color: var(--oj-accent-text); text-decoration: underline; }
-.publisher-ranking-link.is-active { color: var(--oj-accent-text); background: var(--oj-accent-soft); }
-.publisher-ranking-link:focus-visible { outline: var(--oj-focus-width) solid var(--oj-focus-color); outline-offset: var(--oj-focus-offset); }
+.publisher-ranking-list > li { min-inline-size: 0; }
+.publisher-ranking-card { block-size: 100%; }
+.publisher-ranking-rank { color: var(--oj-accent-text); font-size: var(--oj-text-xs); }
 
 .view-rankings { padding-inline: 0; }
 .rankings-scroll { padding-inline: var(--padding-page-inline); padding-block-end: var(--space-40); }
@@ -154,8 +136,10 @@ html {
 .rankings-medium { display: grid; gap: var(--oj-space-1); min-inline-size: 11rem; }
 .rankings-medium .select-dropdown { inline-size: 100%; }
 @media (max-width: 45rem) {
-    .rankings-controls { inline-size: 100%; }
-    .rankings-medium { flex: 1; min-inline-size: 8rem; }
+    .rankings-controls { display: grid; grid-template-columns: minmax(0, 1fr); inline-size: 100%; }
+    .rankings-medium { min-inline-size: 0; inline-size: 100%; }
+    .rankings-controls .select-dropdown, .rankings-controls .select-dropdown-trigger { min-inline-size: 0; inline-size: 100%; }
+    .rankings-controls > .oj-button { inline-size: 100%; }
 }
 
 .search-input {
@@ -500,20 +484,20 @@ html {
     padding: 0;
 }
 
-#articles-list:not(.is-list) .card .content {
+.cards:not(.is-list) .card .content {
     overflow: hidden;
     block-size: auto;
     min-block-size: 10.5rem;
 }
 
-#articles-list:not(.is-list) .card .title {
+.cards:not(.is-list) .card .title {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
 }
 
-#articles-list:not(.is-list) .card .teaser {
+.cards:not(.is-list) .card .teaser {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;

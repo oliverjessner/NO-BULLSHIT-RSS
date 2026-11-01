@@ -12,6 +12,7 @@
 - Keep publisher rankings visible while loading or after failed updates, report refresh status, and fall back to installed Chrome when available.
 - Keep Golem access automatic through Fetchary's consent acceptance without manual login, session setup or PUR controls.
 - Use Fetchary's accept consent policy for Golem and handle its cookie choice automatically during browser capture.
+- Render publisher rankings with the Feed's article cards, RSS titles and previews, reading-list actions and dismiss/Undo controls, without repeated access or refresh explanations.
 
 # 1.6.0
 

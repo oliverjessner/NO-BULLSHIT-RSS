@@ -120,6 +120,31 @@ test('matches raw functional query bytes as well as a legacy canonical URL that 
     assert.equal(read.items[0].article.url, raw);
 });
 
+test('ranking RSS cards expose live saved/read metadata and suppress dismissed articles in every group', async () => {
+    const id = await article('one');
+    await save({ rankings: { most_read: [item('one'), item('unmatched', 2)], most_commented: [item('one')] } });
+    const list = await db.run("INSERT INTO lists (name,createdAt,updatedAt) VALUES ('Reading',datetime('now'),datetime('now'))");
+    await db.run("INSERT INTO list_items VALUES (?,?,datetime('now'))", [list.lastID, id]);
+    await db.run("INSERT INTO article_state (articleId,readAt,createdAt,updatedAt) VALUES (?,datetime('now'),datetime('now'),datetime('now'))", [id]);
+    let groups = await readMostReadRankings(db);
+    for (const group of groups) {
+        const entry = group.items.find(item => item.articleId === id);
+        assert.equal(entry.article.saved, true);
+        assert.ok(entry.article.readAt);
+        assert.equal(entry.article.title, 'RSS one');
+        assert.equal(entry.article.teaser, 'Teaser');
+        assert.equal(entry.article.content, 'Article body');
+    }
+    await db.run('DELETE FROM list_items WHERE articleId = ?', [id]);
+    groups = await readMostReadRankings(db);
+    assert.equal(groups[0].items[0].article.saved, false);
+    await db.run("UPDATE article_state SET dismissedAt = datetime('now') WHERE articleId = ?", [id]);
+    groups = await readMostReadRankings(db);
+    assert.equal(groups.some(group => group.items.some(item => item.articleId === id)), false);
+    assert.equal(groups.find(group => group.rankingKey === 'most_read').items[0].rank, 2);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 3, 'Dismissal never changes the captured publisher history');
+});
+
 test('failed/partial publisher captures preserve the last good snapshot and skip manual/unsupported sources', async () => {
     await save();
     let calls = 0;

@@ -8,6 +8,7 @@ import { isAbortError } from '../utils/data.js';
 let initialized = false;
 let refreshPromise = null;
 let pollTimer = null;
+const pendingDismissals = new Set();
 
 function clearPoll() {
     if (pollTimer !== null) clearTimeout(pollTimer);
@@ -34,14 +35,20 @@ function updateControls(status = store.rankings.payload?.rankingStatus) {
     icon.setAttribute('aria-hidden', 'true');
     const label = refreshing ? 'Refreshing…' : status?.state === 'error' ? 'Retry refresh' : 'Refresh';
     dom.rankings.refresh.replaceChildren(icon, document.createTextNode(` ${label}`));
+    const errorMessage = status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Automatic Golem consent could not be completed.' : 'Refresh failed.';
+    dom.rankings.refresh.title = status?.state === 'error' ? `${errorMessage} Retry refresh.` : "Refresh rankings; Golem's cookie consent is accepted automatically.";
+    dom.rankings.refresh.setAttribute('aria-label', status?.state === 'error' ? `${label}: ${errorMessage}` : label);
 }
 
 function render(payload, { status = payload?.rankingStatus } = {}) {
-    const fingerprint = publisherRankingsFingerprint(payload?.rankings, status, payload?.configured);
+    const rankings = pendingDismissals.size ? payload?.rankings?.map(group => ({
+        ...group, items: group.items.filter(item => !pendingDismissals.has(Number(item.articleId))),
+    })) : payload?.rankings;
+    const fingerprint = publisherRankingsFingerprint(rankings, status, payload?.configured);
     if (fingerprint !== store.rankings.fingerprint) {
         store.rankings.fingerprint = fingerprint;
         store.rankings.articlesById = new Map();
-        renderPublisherRankings(dom.rankings.content, payload?.rankings, store.rankings.articlesById, { status, configured: payload?.configured });
+        renderPublisherRankings(dom.rankings.content, rankings, store.rankings.articlesById, { status, configured: payload?.configured });
         renderViewer();
     }
     updateControls(status);
@@ -84,8 +91,8 @@ export function refreshRankings() {
     store.rankings.requestController?.abort();
     ++store.rankings.requestId;
     render(store.rankings.payload, { status: { state: 'refreshing' } });
-    // The selected medium alone is refreshed. Leaving this view stops status
-    // reads but lets the explicitly requested refresh finish on the server.
+    // Leaving this view stops status reads while the requested refresh finishes
+    // on the server.
     refreshPromise = (async () => {
         let finalStatus;
         try {
@@ -113,6 +120,57 @@ export function refreshRankings() {
     return refreshPromise;
 }
 
+async function dismissArticle(id) {
+    const articleId = Number(id);
+    if (!store.rankings.articlesById.has(articleId) || pendingDismissals.has(articleId)) return;
+    pendingDismissals.add(articleId);
+    store.rankings.requestController?.abort();
+    ++store.rankings.requestId;
+    render(store.rankings.payload);
+    try {
+        await api.dismissArticle(articleId, true);
+        store.feed.needsRefresh = true;
+        const { toast } = await import('../ui/toast.js');
+        toast.success('Article dismissed', { actionLabel: 'Undo', onAction: async () => {
+            await api.dismissArticle(articleId, false);
+            store.feed.needsRefresh = true;
+            await loadRankings({ force: true, silent: true });
+            if (store.ui.activeView === 'main') {
+                const { loadArticles } = await import('./feed.js');
+                await loadArticles({ force: true, showLoading: false });
+            }
+        } });
+    } catch (error) {
+        const { toast } = await import('../ui/toast.js');
+        toast.error(`Dismiss failed: ${error.message}`);
+    } finally {
+        pendingDismissals.delete(articleId);
+        await loadRankings({ force: true, silent: true });
+    }
+}
+
+async function activateCardAction(event) {
+    const action = event.target.closest('[data-action]');
+    const card = event.target.closest('.publisher-ranking-card');
+    if (!action || !card || action.disabled) return;
+    event.preventDefault(); event.stopPropagation();
+    const id = Number(card.dataset.articleId) || null;
+    if (action.dataset.action === 'read') {
+        if (id) openArticle(id); else openExternal(null, card.dataset.itemUrl);
+    } else if (action.dataset.action === 'external') openExternal(id, card.dataset.itemUrl);
+    else if (action.dataset.action === 'save' && id) {
+        const { openListModal } = await import('../ui/modal.js');
+        await openListModal(id);
+    } else if (action.dataset.action === 'dismiss' && id) await dismissArticle(id);
+    else if (action.dataset.action === 'filter-source') {
+        const { applySourceFilter } = await import('./feed.js');
+        await applySourceFilter(action.dataset);
+    } else if (action.dataset.action === 'filter-topic') {
+        const { applyTopicFilter } = await import('./feed.js');
+        await applyTopicFilter(action.dataset.topicSlug, { switchView: true });
+    }
+}
+
 function bindEvents() {
     dom.rankings.medium.addEventListener('change', () => {
         // Golem is the only supported medium until another adapter is added.
@@ -122,11 +180,18 @@ function bindEvents() {
     });
     dom.rankings.refresh.addEventListener('click', () => { void refreshRankings(); });
     dom.rankings.content.addEventListener('click', event => {
-        const link = event.target.closest('.publisher-ranking-link');
-        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        void activateCardAction(event).catch(async error => {
+            const { toast } = await import('../ui/toast.js');
+            toast.error(error.message);
+        });
+    });
+    dom.rankings.content.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.target.closest('button, a')) return;
+        const card = event.target.closest('.publisher-ranking-card');
+        if (!card) return;
         event.preventDefault();
-        if (link.dataset.articleId) openArticle(link.dataset.articleId);
-        else openExternal(null, link.dataset.itemUrl);
+        if (card.dataset.articleId) openArticle(card.dataset.articleId);
+        else openExternal(null, card.dataset.itemUrl);
     });
     window.addEventListener('keydown', event => {
         if (event.defaultPrevented || store.ui.activeView !== 'rankings' || document.querySelector('dialog[open], [data-oj-dropdown-trigger][aria-expanded="true"]')) return;

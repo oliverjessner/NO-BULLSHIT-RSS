@@ -54,11 +54,11 @@ test('ignores unrelated widgets, external links and non-news paths, and requires
     assert.throws(() => parseWinFutureRankings([read.replace('news_beliebteste_24"', 'missing_24"'), commented]), /list is missing/);
 });
 
-test('matches WinFuture source host independently of source IDs/names and lists both supported media', () => {
+test('matches WinFuture source host independently of source IDs/names and lists supported publisher media', () => {
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.winfuture.de/' }).id, 'winfuture');
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://winfuture.de/', name: 'Other' }).id, 'winfuture');
     assert.equal(rankingMediumForSource({ websiteUrl: 'https://winfuture.de.evil.test/', name: 'WinFuture' }), null);
-    assert.deepEqual(RANKING_MEDIA.map(({ id, name }) => ({ id, name })), [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }]);
+    assert.deepEqual(RANKING_MEDIA.map(({ id, name }) => ({ id, name })), [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }]);
 });
 
 test('uses complete HTTP HTML without loading a browser and preserves capture metadata', async () => {

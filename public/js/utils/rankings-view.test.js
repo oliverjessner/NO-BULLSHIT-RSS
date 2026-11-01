@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 
 const payload = (title = 'Saved Golem story') => ({
-    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }], configured: true,
+    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }], configured: true,
     rankingStatus: { state: 'ready', message: null, attemptedAt: '2026-11-01T07:00:00Z' },
     rankings: [{ sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-11-01T07:00:00Z', items: [
         { id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/saved.html', title,
@@ -21,6 +21,17 @@ function winFuturePayload(title = 'Saved WinFuture story') {
             article: item.article ? { ...item.article, id: 17, url: 'https://winfuture.de/news,162334.html' } : null,
         })),
     })) };
+}
+
+function computerBasePayload(title = 'Saved ComputerBase story') {
+    const base = payload(title);
+    const url = 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/';
+    return { ...base, medium: 'computerbase', rankings: [{
+        ...base.rankings[0], sourceId: 3, sourceName: 'ComputerBase', items: [{
+            ...base.rankings[0].items[0], canonicalUrl: url, articleId: 27,
+            article: { ...base.rankings[0].items[0].article, id: 27, url, teaser: 'ComputerBase RSS teaser.' },
+        }],
+    }] };
 }
 
 test('Most read uses automatic consent refresh with its own viewer, saved snapshots and request ordering', async () => {
@@ -55,6 +66,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     globalThis.fetch = async (url, options) => {
         requests.push({ url, options });
         if (url === '/api/rankings/refresh') {
+            if (JSON.parse(options.body).medium === 'computerbase') return Response.json(computerBasePayload('Refreshed ComputerBase story'));
             if (JSON.parse(options.body).medium === 'winfuture') return Response.json(winFuturePayload('Refreshed WinFuture story'));
             if (mode === 'failed') return Response.json({ ...payload(), error: 'Could not refresh', rankingStatus: { state: 'error' } }, { status: 502 });
             if (mode === 'consent-required') return Response.json({ ...payload(), error: 'Automatic consent could not be completed', rankingStatus: { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' } }, { status: 502 });
@@ -65,6 +77,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
             const current = winFuturePayload();
             return Response.json({ ...current, configured, rankings: configured ? current.rankings : [], rankingStatus: configured ? current.rankingStatus : { state: 'idle' } });
         }
+        if (url === '/api/rankings?medium=computerbase') return Response.json(computerBasePayload());
         assert.equal(url, '/api/rankings?medium=golem');
         if (mode === 'delayed-read') return new Promise(resolve => { completeOldRead = resolve; });
         return Response.json({ ...payload(), configured, rankings: configured ? payload().rankings : [], rankingStatus: configured ? payload().rankingStatus : { state: 'idle' } });
@@ -168,6 +181,19 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         assert.match(document.querySelector('#publisher-rankings').textContent, /Add a WinFuture RSS feed/);
         assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Golem/);
         configured = true;
+        select.value = 'computerbase';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 'computerbase');
+        assert.deepEqual([...document.querySelectorAll('.publisher-ranking-title')].map(title => title.textContent), ['Most read']);
+        assert.equal(document.querySelectorAll('#publisher-rankings .feed-card').length, 1);
+        assert.equal(document.querySelector('#publisher-rankings .teaser').textContent, 'ComputerBase RSS teaser.');
+        assert.equal(store.rankings.articlesById.has(17), false);
+        click(document.querySelector('.publisher-ranking-card[data-article-id="27"] .article-title-button'));
+        assert.equal(document.querySelector('#rankings-article-viewer-frame').dataset.loadedUrl, 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/');
+        await rankings.refreshRankings();
+        assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'computerbase' });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed ComputerBase story/);
         select.value = 'golem';
         select.dispatchEvent(new window.Event('change'));
         await new Promise(setImmediate);

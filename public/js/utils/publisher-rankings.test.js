@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -184,6 +184,33 @@ test('ranking changes update the standalone view fingerprint', () => {
     ]) {
         const changed = structuredClone(base); change(changed);
         assert.notEqual(fingerprint, publisherRankingsFingerprint(changed));
+    }
+});
+
+test('ComputerBase renders only its available most-read group with the matched RSS Feed card', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 3, sourceName: 'ComputerBase' });
+        Object.assign(rankings[0].items[0], {
+            canonicalUrl: 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/',
+            article: { ...rankings[0].items[0].article, sourceName: 'ComputerBase RSS', title: 'ComputerBase RSS headline', teaser: 'ComputerBase RSS teaser.', url: 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 'ComputerBase' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Most read');
+        assert.equal(container.querySelector('[data-ranking-key="most_commented"]'), null);
+        assert.equal(container.querySelector('.feed-card .article-title-button').textContent, 'ComputerBase RSS headline');
+        assert.equal(container.querySelector('.feed-card .teaser').textContent, 'ComputerBase RSS teaser.');
+        assert.equal(articles.get(7).sourceName, 'ComputerBase RSS');
+        assert.doesNotMatch(container.textContent, /Most commented|Golem|WinFuture/);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
     }
 });
 

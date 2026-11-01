@@ -48,6 +48,15 @@ const winFutureRankings = () => ({
     most_commented: [{ rank: 1, canonicalUrl: 'https://winfuture.de/news,162318.html', title: 'VW ID. Golf' }],
 });
 
+async function computerBaseSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (501, 'ComputerBase', 'https://www.computerbase.de/', 'https://www.computerbase.de/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (601, 501, 'ComputerBase RSS', 'https://www.computerbase.de/rss/news.xml', datetime('now'), datetime('now'))`);
+}
+const computerBaseUrl = 'https://www.computerbase.de/news/gaming/fixture.100081/';
+const computerBaseRankings = () => ({ most_read: [{ rank: 1, canonicalUrl: computerBaseUrl, title: 'ComputerBase chart title' }] });
+
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
         (feedId, externalId, title, teaser, content, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
@@ -190,7 +199,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -298,6 +307,67 @@ test('an all-publisher pass records independent outcomes when Golem fails and Wi
     assert.equal(winfuture.rankings.length, 2);
     assert.equal((await readRankingRefreshStatus(db)).state, 'error');
     assert.ok((await readRankingRefreshStatus(db)).attemptedAt);
+});
+
+test('ComputerBase stores one complete most-read chart, matches RSS by source and reads it without creating another ranking', async () => {
+    await computerBaseSource();
+    await article('cross-source-cb', 203, { url: computerBaseUrl, canonicalUrl: computerBaseUrl });
+    const rssId = await article('computerbase', 601, { url: `${computerBaseUrl}?utm_source=rss`, canonicalUrl: computerBaseUrl, title: 'ComputerBase RSS title' });
+    const snapshot = { sourceId: 501, capturedAt: firstCapture, rankings: computerBaseRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 1, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('computerbase', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'most_read');
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'ComputerBase RSS title');
+        assert.equal(payload.rankings[0].items[0].article.teaser, 'Teaser');
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: {} }), /complete most-read/);
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: {
+        ...computerBaseRankings(), most_commented: computerBaseRankings().most_read,
+    } }), /Invalid ranking keys/);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read WHERE sourceId = 501')).count, 1);
+    assert.equal((await db.get('SELECT articleId FROM most_read WHERE sourceId = 501')).articleId, rssId);
+});
+
+test('ComputerBase refresh failures preserve its saved chart and manual refresh leaves the global eight-hour cadence unchanged', async () => {
+    await computerBaseSource();
+    await saveMostReadSnapshot({ sourceId: 501, capturedAt: firstCapture, rankings: computerBaseRankings() });
+    const legacy = JSON.stringify({ state: 'ready', attemptedAt: firstCapture });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, legacy]);
+    const captured = [];
+    const result = await refreshMostReadRankings({ medium: 'computerbase', capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: nextCapture, rankings: { most_read: [] } };
+    } });
+    assert.deepEqual(captured, ['computerbase']);
+    assert.deepEqual(result, { updated: 0, total: 1 });
+    const payload = await readPublisherRankingsPayload('computerbase', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankingStatus.errorCode, null);
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, legacy);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read WHERE sourceId = 101')).count, 0);
+});
+
+test('the all-publisher schedule includes ComputerBase and preserves the two-list requirements for Golem and WinFuture', async () => {
+    await computerBaseSource();
+    await winFutureSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase']);
+    assert.deepEqual(result, { updated: 3, total: 3 });
+    for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
+    assert.equal((await readRankingRefreshStatus(db)).state, 'ready');
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 6);
 });
 
 test('migration constraints, source deletion and article deletion preserve ranking history safely', async () => {

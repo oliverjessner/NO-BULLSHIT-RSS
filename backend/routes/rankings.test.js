@@ -16,7 +16,7 @@ async function fixture(t, overrides = {}) {
     const state = {
         rankingStatus: { state: 'ready', attemptedAt: '2026-11-01T00:00:00Z', errorCode: null, message: null },
     };
-    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }], configured: true,
+    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }], configured: true,
         rankings: [{ sourceId: 1, rankingKey: 'most_read', items: [{ rank: 1, title: 'Saved article', canonicalUrl: 'https://www.golem.de/news/saved.html' }] }],
         rankingStatus: state.rankingStatus });
     const app = express(); app.use(express.json());
@@ -36,12 +36,12 @@ async function fixture(t, overrides = {}) {
     return { base, request, state, calls };
 }
 
-test('GET rankings is read-only and exposes only the supported Golem medium', async t => {
+test('GET rankings is read-only and exposes the supported publisher media', async t => {
     const f = await fixture(t);
     const response = await fetch(`${f.base}?medium=golem`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }]);
+    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }]);
     assert.equal(body.medium, 'golem');
     assert.equal(body.rankings[0].items[0].title, 'Saved article');
     assert.equal(Object.hasOwn(body, 'access'), false);
@@ -66,6 +66,18 @@ test('unsupported media and injected parameters are rejected before any capture'
     assert.equal((await fetch(`${f.base}?medium=other`)).status, 400);
     assert.equal((await fetch(`${f.base}?medium=golem&url=https://other.test`)).status, 400);
     assert.deepEqual(f.calls, []);
+});
+
+test('ComputerBase can be selected and refreshed without capturing another medium', async t => {
+    let captured;
+    const f = await fixture(t, { refresh: async options => { captured = options; } });
+    const response = await fetch(`${f.base}?medium=computerbase`);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).medium, 'computerbase');
+    const refreshed = await f.request('/refresh', { medium: 'computerbase' });
+    assert.equal(refreshed.status, 200);
+    assert.equal((await refreshed.json()).medium, 'computerbase');
+    assert.deepEqual(captured, { medium: 'computerbase' });
 });
 
 test('failed Golem refresh returns actionable consent status and keeps the last saved articles', async t => {

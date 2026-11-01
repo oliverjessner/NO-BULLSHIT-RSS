@@ -1,6 +1,6 @@
 {
     "name": "no-bullshit-rss",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "type": "module",
     "engines": {
         "node": ">=26.0.0"
@@ -44,14 +44,14 @@
         "ajv": "^8.20.0",
         "express": "^5.3.0",
         "express-rate-limit": "^8.7.1",
+        "fetchary": "2.1.1",
         "helmet": "^8.3.0",
         "iconv-lite": "^0.7.3",
         "json-rules-engine": "^7.3.1",
-        "oj-designsystem": "0.2.1",
-        "fetchary": "2.1.1",
-        "rss-parser": "^3.13.0",
         "linkary": "https://codeload.github.com/oliverjessner/linkary/tar.gz/c467cacaf0048992178188e411aed129d968622f",
-        "linkedom": "0.18.13"
+        "linkedom": "0.18.13",
+        "oj-designsystem": "0.3.0",
+        "rss-parser": "^3.13.0"
     },
     "allowScripts": {
         "@vscode/sqlite3": true

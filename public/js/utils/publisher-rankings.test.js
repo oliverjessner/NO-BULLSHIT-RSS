@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch'], ['arstechnica', 'Ars Technica'], ['wired', 'WIRED']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch'], ['arstechnica', 'Ars Technica'], ['wired', 'WIRED'], ['theverge', 'The Verge']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -375,6 +375,40 @@ test('WIRED Most Popular remains visible in grouped and mixed RSS cards without 
         renderPublisherRankings(container, rankings, new Map(), { status: { state: 'ready' }, publisherName: 'WIRED' });
         assert.equal(container.querySelector('.publisher-ranking-title').textContent, '<img src=x onerror=alert(1)>');
         assert.equal(container.querySelector('.publisher-ranking-title img'), null);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('The Verge Top Stories uses matched RSS cards in grouped and mixed views', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 10, sourceName: 'The Verge', rankingKey: 'top_news', label: 'Top Stories' });
+        Object.assign(rankings[0].items[0], {
+            rank: 4, canonicalUrl: 'https://www.theverge.com/tech/123456/theverge-fixture',
+            article: { ...rankings[0].items[0].article, feedId: 10, sourceName: 'The Verge RSS', title: 'The Verge RSS headline', teaser: 'The Verge stored RSS teaser.', url: 'https://www.theverge.com/tech/123456/theverge-fixture' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 'The Verge' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Top Stories');
+        assert.equal(container.querySelector('.publisher-ranking-rank').textContent, '#4');
+        assert.equal(container.querySelector('[data-ranking-key="most_read"], [data-ranking-key="most_commented"]'), null);
+        assert.equal(container.querySelector('.article-title-button').textContent, 'The Verge RSS headline');
+        assert.equal(container.querySelector('.teaser').textContent, 'The Verge stored RSS teaser.');
+        assert.equal(container.querySelector('.article-save-btn').disabled, false);
+        assert.equal(container.querySelector('.article-dismiss-btn').disabled, false);
+        assert.equal(articles.get(7).feedId, 10);
+        const article = { ...rankings[0].items[0].article, canonicalUrl: rankings[0].items[0].canonicalUrl,
+            rankings: [{ medium: 'theverge', rankingKey: 'top_news', label: 'Top Stories', rank: 4 }] };
+        renderTopArticles(container, [article], new Map(), { status: { state: 'ready' }, media: [{ id: 'theverge', name: 'The Verge' }] });
+        assert.equal(container.querySelector('.publisher-ranking-provenance').textContent, 'The Verge · Top Stories #4');
+        assert.doesNotMatch(container.textContent, /Most read|Most commented|Most Popular|Top-News|Top Headlines/);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

@@ -10,6 +10,7 @@ export const RANKING_MEDIA = Object.freeze([
     Object.freeze({ id: 'techcrunch', name: 'TechCrunch', hostname: 'techcrunch.com', rankingKeys: Object.freeze(['top_news']), rankingLabels: Object.freeze({ top_news: 'Top Headlines' }) }),
     Object.freeze({ id: 'arstechnica', name: 'Ars Technica', hostname: 'arstechnica.com', rankingKeys: Object.freeze(['most_read']) }),
     Object.freeze({ id: 'wired', name: 'WIRED', hostname: 'wired.com', rankingKeys: Object.freeze(['most_read']), rankingLabels: Object.freeze({ most_read: 'Most Popular' }) }),
+    Object.freeze({ id: 'theverge', name: 'The Verge', hostname: 'theverge.com', rankingKeys: Object.freeze(['top_news']), rankingLabels: Object.freeze({ top_news: 'Top Stories' }) }),
 ]);
 
 export function rankingMediumForSource(source) {

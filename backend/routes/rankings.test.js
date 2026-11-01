@@ -17,7 +17,7 @@ async function fixture(t, overrides = {}) {
     const state = {
         rankingStatus: { state: 'ready', attemptedAt: '2026-11-01T00:00:00Z', errorCode: null, message: null },
     };
-    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }], configured: true,
+    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }, { id: 'theverge', name: 'The Verge' }], configured: true,
         rankings: [{ sourceId: 1, rankingKey: 'most_read', items: [{ rank: 1, title: 'Saved article', canonicalUrl: 'https://www.golem.de/news/saved.html' }] }],
         rankingStatus: state.rankingStatus });
     const app = express(); app.use(express.json());
@@ -48,7 +48,7 @@ test('GET rankings is read-only and exposes the supported publisher media', asyn
     const response = await fetch(`${f.base}?medium=golem`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }]);
+    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }, { id: 'theverge', name: 'The Verge' }]);
     assert.equal(body.medium, 'golem');
     assert.equal(body.rankings[0].items[0].title, 'Saved article');
     assert.equal(Object.hasOwn(body, 'access'), false);
@@ -171,6 +171,18 @@ test('WIRED can be selected for grouped and collected reads and refreshed indepe
     assert.equal(response.status, 200);
     assert.equal((await response.json()).medium, 'wired');
     assert.deepEqual(captured, { medium: 'wired' });
+});
+
+test('The Verge supports grouped and collected reads plus an independent Top Stories refresh', async t => {
+    let captured;
+    const f = await fixture(t, { refresh: async options => { captured = options; } });
+    assert.equal((await fetch(`${f.base}?medium=theverge`)).status, 200);
+    assert.equal((await fetch(`${f.base}/top?medium=theverge&limit=40`)).status, 200);
+    assert.deepEqual(f.topCalls, [{ medium: 'theverge', limit: 40, cursor: null }]);
+    const response = await f.request('/refresh', { medium: 'theverge' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).medium, 'theverge');
+    assert.deepEqual(captured, { medium: 'theverge' });
 });
 
 test('failed Golem refresh returns actionable consent status and keeps the last saved articles', async t => {

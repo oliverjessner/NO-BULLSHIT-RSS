@@ -92,6 +92,7 @@ const fixtureMedia = [
     ['techcrunch', 'TechCrunch', 'https://techcrunch.com/', 'https://techcrunch.com/feed/', i => `https://techcrunch.com/2026/10/01/fixture-${i}/`],
     ['arstechnica', 'Ars Technica', 'https://arstechnica.com/', 'https://feeds.arstechnica.com/arstechnica/index', i => `https://arstechnica.com/space/2026/10/ars-fixture-${i}/`],
     ['wired', 'WIRED', 'https://www.wired.com/', 'https://www.wired.com/feed/rss', i => `https://www.wired.com/story/wired-fixture-${i}/`],
+    ['theverge', 'The Verge', 'https://www.theverge.com/', 'https://www.theverge.com/rss/index.xml', i => `https://www.theverge.com/tech/${100000 + i}/theverge-fixture`],
 ];
 const fixtureArticleCount = 135;
 
@@ -251,6 +252,33 @@ test('WIRED filter, JSON, list and chooser preserve Most Popular and stored RSS 
     assert.match(text.stdout, /WIRED/);
     assert.match(text.stdout, new RegExp(`Most Popular #${expectedIds[0]}`));
     assert.doesNotMatch(text.stdout, /Most read|Most commented|Top-News|Top Headlines|Body fixture/);
+    const chosen = await fixture.run([...args, '--choose', '--json'], { chooseArticle: async candidates => {
+        assert.deepEqual(candidates.map(item => item.id), expectedIds);
+        return candidates[0];
+    } });
+    assert.equal(chosen.code, 0, chosen.stderr);
+    assert.deepEqual(JSON.parse(chosen.stdout), items[0]);
+});
+
+test('The Verge filter, JSON, list and chooser use saved Top Stories and RSS metadata read-only', async t => {
+    const fixture = await fixtureDatabase(t);
+    const args = ['articles', 'top', '100', '--medium', 'theverge'];
+    const result = await fixture.run([...args, '--json']);
+    assert.equal(result.code, 0, result.stderr);
+    const items = JSON.parse(result.stdout);
+    const vergeIndex = fixtureMedia.findIndex(item => item[0] === 'theverge');
+    const expectedIds = Array.from({ length: fixtureArticleCount }, (_, index) => index + 1).filter(id => (id - 1) % fixtureMedia.length === vergeIndex).reverse();
+    assert.deepEqual(items.map(item => item.id), expectedIds);
+    assert.ok(items.every(item => item.medium === 'theverge' && item.sourceName === 'The Verge'));
+    assert.ok(items.every(item => item.rankings.length === 1 && item.rankings[0].rankingKey === 'top_news' && item.rankings[0].label === 'Top Stories' && item.rankings[0].rank === item.id));
+    assert.equal(items[0].title, `RSS title ${expectedIds[0]}`);
+    assert.equal(items[0].teaser, `RSS teaser ${expectedIds[0]}`);
+    assert.match(items[0].canonicalUrl, /^https:\/\/www\.theverge\.com\/tech\/\d+\/theverge-fixture$/);
+    const text = await fixture.run([...args, '--list']);
+    assert.equal(text.code, 0, text.stderr);
+    assert.match(text.stdout, /The Verge/);
+    assert.match(text.stdout, new RegExp(`Top Stories #${expectedIds[0]}`));
+    assert.doesNotMatch(text.stdout, /Most read|Most commented|Most Popular|Top-News|Top Headlines|Body fixture/);
     const chosen = await fixture.run([...args, '--choose', '--json'], { chooseArticle: async candidates => {
         assert.deepEqual(candidates.map(item => item.id), expectedIds);
         return candidates[0];

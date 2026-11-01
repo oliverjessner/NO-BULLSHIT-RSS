@@ -128,6 +128,18 @@ const wiredRankings = () => ({ most_read: [
     { rank: 4, canonicalUrl: 'https://www.wired.com/story/second-wired-fixture/', title: 'Second WIRED headline' },
 ] });
 
+async function theVergeSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (1701, 'Renamed Verge source', 'https://www.theverge.com/', 'https://www.theverge.com/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (1801, 1701, 'The Verge RSS', 'https://www.theverge.com/rss/index.xml', datetime('now'), datetime('now'))`);
+}
+const theVergeUrl = 'https://www.theverge.com/tech/1024108/verge-fixture';
+const theVergeRankings = () => ({ top_news: [
+    { rank: 1, canonicalUrl: theVergeUrl, title: 'Verge editorial headline' },
+    { rank: 4, canonicalUrl: 'https://www.theverge.com/2024/10/31/24284123/older-verge-fixture', title: 'Second Verge headline' },
+] });
+
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
         (feedId, externalId, title, teaser, content, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
@@ -270,7 +282,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }, { id: 'wired', name: 'WIRED' }, { id: 'theverge', name: 'The Verge' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -732,6 +744,68 @@ test('all-publisher captures include WIRED with all seven existing media and pre
     } });
     assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica', 'wired']);
     assert.deepEqual(result, { updated: 8, total: 8 });
+    for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
+});
+
+test('The Verge Top Stories keeps its editorial label and RSS associations in grouped and mixed read-only queries', async () => {
+    await theVergeSource();
+    await article('other-verge', 203, { url: theVergeUrl, canonicalUrl: theVergeUrl });
+    const rssId = await article('actual-verge', 1801, { url: `${theVergeUrl}?utm_source=rss#comments`, canonicalUrl: theVergeUrl, title: 'Actual Verge RSS headline' });
+    const snapshot = { sourceId: 1701, capturedAt: firstCapture, rankings: theVergeRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 2, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('theverge', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'top_news');
+        assert.equal(payload.rankings[0].label, 'Top Stories');
+        assert.deepEqual(payload.rankings[0].items.map(item => item.rank), [1, 4]);
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'Actual Verge RSS headline');
+        assert.equal(payload.rankings[0].items[1].articleId, null);
+        const { readTopArticles } = await import('./top-articles-reader.js');
+        const top = await readTopArticles(readonly, { medium: 'theverge' });
+        assert.equal(top.items.length, 2);
+        assert.ok(top.items.every(item => item.rankings[0].medium === 'theverge' && item.rankings[0].label === 'Top Stories'));
+        const mixed = await readTopArticles(readonly);
+        assert.equal(mixed.items.filter(item => item.rankings.some(group => group.medium === 'theverge')).length, 2);
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { most_read: theVergeRankings().top_news } }), /Invalid ranking keys/);
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://theverge.com/#topStories' }).id, 'theverge');
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.theverge.com.evil.test/' }), null);
+});
+
+test('manual Verge refresh captures only Top Stories, preserves saved results on failure and leaves the global cadence intact', async () => {
+    await theVergeSource();
+    const cadence = JSON.stringify({ state: 'ready', attemptedAt: firstCapture });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, cadence]);
+    const captured = [];
+    const result = await refreshMostReadRankings({ medium: 'theverge', capture: async ({ medium }) => {
+        captured.push(medium); return { capturedAt: firstCapture, rankings: theVergeRankings() };
+    } });
+    assert.deepEqual(result, { updated: 1, total: 1 });
+    assert.deepEqual(captured, ['theverge']);
+    assert.equal((await readRankingRefreshStatus(db, 'theverge')).state, 'ready');
+    await refreshMostReadRankings({ medium: 'theverge', capture: async () => { throw new Error('Verge unavailable'); } });
+    const payload = await readPublisherRankingsPayload('theverge', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal(payload.rankings[0].items.length, 2);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
+});
+
+test('all-publisher captures include The Verge alongside every existing publisher and selection type', async () => {
+    await winFutureSource(); await computerBaseSource(); await heiseIxSources(); await t3nSource(); await techCrunchSource(); await arsTechnicaSource(); await wiredSource(); await theVergeSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings(), 'heise-ix': heiseIxRankings(), t3n: t3nRankings(), techcrunch: techCrunchRankings(), arstechnica: arsRankings(), wired: wiredRankings(), theverge: theVergeRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica', 'wired', 'theverge']);
+    assert.deepEqual(result, { updated: 9, total: 9 });
     for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
 });
 

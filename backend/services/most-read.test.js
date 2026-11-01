@@ -188,7 +188,7 @@ test('Golem consent failures retain an actionable typed status instead of generi
     } });
     const status = await readRankingRefreshStatus(db);
     assert.equal(status.errorCode, 'GOLEM_CONSENT_REQUIRED');
-    assert.match(status.message, /cookie choice or Golem pur/);
+    assert.match(status.message, /Automatic Golem consent could not be completed/);
 });
 
 test('old read-only databases without the new table return no rankings without querying article bodies', async () => {

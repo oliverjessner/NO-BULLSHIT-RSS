@@ -16,7 +16,7 @@ export function normalizeRankingStatus(value, { now = Date.now() } = {}) {
         attemptedAt,
         errorCode: state === 'error' && status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'GOLEM_CONSENT_REQUIRED' : null,
         message: state !== 'error' ? null : status?.errorCode === 'GOLEM_CONSENT_REQUIRED'
-            ? 'Golem requires a cookie choice or Golem pur access before rankings can be loaded.'
+            ? 'Automatic Golem consent could not be completed. Refresh again or set up saved Golem access.'
             : 'Publisher rankings could not be refreshed. Try refreshing again.',
     };
 }

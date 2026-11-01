@@ -72,12 +72,12 @@ test('unsupported media and injected parameters are rejected before any capture 
 
 test('failed Golem refresh returns actionable consent status and keeps the last saved articles', async t => {
     const f = await fixture(t);
-    f.state.rankingStatus = { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED', message: 'Golem requires a cookie choice or Golem pur access before rankings can be loaded.' };
+    f.state.rankingStatus = { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED', message: 'Automatic Golem consent could not be completed. Refresh again or set up saved Golem access.' };
     const response = await f.request('/refresh', { medium: 'golem' });
     assert.equal(response.status, 502);
     const body = await response.json();
     assert.equal(body.rankingStatus.errorCode, 'GOLEM_CONSENT_REQUIRED');
-    assert.match(body.error, /cookie choice or Golem pur/);
+    assert.match(body.error, /Automatic Golem consent could not be completed/);
     assert.equal(body.rankings[0].items.length, 1);
     assert.deepEqual(f.calls, ['refresh']);
 });

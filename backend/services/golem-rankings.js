@@ -16,7 +16,7 @@ const hostname = value => new URL(value).hostname.toLowerCase().replace(/^www\./
 
 export class GolemConsentRequiredError extends Error {
     constructor(cause) {
-        super('Golem requires a cookie choice or Golem pur access before rankings can be loaded.', { cause });
+        super('Automatic Golem consent could not be completed. Refresh again or set up saved Golem access.', { cause });
         this.name = 'GolemConsentRequiredError';
         this.code = 'GOLEM_CONSENT_REQUIRED';
         this.phase = 'consent';
@@ -77,13 +77,13 @@ function parseCapture(result) {
     const pathname = new URL(finalUrl).pathname;
     // Golem's anonymous HTTP response can be a successful redirect to
     // /sonstiges/zustimmung/auswahl.html rather than the requested homepage.
-    if (/(?:^|\/)(?:zustimmung|consent|cookie-consent|cookie-wall)(?:[/.\-_]|$)/i.test(pathname)
+    if ((result.consent?.status !== 'handled' && /(?:^|\/)(?:zustimmung|consent|cookie-consent|cookie-wall)(?:[/.\-_]|$)/i.test(pathname))
         || result.consent?.status === 'blocked') throw new GolemConsentRequiredError();
     if (!Number.isInteger(result.status) || result.status < 200 || result.status >= 300) throw new Error('Golem rankings are unavailable');
     let rankings;
     try { rankings = parseGolemRankings(result.data?.values, finalUrl); }
     catch (error) {
-        if (error.code === 'GOLEM_RANKINGS_MISSING' && result.consent?.detected) throw new GolemConsentRequiredError(error);
+        if (error.code === 'GOLEM_RANKINGS_MISSING' && result.consent?.detected && result.consent.status !== 'handled') throw new GolemConsentRequiredError(error);
         throw error;
     }
     if (typeof result.capturedAt !== 'string' || !result.capturedAt.trim() || !Number.isFinite(new Date(result.capturedAt).getTime())) {
@@ -97,12 +97,12 @@ export async function fetchGolemRankings({
     configureBrowser = extract === extractSelector ? configureRankingBrowser : null,
     getSessionOptions = extract === extractSelector ? getGolemSessionOptions : async () => ({}),
 } = {}) {
-    const signal = AbortSignal.timeout(15_000);
+    const signal = AbortSignal.timeout(30_000);
     const sessionOptions = await getSessionOptions();
     signal.throwIfAborted();
     const options = {
         ...(sessionOptions.session ? { session: sessionOptions.session, sessionDir: sessionOptions.sessionDir } : {}),
-        selector: '.go-teaser-block', all: true, format: 'html', consent: 'off',
+        selector: '.go-teaser-block', all: true, format: 'html', consent: 'accept',
         timeout: 12_000, signal, cacheTtlMs: 60_000,
         maxResponseBytes: 3 * 1024 * 1024, insecure: false,
     };
@@ -112,8 +112,9 @@ export async function fetchGolemRankings({
     } catch (error) {
         // Fetchary auto mode tests whether any generic teaser block matched.
         // Validate both required sections before deciding to render instead.
-        // Access/consent failures never trigger a rendering attempt.
-        if (error.code !== 'GOLEM_RANKINGS_MISSING') throw error;
+        // Golem's cookie choice needs a real browser interaction. The selected
+        // accept policy applies to this publisher's capture only.
+        if (!['GOLEM_RANKINGS_MISSING', 'GOLEM_CONSENT_REQUIRED'].includes(error.code)) throw error;
         httpFailure = error;
     }
     try {
@@ -124,5 +125,5 @@ export async function fetchGolemRankings({
         throw new Error(error.message, { cause: httpFailure });
     }
     signal.throwIfAborted();
-    return parseCapture(await extract(GOLEM_RANKINGS_URL, { ...options, mode: 'browser', waitAfterLoad: 1_000 }));
+    return parseCapture(await extract(GOLEM_RANKINGS_URL, { ...options, mode: 'browser', waitAfterLoad: 3_000 }));
 }

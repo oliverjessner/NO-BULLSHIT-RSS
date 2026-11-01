@@ -48,7 +48,7 @@ test('standalone Most read keeps its own viewer, stale snapshots and refresh req
         }
         if (url === '/api/rankings/access/confirm') {
             assert.deepEqual(JSON.parse(options.body), { medium: 'golem', jobId });
-            if (mode === 'consent-required') return Response.json({ ...payload(), access, error: 'Complete your Golem choice', rankingStatus: { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' } }, { status: 502 });
+            if (mode === 'consent-required') return Response.json({ ...payload(), access, error: 'Automatic consent could not be completed', rankingStatus: { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' } }, { status: 502 });
             access = { ...access, state: 'saved', jobId: null, saved: true, savedAt: '2026-11-01T07:05:00Z' };
             return Response.json({ ...payload(), access });
         }
@@ -64,6 +64,7 @@ test('standalone Most read keeps its own viewer, stale snapshots and refresh req
         }
         if (url === '/api/rankings/refresh') {
             if (mode === 'failed') return Response.json({ ...payload(), error: 'Could not refresh', rankingStatus: { state: 'error' } }, { status: 502 });
+            if (mode === 'automatic-consent-required') return Response.json({ ...payload(), access, error: 'Automatic consent could not be completed', rankingStatus: { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' } }, { status: 502 });
             if (mode === 'busy') return Response.json({ error: 'Refresh already running' }, { status: 409 });
             return Response.json(payload('Refreshed Golem story'));
         }
@@ -85,6 +86,8 @@ test('standalone Most read keeps its own viewer, stale snapshots and refresh req
         assert.equal(store.rankings.articlesById.get(7).title, 'Saved Golem story');
         assert.equal(store.digest.articlesById.has(7), false);
         assert.equal(requests.some(request => request.url.startsWith('/api/rankings/access')), false, 'Opening Most read must never open a browser or save access');
+        assert.equal(document.querySelector('#rankings-refresh').disabled, false, 'Optional access setup must not be required before Refresh');
+        assert.match(document.querySelector('#rankings-access-status').textContent, /Optional access has not been set up.*Refresh can accept/);
 
         function click(link) {
             const event = new window.Event('click', { bubbles: true, cancelable: true });
@@ -116,6 +119,13 @@ test('standalone Most read keeps its own viewer, stale snapshots and refresh req
         assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Old response/);
         assert.equal(document.querySelector('#rankings-refresh').disabled, false);
 
+        mode = 'automatic-consent-required';
+        await rankings.refreshRankings();
+        assert.match(document.querySelector('#publisher-rankings [role="status"]').textContent, /could not be completed automatically.*Try Refresh again.*Set up Golem access/);
+        assert.equal(document.querySelector('#rankings-refresh').disabled, false);
+        assert.equal(document.querySelector('#rankings-access-start').disabled, false);
+        assert.equal(requests.some(request => request.url === '/api/rankings/access/start'), false, 'A failed automatic consent attempt must not open optional setup without a click');
+        mode = 'ready';
         await rankings.startRankingsAccess();
         assert.equal(requests.filter(request => request.url === '/api/rankings/access/start').length, 1);
         assert.equal(document.querySelector('#rankings-access-confirm').hidden, true);
@@ -139,7 +149,7 @@ test('standalone Most read keeps its own viewer, stale snapshots and refresh req
         await rankings.loadRankings({ force: true });
         mode = 'consent-required';
         await rankings.confirmRankingsAccess();
-        assert.match(document.querySelector('#publisher-rankings [role="status"]').textContent, /Golem requires a consent or PUR choice/);
+        assert.match(document.querySelector('#publisher-rankings [role="status"]').textContent, /cookie consent could not be completed automatically.*Try Refresh again/);
         assert.equal(document.querySelector('#rankings-access-confirm').hidden, false);
         assert.equal(document.querySelector('#rankings-access-confirm').disabled, false);
         assert.equal(document.querySelectorAll('#publisher-rankings li').length, 2);

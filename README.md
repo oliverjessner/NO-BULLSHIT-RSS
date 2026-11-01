@@ -93,7 +93,7 @@ Save a story to a reading list or mark it as digested when you are done.
 
 Open **Most read**, choose **Golem** and select **Refresh** to load its latest most-read and most-commented articles.
 
-If Golem requires access, select **Set up Golem access**, make your cookie or PUR choice in the separate browser window, then return to the app and select **Save access**. **Forget saved access** removes that saved access from the app.
+Refresh automatically accepts Golem's cookie consent when possible. If automatic consent cannot finish, retry **Refresh**, or optionally select **Set up Golem access** to make a manual cookie or PUR choice in a separate browser window, then return to the app and select **Save access**. **Forget saved access** removes that saved access from the app.
 
 ## Follow keyword alerts with Watchdog
 

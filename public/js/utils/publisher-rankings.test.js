@@ -72,6 +72,8 @@ test('Most read has its own main menu, Golem-only medium selector and viewer out
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
     assert.ok(document.querySelector('#rankings-access-start'));
+    assert.equal(document.querySelector('#rankings-access-heading').textContent, 'Optional Golem access');
+    assert.match(container.querySelector('.publisher-rankings-note').textContent, /automatically accepts Golem's cookie consent/);
     assert.equal(document.querySelector('#rankings-access-confirm').hasAttribute('hidden'), true);
     assert.equal(document.querySelector('#rankings-access-forget').hasAttribute('hidden'), true);
     assert.match(container.querySelector('h2').textContent, /Most read & most commented/);
@@ -91,7 +93,7 @@ test('rankings heading stays visible through idle, loading, refreshing, filtered
             [[], { state: 'refreshing' }, /Refreshing publisher rankings/],
             [[{ ...snapshot()[0], items: [] }], { state: 'ready' }, /No publisher rankings are available/],
             [[], { state: 'error', message: 'chrome --no-sandbox\nError: failed at browser.js:12' }, /Publisher rankings could not be refreshed/],
-            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /Golem requires a consent or PUR choice.*Set up Golem access/],
+            [[], { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' }, /cookie consent could not be completed automatically.*Try Refresh again.*Set up Golem access.*PUR/],
         ];
         for (const [rankings, status, message] of cases) {
             renderPublisherRankings(container, rankings, new Map(), { status });

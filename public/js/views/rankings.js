@@ -54,16 +54,16 @@ function updateControls(status = store.rankings.payload?.rankingStatus, access =
 
 function renderAccess(access, status) {
     const state = access?.state || 'idle';
-    const message = state === 'opening' ? 'Opening Golem in a separate browser…'
+    const message = state === 'opening' ? 'Opening Golem for optional access setup…'
         : state === 'awaiting_confirmation' ? 'Choose your consent or PUR option in the Golem window. Then return here and choose Save access.'
         : state === 'saving' ? 'Saving access and refreshing Golem rankings…'
         : state === 'cancelling' ? 'Closing Golem access setup…'
         : state === 'forgetting' ? 'Removing saved Golem access…'
         : state === 'error' && hasAccessJob(access) ? 'Golem setup is still active. Wait for it to finish before resetting access or opening another window.'
-        : status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Golem needs a consent or PUR choice. Set up access, complete your choice in the Golem window, then save it here.'
-        : state === 'error' ? 'Golem access could not be completed. Use Forget saved access to reset it, or try Set up Golem access again.'
+        : status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Automatic cookie consent could not be completed. Try Refresh again, or set up optional Golem access for a manual consent or PUR choice.'
+        : state === 'error' ? 'Optional Golem access could not be completed. Try Refresh, or use Forget saved access before setting it up again.'
         : access?.saved ? 'Golem access is saved locally. Golem may ask you to choose again later.'
-        : 'No Golem access saved.';
+        : "Optional access has not been set up. Refresh can accept Golem's cookie consent automatically.";
     dom.rankings.accessStatus.textContent = message;
 }
 

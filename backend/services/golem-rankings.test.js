@@ -48,14 +48,14 @@ test('selects Golem by source host rather than names or source IDs', () => {
     assert.equal(isGolemSource({ websiteUrl: 'javascript:alert(1)' }), false);
 });
 
-test('uses bounded Fetchary HTTP capture with consent interaction disabled and preserves capture provenance', async () => {
+test('uses bounded Fetchary HTTP capture with the accept consent policy and preserves capture provenance', async () => {
     const snapshot = await fetchGolemRankings({ extract: async (url, options) => {
         assert.equal(url, GOLEM_RANKINGS_URL);
         assert.equal(options.selector, '.go-teaser-block');
         assert.equal(options.all, true);
         assert.equal(options.format, 'html');
         assert.equal(options.mode, 'http');
-        assert.equal(options.consent, 'off');
+        assert.equal(options.consent, 'accept');
         assert.equal(options.timeout, 12_000);
         assert.equal(options.cacheTtlMs, 60_000);
         assert.ok(options.signal instanceof AbortSignal);
@@ -82,7 +82,7 @@ test('does not configure an optional browser when complete public HTTP rankings 
         extract: async (url, options) => {
             assert.equal(url, GOLEM_RANKINGS_URL);
             assert.equal(options.mode, 'http');
-            assert.equal(options.consent, 'off');
+            assert.equal(options.consent, 'accept');
             return result();
         },
     });
@@ -127,7 +127,7 @@ test('renders explicitly when unrelated HTTP teaser blocks match but both requir
         configureBrowser: () => { configured += 1; return { source: 'system' }; },
         extract: async (_url, options) => {
             modes.push(options.mode);
-            assert.equal(options.consent, 'off');
+            assert.equal(options.consent, 'accept');
             assert.equal(options.timeout, 12_000);
             assert.equal(options.maxResponseBytes, 3 * 1024 * 1024);
             if (options.mode === 'http') {
@@ -136,7 +136,7 @@ test('renders explicitly when unrelated HTTP teaser blocks match but both requir
                 return result({ data: { matched: true, values: [block('Neueste Meldungen', article('/news/other.html', 'Other'))] } });
             }
             assert.equal(options.mode, 'browser');
-            assert.equal(options.waitAfterLoad, 1_000);
+            assert.equal(options.waitAfterLoad, 3_000);
             assert.equal(options.signal, signal);
             return result();
         },
@@ -148,44 +148,70 @@ test('renders explicitly when unrelated HTTP teaser blocks match but both requir
     assert.equal(snapshot.rankings.most_commented.length, 1);
 });
 
-test('identifies the actual Golem choice-page redirect and never attempts to bypass consent with a browser', async () => {
-    let requests = 0;
+test('accepts Golem consent in the browser when HTTP redirects to its cookie choice page', async () => {
+    const modes = [];
     let configured = 0;
-    await assert.rejects(fetchGolemRankings({
+    const snapshot = await fetchGolemRankings({
         configureBrowser: () => { configured += 1; },
         extract: async (_url, options) => {
-            requests += 1;
-            assert.equal(options.mode, 'http');
-            return result({
+            modes.push(options.mode);
+            assert.equal(options.consent, 'accept');
+            if (options.mode === 'http') return result({
                 finalUrl: 'https://www.golem.de/sonstiges/zustimmung/auswahl.html?from=https%3A%2F%2Fwww.golem.de%2F',
                 data: { matched: false, values: [] },
-                consent: { detected: true, provider: 'sourcepoint', action: 'off', status: 'unsupported' },
+                consent: { detected: true, provider: 'sourcepoint', action: 'accept', status: 'unsupported' },
             });
+            assert.equal(options.waitAfterLoad, 3_000);
+            return result({ consent: { detected: true, action: 'accept', status: 'handled' } });
         },
-    }), error => {
+    });
+    assert.deepEqual(modes, ['http', 'browser']);
+    assert.equal(configured, 1);
+    assert.equal(snapshot.rankings.most_read.length, 1);
+    assert.equal(snapshot.rankings.most_commented.length, 1);
+});
+
+test('retains an actionable consent error if automatic acceptance cannot release the Golem page', async () => {
+    const modes = [];
+    await assert.rejects(fetchGolemRankings({ extract: async (_url, options) => {
+        modes.push(options.mode);
+        assert.equal(options.consent, 'accept');
+        return result({
+            finalUrl: 'https://www.golem.de/sonstiges/zustimmung/auswahl.html',
+            data: { matched: false, values: [] },
+            consent: { detected: true, action: 'accept', status: 'blocked' },
+        });
+    } }), error => {
         assert.ok(error instanceof GolemConsentRequiredError);
         assert.equal(error.code, 'GOLEM_CONSENT_REQUIRED');
         assert.equal(error.phase, 'consent');
         assert.equal(error.retryable, false);
-        assert.match(error.message, /cookie choice or Golem pur/);
+        assert.match(error.message, /Automatic Golem consent could not be completed/);
         return true;
     });
-    assert.equal(requests, 1);
-    assert.equal(configured, 0);
+    assert.deepEqual(modes, ['http', 'browser']);
 });
 
-test('distinguishes an inline consent wall from missing article markup', async () => {
+test('accepts inline consent dialogs through a rendered retry', async () => {
+    const modes = [];
+    await fetchGolemRankings({ extract: async (_url, options) => {
+        modes.push(options.mode);
+        return options.mode === 'http' ? result({
+            data: { matched: false, values: [] },
+            consent: { detected: true, action: 'accept', status: 'unsupported' },
+        }) : result({ consent: { detected: true, action: 'accept', status: 'handled' } });
+    } });
+    assert.deepEqual(modes, ['http', 'browser']);
+});
+
+test('does not report a completed consent decision as requiring manual access when ranking markup is missing', async () => {
     await assert.rejects(fetchGolemRankings({ extract: async () => result({
-        data: { matched: false, values: [] },
-        consent: { detected: true, action: 'off', status: 'unsupported' },
-    }) }), error => {
-        assert.equal(error.code, 'GOLEM_CONSENT_REQUIRED');
-        assert.equal(error.cause.code, 'GOLEM_RANKINGS_MISSING');
-        return true;
-    });
+        data: { values: [read] },
+        consent: { detected: true, action: 'accept', status: 'handled' },
+    }) }), error => error.code === 'GOLEM_RANKINGS_MISSING');
 });
 
-test('resolves saved Golem access once and reuses it for HTTP and browser capture without changing consent or reading browser profiles', async () => {
+test('resolves saved Golem access once and reuses it for HTTP and browser capture with the explicit accept policy and without reading browser profiles', async () => {
     let sessionReads = 0;
     const modes = [];
     const snapshot = await fetchGolemRankings({
@@ -193,7 +219,7 @@ test('resolves saved Golem access once and reuses it for HTTP and browser captur
             sessionReads += 1;
             return {
                 session: 'nbs-golem', sessionDir: '/private/publisher-sessions',
-                consent: 'accept', cookiesFromBrowser: 'chrome', browserProfile: 'Default',
+                consent: 'off', cookiesFromBrowser: 'chrome', browserProfile: 'Default',
             };
         },
         configureBrowser: () => ({ source: 'system' }),
@@ -201,7 +227,7 @@ test('resolves saved Golem access once and reuses it for HTTP and browser captur
             modes.push(options.mode);
             assert.equal(options.session, 'nbs-golem');
             assert.equal(options.sessionDir, '/private/publisher-sessions');
-            assert.equal(options.consent, 'off');
+            assert.equal(options.consent, 'accept');
             assert.equal(Object.hasOwn(options, 'cookiesFromBrowser'), false);
             assert.equal(Object.hasOwn(options, 'browserProfile'), false);
             assert.equal(Object.hasOwn(options, 'cookieFile'), false);

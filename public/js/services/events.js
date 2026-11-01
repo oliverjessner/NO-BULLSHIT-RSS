@@ -7,8 +7,12 @@ export function initEvents(handlers = {}) {
         try {
             const payload = JSON.parse(event.data || '{}');
             const name = payload.event || '';
-            if (name === 'watchdogs.updated' || name === 'connected') handlers.watchdogsUpdated?.(payload.data);
+            if (name === 'connected') {
+                handlers.watchdogsUpdated?.(payload.data);
+                handlers.rankingsUpdated?.(payload.data);
+            } else if (name === 'watchdogs.updated') handlers.watchdogsUpdated?.(payload.data);
             else if (name === 'fetch.completed') handlers.fetchCompleted?.(payload.data);
+            else if (name === 'rankings.updated') handlers.rankingsUpdated?.(payload.data);
             else if (name === 'feeds.updated') handlers.feedsUpdated?.(payload.data);
             else if (name === 'lists.updated') handlers.listsUpdated?.(payload.data);
             else if (name === 'lists.items.updated') handlers.listItemsUpdated?.(payload.data);
@@ -20,6 +24,9 @@ export function initEvents(handlers = {}) {
             // Ignore malformed events; the next valid event can still refresh the UI.
         }
     });
+    // A disconnected backend may never send the final ranking status. Refresh
+    // the active Digest so its normal request error replaces an endless spinner.
+    source.addEventListener('error', () => handlers.rankingsUpdated?.({ state: 'error' }));
 }
 
 export function closeEvents() {

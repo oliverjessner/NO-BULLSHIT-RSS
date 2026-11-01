@@ -9,6 +9,7 @@
 - Clean saved and displayed feed, website and article URLs with Linkary, removing tracking parameters and fragments while retaining functional query parameters and recognizing legacy import URLs.
 - Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
 - Show Golem's most-read and most-commented articles in Digest using Fetchary with consent interaction disabled, atomic ranking history and canonical RSS matching.
+- Keep publisher rankings visible while loading or after failed updates, report refresh status, and fall back to installed Chrome when available.
 
 # 1.6.0
 

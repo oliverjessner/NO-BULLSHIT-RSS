@@ -71,3 +71,46 @@ test('rejects error/consent pages, redirected sites and missing capture timestam
         await assert.rejects(fetchGolemRankings({ extract: async () => result(metadata) }));
     }
 });
+
+test('accepts complete HTTP rankings when the optional browser installation is unavailable', async () => {
+    let configured = 0;
+    const snapshot = await fetchGolemRankings({
+        configureBrowser: () => {
+            configured += 1;
+            throw new Error('Bundled ranking browser is incomplete');
+        },
+        extract: async (url, options) => {
+            assert.equal(url, GOLEM_RANKINGS_URL);
+            assert.equal(options.mode, 'http');
+            assert.equal(options.consent, 'off');
+            return result();
+        },
+    });
+    assert.equal(configured, 1);
+    assert.equal(snapshot.capturedAt, capturedAt);
+    assert.equal(snapshot.rankings.most_read.length, 1);
+    assert.equal(snapshot.rankings.most_commented.length, 1);
+});
+
+test('retains the browser configuration failure with the HTTP failure as its cause when HTTP cannot provide rankings', async () => {
+    const captureFailure = new Error('HTTP extraction failed');
+    await assert.rejects(fetchGolemRankings({
+        configureBrowser: () => { throw new Error('Configured ranking browser is unavailable'); },
+        extract: async (_url, options) => {
+            assert.equal(options.mode, 'http');
+            throw captureFailure;
+        },
+    }), error => {
+        assert.equal(error.message, 'Configured ranking browser is unavailable');
+        assert.equal(error.cause, captureFailure);
+        return true;
+    });
+    await assert.rejects(fetchGolemRankings({
+        configureBrowser: () => { throw new Error('Bundled ranking browser is incomplete'); },
+        extract: async () => result({ data: { values: [read] } }),
+    }), error => {
+        assert.equal(error.message, 'Bundled ranking browser is incomplete');
+        assert.match(error.cause.message, /both article rankings/);
+        return true;
+    });
+});

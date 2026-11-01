@@ -210,8 +210,12 @@
 
                     <div id="digest-layout" class="dashboard-layout digest-layout">
                         <div class="dashboard-primary">
+                            <section id="digest-rankings" class="digest-rankings" aria-label="Most read and most commented">
+                                <h2 class="digest-rankings-title oj-heading-3">Most read &amp; most commented</h2>
+                                <p class="digest-rankings-note oj-muted">Current publisher rankings, independent of the selected digest period.</p>
+                                <p class="digest-rankings-status oj-muted" role="status" aria-live="polite">Loading publisher rankings…</p>
+                            </section>
                             <h2 id="digest-state" class="state oj-status">Loading…</h2>
-                            <section id="digest-rankings" class="digest-rankings" aria-label="Latest publisher rankings" hidden></section>
                             <div id="digest-list" class="digest-clusters"></div>
                         </div>
                         <aside id="digest-article-viewer" class="article-viewer oj-panel hide" aria-live="polite">

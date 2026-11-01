@@ -47,24 +47,41 @@ export function normalizeDigestRankings(rankings) {
     });
 }
 
-export function digestRankingsFingerprint(rankings) {
+export function digestRankingsFingerprint(rankings, status) {
     // Snapshot identity, source names, ranks, reassociations and article content
     // can change independently of the current digest's clusters.
-    return JSON.stringify(Array.isArray(rankings) ? rankings : []);
+    return JSON.stringify({ rankings: Array.isArray(rankings) ? rankings : [], status: status || null });
 }
 
-export function renderDigestRankings(container, rankings, articleMap) {
+export function renderDigestRankings(container, rankings, articleMap, { status } = {}) {
     const groups = normalizeDigestRankings(rankings);
     container.replaceChildren();
-    container.hidden = groups.length === 0;
-    if (!groups.length) return;
+    container.hidden = false;
 
     const heading = document.createElement('h2');
     heading.className = 'digest-rankings-title oj-heading-3';
-    heading.textContent = 'Latest publisher rankings';
+    heading.textContent = 'Most read & most commented';
     const note = document.createElement('p');
     note.className = 'digest-rankings-note oj-muted';
     note.textContent = 'Current publisher rankings, independent of the selected digest period.';
+    const state = document.createElement('p');
+    state.className = 'digest-rankings-status oj-muted';
+    state.setAttribute('role', 'status');
+    state.setAttribute('aria-live', 'polite');
+    // The API's diagnostic message can contain browser or network details. Keep
+    // the product message stable and never expose commands or exception traces.
+    if (status?.state === 'loading') state.textContent = 'Loading publisher rankings…';
+    else if (status?.state === 'refreshing') state.textContent = groups.length
+        ? 'Refreshing publisher rankings. Showing the latest saved rankings.' : 'Refreshing publisher rankings…';
+    else if (status?.state === 'error') state.textContent = groups.length
+        ? 'Publisher rankings could not be refreshed. Showing the latest saved rankings.'
+        : 'Publisher rankings could not be refreshed. Try another feed refresh.';
+    else if (!groups.length) state.textContent = status?.state === 'ready' || (Array.isArray(rankings) && rankings.length)
+        ? 'No publisher rankings are available for the current filters.'
+        : 'No publisher rankings yet. They are loaded during feed refresh.';
+    state.hidden = !state.textContent;
+    container.append(heading, note, state);
+    if (!groups.length) return;
     const grid = document.createElement('div');
     grid.className = 'digest-rankings-grid';
 
@@ -116,5 +133,5 @@ export function renderDigestRankings(container, rankings, articleMap) {
         panel.append(title, captured, list);
         grid.appendChild(panel);
     }
-    container.append(heading, note, grid);
+    container.appendChild(grid);
 }

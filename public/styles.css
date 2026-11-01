@@ -98,8 +98,9 @@ html {
 }
 
 .digest-rankings[hidden] { display: none; }
-.digest-rankings-title, .digest-rankings-note, .digest-ranking-title, .digest-ranking-captured { margin: 0; }
+.digest-rankings-title, .digest-rankings-note, .digest-rankings-status, .digest-ranking-title, .digest-ranking-captured { margin: 0; }
 .digest-rankings-note, .digest-ranking-captured { font-size: var(--oj-text-xs); line-height: var(--oj-leading-normal); }
+.digest-rankings-status { font-size: var(--oj-text-sm); line-height: var(--oj-leading-normal); }
 .digest-rankings-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));

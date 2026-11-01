@@ -9,6 +9,7 @@ process.env.DB_PATH = path.join(directory, 'rankings.db');
 const db = await import('../database/datenbank.js');
 const { saveMostReadSnapshot, reconcileMostReadArticles, refreshMostReadRankings } = await import('./most-read.js');
 const { readMostReadRankings } = await import('./most-read-reader.js');
+const { readRankingRefreshStatus, RANKING_STATUS_KEY } = await import('./ranking-status.js');
 const { getStoredDigestPayload } = await import('./digest-store.js');
 const { readStoredDigestPayload } = await import('./digest-reader.js');
 const { openReadOnlyDatabase } = await import('../../cli/lib/read-only-database.js');
@@ -22,6 +23,7 @@ const rankings = () => ({ most_read: [item('one', 1), item('two', 2)], most_comm
 const save = (extra = {}) => saveMostReadSnapshot({ sourceId: 101, capturedAt: firstCapture, rankings: rankings(), ...extra });
 
 test.beforeEach(async () => {
+    await db.run('DELETE FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY]);
     await db.exec(`DELETE FROM digest_periods; DELETE FROM sources; DELETE FROM bullshit_rules;
         INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt) VALUES
             (101, 'Golem', 'https://www.golem.de/', 'https://www.golem.de/', datetime('now'), datetime('now')),
@@ -121,8 +123,21 @@ test('failed/partial publisher captures preserve the last good snapshot and skip
     let calls = 0;
     assert.deepEqual(await refreshMostReadRankings({ capture: async () => { calls += 1; throw new Error('Consent page'); } }), { updated: 0, total: 1 });
     assert.equal(calls, 1);
+    assert.equal((await readRankingRefreshStatus(db)).state, 'error');
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 3);
     assert.deepEqual(await refreshMostReadRankings({ capture: async () => ({ capturedAt: nextCapture, rankings: { most_read: [item('one')] } }) }), { updated: 0, total: 1 });
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 3);
+});
+
+test('ranking refresh status persists failures and clears them after a successful capture', async () => {
+    await refreshMostReadRankings({ capture: async () => { throw new Error('could not launch Chromium'); } });
+    assert.equal((await getStoredDigestPayload('day')).rankingStatus.state, 'error');
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 0);
+    await refreshMostReadRankings({ capture: async () => ({ capturedAt: firstCapture, rankings: rankings() }) });
+    const status = await readRankingRefreshStatus(db);
+    assert.equal(status.state, 'ready');
+    assert.ok(status.attemptedAt);
+    assert.equal(status.message, null);
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 3);
 });
 
@@ -136,6 +151,7 @@ test('digest API data and independent read-only connections include latest ranki
             const readonly = await readStoredDigestPayload(variant, independent, new Date('2026-10-01T12:00:00Z'));
             assert.equal(current.rankings.length, 2);
             assert.deepEqual(readonly.rankings, current.rankings);
+            assert.deepEqual(readonly.rankingStatus, current.rankingStatus);
             assert.equal(current.rankings[0].capturedAt, firstCapture);
         }
         assert.equal((await independent.get('SELECT total_changes() AS count')).count, 0);

@@ -111,6 +111,7 @@ function setupLiveUpdates() {
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
             void settingsModule?.refreshSettingsMeta();
         },
+        rankingsUpdated: () => markDigestDirty(),
         feedsUpdated: () => {
             void refreshReferences('feeds');
             markFeedDirty();

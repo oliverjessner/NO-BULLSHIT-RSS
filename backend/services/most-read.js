@@ -3,6 +3,8 @@ import { cleanHttpUrl } from '../utils/url.js';
 import { logWarn } from '../utils/logger.js';
 import { fetchGolemRankings, isGolemSource, RANKING_KEYS } from './golem-rankings.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
+import { normalizeRankingStatus, RANKING_STATUS_KEY } from './ranking-status.js';
+import { publish } from './events.js';
 
 const database = { all, get };
 const host = value => new URL(value).hostname.toLowerCase().replace(/^www\./, '');
@@ -71,22 +73,50 @@ export async function reconcileMostReadArticles() {
     });
 }
 
-export async function refreshMostReadRankings({ capture = fetchGolemRankings } = {}) {
-    // Reconcile even when the publisher is unavailable, so newly imported RSS
-    // articles can open the last successful ranking in the article viewer.
-    await reconcileMostReadArticles();
-    const rows = await all(`SELECT sources.id, sources.name, sources.websiteUrl, feeds.feedUrl
-        FROM sources JOIN feeds ON feeds.sourceId = sources.id ORDER BY sources.id, feeds.id`);
-    const sources = new Map(rows.filter(row => cleanHttpUrl(row.feedUrl) && isGolemSource(row)).map(row => [row.id, row]));
-    let updated = 0;
-    for (const source of sources.values()) {
-        try {
-            const snapshot = await capture();
-            const result = await saveMostReadSnapshot({ sourceId: source.id, ...snapshot });
-            if (result.inserted) updated += 1;
-        } catch (error) {
-            logWarn('Publisher rankings refresh failed', { sourceId: source.id, error: error.message });
-        }
+async function setRankingStatus(state, attemptedAt) {
+    const status = normalizeRankingStatus({ state, attemptedAt });
+    await run(`INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
+    [RANKING_STATUS_KEY, JSON.stringify(status)]);
+    publish('rankings.updated', status);
+}
+
+function failureDetails(error) {
+    const details = [];
+    const seen = new Set();
+    for (let failure = error; failure && details.length < 3 && !seen.has(failure); failure = failure.cause) {
+        seen.add(failure);
+        details.push({ message: String(failure.message || failure).slice(0, 2_000), phase: failure.phase || null, code: failure.code || null });
     }
-    return { updated, total: sources.size };
+    return details;
+}
+
+export async function refreshMostReadRankings({ capture = fetchGolemRankings } = {}) {
+    const attemptedAt = new Date().toISOString();
+    await setRankingStatus('refreshing', attemptedAt);
+    try {
+        // Reconcile even when the publisher is unavailable, so newly imported
+        // RSS articles can open the last successful ranking in the viewer.
+        await reconcileMostReadArticles();
+        const rows = await all(`SELECT sources.id, sources.name, sources.websiteUrl, feeds.feedUrl
+            FROM sources JOIN feeds ON feeds.sourceId = sources.id ORDER BY sources.id, feeds.id`);
+        const sources = new Map(rows.filter(row => cleanHttpUrl(row.feedUrl) && isGolemSource(row)).map(row => [row.id, row]));
+        let updated = 0;
+        let failed = false;
+        for (const source of sources.values()) {
+            try {
+                const snapshot = await capture();
+                const result = await saveMostReadSnapshot({ sourceId: source.id, ...snapshot });
+                if (result.inserted) updated += 1;
+            } catch (error) {
+                failed = true;
+                logWarn('Publisher rankings refresh failed', { sourceId: source.id, error: error.message, failures: failureDetails(error) });
+            }
+        }
+        await setRankingStatus(failed ? 'error' : sources.size ? 'ready' : 'idle', attemptedAt);
+        return { updated, total: sources.size };
+    } catch (error) {
+        await setRankingStatus('error', attemptedAt);
+        throw error;
+    }
 }

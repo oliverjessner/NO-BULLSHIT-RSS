@@ -2,6 +2,7 @@ import { loadTopicsByArticleIds } from './article-queries.js';
 import { getDigestPeriodDefinition, getDigestTimezone } from './digest-periods.js';
 import { cleanHttpUrl } from '../utils/url.js';
 import { readMostReadRankings } from './most-read-reader.js';
+import { readRankingRefreshStatus } from './ranking-status.js';
 
 export async function loadActiveClusters(period, database) {
     if (!period?.activeGenerationId) return [];
@@ -83,5 +84,6 @@ export async function readStoredDigestPayload(type = 'day', database, referenceD
         totalClusters: clusters.length,
         clusters,
         rankings: await readMostReadRankings(database),
+        rankingStatus: await readRankingRefreshStatus(database),
     };
 }

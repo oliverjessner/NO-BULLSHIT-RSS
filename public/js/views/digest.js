@@ -28,7 +28,7 @@ function sortedClusters(payload) {
 }
 
 function fingerprint(payload) {
-    return [payload?.variant, payload?.totalArticles, payload?.totalClusters, ...(payload?.clusters || []).map(cluster => `${cluster?.representative?.id}:${cluster?.clusterCount}:${cluster?.representative?.publishedAt}`), digestRankingsFingerprint(payload?.rankings)].join('|');
+    return [payload?.variant, payload?.totalArticles, payload?.totalClusters, ...(payload?.clusters || []).map(cluster => `${cluster?.representative?.id}:${cluster?.clusterCount}:${cluster?.representative?.publishedAt}`), digestRankingsFingerprint(payload?.rankings, payload?.rankingStatus)].join('|');
 }
 
 function updateControls() {
@@ -79,7 +79,7 @@ function render(payload, { force = false } = {}) {
     store.digest.fingerprint = nextFingerprint;
     store.digest.articlesById = new Map(); store.digest.renderedCount = 0;
     renderQueue = sortedClusters(payload); clear(dom.digest.list);
-    renderDigestRankings(dom.digest.rankings, payload?.rankings, store.digest.articlesById);
+    renderDigestRankings(dom.digest.rankings, payload?.rankings, store.digest.articlesById, { status: payload?.rankingStatus });
     renderSubtitle(payload); updateControls();
     if (!renderQueue.length) { text(dom.digest.state, emptyLabel(payload?.variant || store.ui.digestRange)); show(dom.digest.state); return; }
     text(dom.digest.state, ''); hide(dom.digest.state); renderNextBatch();
@@ -92,6 +92,9 @@ export async function loadDigest({ force = false, silent = false } = {}) {
     const controller = new AbortController(); const requestId = ++store.digest.requestId;
     store.digest.requestController = controller;
     const isRangeSwitch = store.digest.payload && store.digest.payload.variant !== requestedRange;
+    if (!store.digest.payload) {
+        renderDigestRankings(dom.digest.rankings, [], store.digest.articlesById, { status: { state: 'loading' } });
+    }
     if (!silent && (!store.digest.payload || isRangeSwitch)) {
         clear(dom.digest.list);
         text(dom.digest.state, `Loading ${rangeLabel(requestedRange).toLowerCase()}…`);
@@ -108,6 +111,8 @@ export async function loadDigest({ force = false, silent = false } = {}) {
         store.digest.needsRefresh = false; render(store.digest.payload, { force });
     } catch (error) {
         if (isAbortError(error) || requestId !== store.digest.requestId) return;
+        renderDigestRankings(dom.digest.rankings, store.digest.payload?.rankings, store.digest.articlesById, { status: { state: 'error' } });
+        store.digest.fingerprint = '';
         text(dom.digest.state, `Error: ${error.message}`); show(dom.digest.state); text(dom.digest.subtitle, 'Failed to load digest.');
     } finally {
         if (store.digest.requestController === controller) store.digest.requestController = null;

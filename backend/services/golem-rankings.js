@@ -1,6 +1,8 @@
 import { extractSelector } from 'fetchary';
 import { parseHTML } from 'linkedom';
 import { cleanHttpUrl } from '../utils/url.js';
+import { configureRankingBrowser } from './ranking-browser.js';
+import { logWarn } from '../utils/logger.js';
 
 export const GOLEM_RANKINGS_URL = 'https://www.golem.de/';
 export const RANKING_KEYS = Object.freeze(['most_read', 'most_commented']);
@@ -51,19 +53,36 @@ export function parseGolemRankings(fragments, baseUrl = GOLEM_RANKINGS_URL) {
     return rankings;
 }
 
-export async function fetchGolemRankings({ extract = extractSelector } = {}) {
-    const result = await extract(GOLEM_RANKINGS_URL, {
-        selector: '.go-teaser-block', all: true, format: 'html', mode: 'auto', consent: 'off',
-        timeout: 12_000, waitAfterLoad: 0, signal: AbortSignal.timeout(15_000),
-        cacheTtlMs: 60_000, maxResponseBytes: 3 * 1024 * 1024, insecure: false,
-    });
-    if (!Number.isInteger(result.status) || result.status < 200 || result.status >= 300 || result.consent?.status === 'blocked') throw new Error('Golem rankings are unavailable');
-    const finalUrl = cleanHttpUrl(result.finalUrl || GOLEM_RANKINGS_URL);
-    if (!finalUrl || hostname(finalUrl) !== 'golem.de') throw new Error('Golem rankings redirected to another site');
-    const rankings = parseGolemRankings(result.data?.values, finalUrl);
-    if (typeof result.capturedAt !== 'string' || !result.capturedAt.trim() || !Number.isFinite(new Date(result.capturedAt).getTime())) {
-        throw new Error('Golem rankings have no valid capture timestamp');
+export async function fetchGolemRankings({
+    extract = extractSelector,
+    configureBrowser = extract === extractSelector ? configureRankingBrowser : null,
+} = {}) {
+    let browserFailure = null;
+    try {
+        const browser = configureBrowser?.();
+        if (browser?.warning) logWarn('Ranking browser fallback', { reason: browser.warning });
+    } catch (error) {
+        browserFailure = error;
     }
-    const capturedAt = new Date(result.capturedAt).toISOString();
-    return { capturedAt, rankings };
+    try {
+        // A missing optional browser must not prevent sufficient static HTML
+        // from producing a ranking snapshot. HTTP mode never attempts a launch.
+        const result = await extract(GOLEM_RANKINGS_URL, {
+            selector: '.go-teaser-block', all: true, format: 'html', mode: browserFailure ? 'http' : 'auto', consent: 'off',
+            timeout: 12_000, waitAfterLoad: 0, signal: AbortSignal.timeout(15_000),
+            cacheTtlMs: 60_000, maxResponseBytes: 3 * 1024 * 1024, insecure: false,
+        });
+        if (!Number.isInteger(result.status) || result.status < 200 || result.status >= 300 || result.consent?.status === 'blocked') throw new Error('Golem rankings are unavailable');
+        const finalUrl = cleanHttpUrl(result.finalUrl || GOLEM_RANKINGS_URL);
+        if (!finalUrl || hostname(finalUrl) !== 'golem.de') throw new Error('Golem rankings redirected to another site');
+        const rankings = parseGolemRankings(result.data?.values, finalUrl);
+        if (typeof result.capturedAt !== 'string' || !result.capturedAt.trim() || !Number.isFinite(new Date(result.capturedAt).getTime())) {
+            throw new Error('Golem rankings have no valid capture timestamp');
+        }
+        const capturedAt = new Date(result.capturedAt).toISOString();
+        return { capturedAt, rankings };
+    } catch (error) {
+        if (browserFailure) throw new Error(browserFailure.message, { cause: error });
+        throw error;
+    }
 }

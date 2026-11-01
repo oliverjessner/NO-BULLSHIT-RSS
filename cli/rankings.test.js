@@ -90,7 +90,9 @@ const fixtureMedia = [
     ['heise-ix', 'heise iX', 'https://www.heise.de/ix/', 'https://www.heise.de/ix/feed.xml', i => `https://www.heise.de/news/fixture-${100000 + i}.html`],
     ['t3n', 't3n', 'https://t3n.de/', 'https://t3n.de/rss.xml', i => `https://t3n.de/news/fixture-${100000 + i}/`],
     ['techcrunch', 'TechCrunch', 'https://techcrunch.com/', 'https://techcrunch.com/feed/', i => `https://techcrunch.com/2026/10/01/fixture-${i}/`],
+    ['arstechnica', 'Ars Technica', 'https://arstechnica.com/', 'https://feeds.arstechnica.com/arstechnica/index', i => `https://arstechnica.com/space/2026/10/ars-fixture-${i}/`],
 ];
+const fixtureArticleCount = 135;
 
 async function fixtureDatabase(t) {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'nbs-top-cli-'));
@@ -119,7 +121,7 @@ async function fixtureDatabase(t) {
             await run('INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (?,?,?,?,?,?)',
                 [index + 1, index + 1, name, feed, '2026-10-01', '2026-10-01']);
         }
-        for (let i = 1; i <= 135; i += 1) {
+        for (let i = 1; i <= fixtureArticleCount; i += 1) {
             const sourceId = (i - 1) % fixtureMedia.length + 1;
             const medium = fixtureMedia[sourceId - 1];
             const publisher = RANKING_MEDIA.find(item => item.id === medium[0]);
@@ -167,7 +169,7 @@ test('top 100 returns 100 unique newest articles from all media and stored histo
     const items = JSON.parse(result.stdout);
     assert.equal(items.length, 100);
     assert.equal(new Set(items.map(item => item.canonicalUrl)).size, 100);
-    assert.deepEqual(items.map(item => item.id), [null, ...Array.from({ length: 99 }, (_, index) => 135 - index)]);
+    assert.deepEqual(items.map(item => item.id), [null, ...Array.from({ length: 99 }, (_, index) => fixtureArticleCount - index)]);
     assert.deepEqual(new Set(items.map(item => item.medium)), new Set(fixtureMedia.map(item => item[0])));
     assert.equal(items[0].title, 'Unmatched publisher headline');
     assert.equal(items[0].rankings[0].label, 'Top Headlines');
@@ -178,7 +180,7 @@ test('top 100 returns 100 unique newest articles from all media and stored histo
     assert.doesNotMatch(result.stdout, /Body fixture/);
     const allResult = await fixture.run(['articles', 'top', '1000', '--json']);
     assert.equal(allResult.code, 0, allResult.stderr);
-    assert.equal(JSON.parse(allResult.stdout).length, 136);
+    assert.equal(JSON.parse(allResult.stdout).length, fixtureArticleCount + 1);
 });
 
 test('medium filters include all supported ranking kinds and text/list output agree', async t => {
@@ -186,9 +188,10 @@ test('medium filters include all supported ranking kinds and text/list output ag
     const result = await fixture.run(['articles', 'top', '100', '--medium', 'golem', '--json']);
     assert.equal(result.code, 0, result.stderr);
     const items = JSON.parse(result.stdout);
-    assert.equal(items.length, 23);
+    const golemIds = Array.from({ length: fixtureArticleCount }, (_, index) => index + 1).filter(id => (id - 1) % fixtureMedia.length === 0).reverse();
+    assert.equal(items.length, golemIds.length);
     assert.ok(items.every(item => item.medium === 'golem'));
-    assert.deepEqual(items.map(item => item.id), Array.from({ length: 23 }, (_, index) => 133 - index * 6));
+    assert.deepEqual(items.map(item => item.id), golemIds);
     assert.ok(items[0].rankings.some(item => item.rankingKey === 'most_read'));
     assert.ok(items[0].rankings.some(item => item.rankingKey === 'most_commented'));
     const text = await fixture.run(['articles', 'top', '--medium', 'techcrunch']);
@@ -199,6 +202,33 @@ test('medium filters include all supported ranking kinds and text/list output ag
     assert.match(text.stdout, /Top Headlines/);
     assert.match(text.stdout, /Unmatched publisher headline/);
     assert.doesNotMatch(text.stdout, /RSS title 135|Body fixture/);
+});
+
+test('Ars Technica medium filtering, JSON, readable list and chooser use saved RSS data without writes', async t => {
+    const fixture = await fixtureDatabase(t);
+    const args = ['articles', 'top', '100', '--medium', 'arstechnica'];
+    const result = await fixture.run([...args, '--json']);
+    assert.equal(result.code, 0, result.stderr);
+    const items = JSON.parse(result.stdout);
+    const arsIndex = fixtureMedia.findIndex(item => item[0] === 'arstechnica');
+    const expectedIds = Array.from({ length: fixtureArticleCount }, (_, index) => index + 1).filter(id => (id - 1) % fixtureMedia.length === arsIndex).reverse();
+    assert.deepEqual(items.map(item => item.id), expectedIds);
+    assert.ok(items.every(item => item.medium === 'arstechnica' && item.sourceName === 'Ars Technica'));
+    assert.ok(items.every(item => item.rankings.length === 1 && item.rankings[0].rankingKey === 'most_read' && item.rankings[0].rank === item.id));
+    assert.equal(items[0].title, `RSS title ${expectedIds[0]}`);
+    assert.equal(items[0].teaser, `RSS teaser ${expectedIds[0]}`);
+    assert.match(items[0].canonicalUrl, /^https:\/\/arstechnica\.com\/space\/2026\/10\/ars-fixture-/);
+    const text = await fixture.run([...args, '--list']);
+    assert.equal(text.code, 0, text.stderr);
+    assert.match(text.stdout, /Ars Technica/);
+    assert.match(text.stdout, new RegExp(`Most read #${expectedIds[0]}`));
+    assert.doesNotMatch(text.stdout, /Most commented|Top-News|Top Headlines|Body fixture/);
+    const chosen = await fixture.run([...args, '--choose', '--json'], { chooseArticle: async candidates => {
+        assert.deepEqual(candidates.map(item => item.id), expectedIds);
+        return candidates[0];
+    } });
+    assert.equal(chosen.code, 0, chosen.stderr);
+    assert.deepEqual(JSON.parse(chosen.stdout), items[0]);
 });
 
 test('top chooser receives the unified list and terminal streams, then emits only the chosen full record', async t => {

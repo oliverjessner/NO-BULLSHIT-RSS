@@ -10,6 +10,7 @@ The **Most read** menu collects publisher selections. Their original names remai
 | heise iX (`heise-ix`) | Top-News | [iX homepage](https://www.heise.de/ix/) | [RSS](https://www.heise.de/ix/feed.xml) |
 | t3n (`t3n`) | Most read | [t3n homepage](https://t3n.de/) | [RSS](https://t3n.de/rss.xml) |
 | TechCrunch (`techcrunch`) | Top Headlines | [TechCrunch homepage](https://techcrunch.com/) | [RSS](https://techcrunch.com/feed/) |
+| Ars Technica (`arstechnica`) | Most read | [Ars Technica homepage](https://arstechnica.com/) | [RSS](https://feeds.arstechnica.com/arstechnica/index) |
 
 ## Browsing collected articles
 

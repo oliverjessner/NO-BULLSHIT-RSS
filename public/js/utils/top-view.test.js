@@ -19,12 +19,12 @@ test('All media paginates, preserves loaded depth and ignores stale source/deact
         observe(target) { observer.target = target; }
         disconnect() { observer.target = null; }
     };
-    const media = ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch'].map(id => ({ id, name: id }));
+    const media = ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica'].map(id => ({ id, name: id }));
     let items = Array.from({ length: 96 }, (_, index) => ({
-        id: index + 1, feedId: 1, title: `RSS story ${index + 1}`, teaser: 'Stored RSS teaser.', sourceName: `${media[index % 6].name} RSS`,
+        id: index + 1, feedId: 1, title: `RSS story ${index + 1}`, teaser: 'Stored RSS teaser.', sourceName: `${media[index % media.length].name} RSS`,
         url: `https://example.test/story/${index + 1}`, canonicalUrl: `https://example.test/story/${index + 1}`, saved: false,
-        medium: media[index % 6].id, rankings: [{ medium: media[index % 6].id, rankingKey: [3, 5].includes(index % 6) ? 'top_news' : 'most_read',
-            ...(index % 6 === 5 ? { label: 'Top Headlines' } : {}), rank: 1, capturedAt: '2026-11-01T00:00:00Z' }],
+        medium: media[index % media.length].id, rankings: [{ medium: media[index % media.length].id, rankingKey: [3, 5].includes(index % media.length) ? 'top_news' : 'most_read',
+            ...(index % media.length === 5 ? { label: 'Top Headlines' } : {}), rank: 1, capturedAt: '2026-11-01T00:00:00Z' }],
     }));
     const page = (cursor = '') => {
         const offset = cursor === 'page2' ? 40 : cursor === 'page3' ? 80 : 0;
@@ -72,6 +72,7 @@ test('All media paginates, preserves loaded depth and ignores stale source/deact
         assert.equal(cards().length, 40);
         assert.match(document.querySelector('#publisher-rankings').textContent, /Top-News/);
         assert.match(document.querySelector('#publisher-rankings').textContent, /Top Headlines/);
+        assert.match(document.querySelector('#publisher-rankings').textContent, /arstechnica RSS/);
         assert.equal(document.querySelector('.publisher-ranking-panel'), null);
         assert.equal(observer.target.id, 'rankings-load-more');
         assert.equal(observer.options.rootMargin, '320px 0px');

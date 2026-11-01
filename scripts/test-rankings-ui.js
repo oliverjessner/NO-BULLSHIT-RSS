@@ -20,6 +20,7 @@ const computerBaseUrl = 'https://www.computerbase.de/news/pc-systeme/computerbas
 const heiseIxUrl = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
 const t3nUrl = 'https://t3n.de/news/t3n-fixture-1234567/';
 const techCrunchUrl = 'https://techcrunch.com/2026/11/01/techcrunch-fixture/';
+const arsTechnicaUrl = 'https://arstechnica.com/space/2026/10/ars-fixture/';
 const techCrunchSelection = Array.from({ length: 5 }, (_, index) => ({
     canonicalUrl: index ? `https://techcrunch.com/2026/11/01/techcrunch-fixture-${index + 1}/` : techCrunchUrl,
     title: `TechCrunch editorial fixture headline ${index + 1}`, rank: index + 1,
@@ -32,6 +33,9 @@ const historyProviders = [
     { sourceId: 6, name: 't3n', keys: ['most_read'], prefix: 'https://t3n.de/news/mixed-history-9400', suffix: '/' },
     { sourceId: 7, name: 'TechCrunch', keys: ['top_news'], prefix: 'https://techcrunch.com/2025/12/31/mixed-history-', suffix: '/' },
 ];
+const historyEntriesPerProvider = 14;
+const currentUniqueCount = new Set([url, `${url}?id=second`, unmatchedUrl, winFutureUrl, computerBaseUrl, heiseIxUrl, t3nUrl, arsTechnicaUrl, ...techCrunchSelection.map(item => item.canonicalUrl)]).size;
+const mixedUniqueCount = currentUniqueCount + historyProviders.length * historyEntriesPerProvider;
 const watermarkUrl = 'https://www.golem.de/news/new-watermark-ui-fixture.html';
 
 async function waitFor(condition, label) {
@@ -98,10 +102,15 @@ try {
         await saveMostReadSnapshot({ sourceId: 7, capturedAt: new Date().toISOString(), rankings: {
             top_news: ${JSON.stringify(techCrunchSelection)}
         } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (8,'Ars Technica','https://arstechnica.com/','https://arstechnica.com/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (8,8,'Ars Technica RSS','https://feeds.arstechnica.com/arstechnica/index',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (8,'ars-ui','Ars Technica RSS fixture headline','Ars Technica stored RSS teaser.','Ars Technica article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(arsTechnicaUrl)}, ${JSON.stringify(arsTechnicaUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 8, capturedAt: new Date().toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(arsTechnicaUrl)}, title: 'Ars publisher title', rank: 3 }]
+        } });
         const historyProviders = ${JSON.stringify(historyProviders)};
         for (const [providerIndex, provider] of historyProviders.entries()) {
             const entries = [];
-            for (let index = 1; index <= 14; index += 1) {
+            for (let index = 1; index <= ${historyEntriesPerProvider}; index += 1) {
                 const canonicalUrl = provider.prefix + index + provider.suffix;
                 const title = 'Mixed ' + provider.name + ' RSS article ' + index;
                 const publishedAt = new Date(Date.UTC(2025, 11, 31, 23, 59 - ((index - 1) * 6 + providerIndex))).toISOString();
@@ -176,7 +185,12 @@ try {
     assert.equal(initialTop.items.length, 40);
     assert.equal(initialTop.hasMore, true);
     assert.ok(initialTop.nextCursor);
-    assert.deepEqual([...new Set(initialTop.items.flatMap(item => item.rankings.map(ranking => ranking.medium)))].sort(), ['computerbase', 'golem', 'heise-ix', 't3n', 'techcrunch', 'winfuture']);
+    assert.deepEqual([...new Set(initialTop.items.flatMap(item => item.rankings.map(ranking => ranking.medium)))].sort(), ['arstechnica', 'computerbase', 'golem', 'heise-ix', 't3n', 'techcrunch', 'winfuture']);
+    const mixedArs = page.locator(`#publisher-rankings .feed-card[data-item-url="${arsTechnicaUrl}"]`);
+    assert.equal(await mixedArs.count(), 1);
+    assert.equal(await mixedArs.locator('.article-title-button').textContent(), 'Ars Technica RSS fixture headline');
+    assert.equal(await mixedArs.locator('.teaser').textContent(), 'Ars Technica stored RSS teaser.');
+    assert.match(await mixedArs.locator('.publisher-ranking-provenance').textContent(), /Ars Technica · Most read #3/);
     assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 40);
     const mixedProvenance = (await matched().locator('.publisher-ranking-provenance').allTextContents()).join(' ');
     assert.match(mixedProvenance, /Most read/);
@@ -203,8 +217,8 @@ try {
     await waitFor(async () => await cards.count() === 80, 'second mixed page of forty Feed cards');
     assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 80);
     assert.ok(await page.evaluate(() => window.triggerRankingsIntersection()) > 0, 'Mixed view must register its pagination observer');
-    await waitFor(async () => await cards.count() === 96, 'observer loads the final sixteen historical articles');
-    assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, 96);
+    await waitFor(async () => await cards.count() === mixedUniqueCount, 'observer loads the remaining unique historical articles');
+    assert.equal(new Set(await cards.evaluateAll(nodes => nodes.map(node => node.dataset.itemUrl))).size, mixedUniqueCount);
     assert.equal(await page.locator('#rankings-load-more').isVisible(), false);
     assert.equal(await page.locator(`#publisher-rankings .feed-card[data-item-url="${watermarkUrl}"]`).count(), 0, 'Continuation stays pinned to the initial snapshot watermark');
     const freshTop = await (await page.request.get(`${origin}/api/rankings/top?medium=all&limit=40`)).json();
@@ -246,6 +260,35 @@ try {
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `All media ${name} horizontal overflow`);
         await page.screenshot({ path: path.join(screenshots, `rankings-all-${name}.png`), fullPage: false });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'Ars Technica', exact: true }).click();
+    await waitFor(async () => await cards.count() === 1 && (await cards.first().textContent()).includes('Ars Technica RSS fixture headline'), 'Ars Technica most-read RSS card');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'arstechnica');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most read']);
+    assert.equal(await page.locator('[data-ranking-key="most_commented"], [data-ranking-key="top_news"]').count(), 0);
+    assert.equal(await cards.first().locator('.publisher-ranking-rank').textContent(), '#3', 'Preserve the actual publisher rank');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'Ars Technica stored RSS teaser.');
+    assert.equal(await cards.first().locator('.article-save-btn').isEnabled(), true);
+    assert.equal(await cards.first().locator('.article-dismiss-btn').isEnabled(), true);
+    const arsTechnica = await (await page.request.get(`${origin}/api/rankings?medium=arstechnica`)).json();
+    assert.equal(arsTechnica.medium, 'arstechnica');
+    assert.equal(arsTechnica.rankings.length, 1);
+    assert.equal(arsTechnica.rankings[0].sourceId, 8);
+    assert.equal(arsTechnica.rankings[0].rankingKey, 'most_read');
+    assert.equal(arsTechnica.rankings[0].items[0].rank, 3);
+    assert.equal(arsTechnica.rankings[0].items[0].article.sourceName, 'Ars Technica RSS');
+    assert.ok(Number.isFinite(Date.parse(arsTechnica.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), arsTechnicaUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `Ars Technica ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-arstechnica-${name}.png`), fullPage: true });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
@@ -487,7 +530,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: All media 40/80/96 pagination, canonical dedup, snapshot watermark, source-switch race, loaded-depth save/dismiss/Undo and scroll; all six grouped media, RSS viewers/actions, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: All media 40/80/${mixedUniqueCount} pagination, canonical dedup, snapshot watermark, source-switch race, loaded-depth save/dismiss/Undo and scroll; all seven grouped media including Ars Technica rank3, RSS viewers/actions, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

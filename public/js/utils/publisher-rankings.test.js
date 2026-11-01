@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch'], ['arstechnica', 'Ars Technica']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -309,6 +309,36 @@ test('TechCrunch renders Top Headlines with its matched RSS Feed card and plain 
         renderPublisherRankings(container, rankings, new Map(), { status: { state: 'ready' }, publisherName: 'TechCrunch' });
         assert.equal(container.querySelector('.publisher-ranking-title').textContent, '<img src=x onerror=alert(1)>');
         assert.equal(container.querySelector('.publisher-ranking-title img'), null);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('Ars Technica renders its most-read RSS card with the original publisher position', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 8, sourceName: 'Ars Technica' });
+        Object.assign(rankings[0].items[0], {
+            rank: 3, canonicalUrl: 'https://arstechnica.com/space/2026/10/ars-fixture/',
+            article: { ...rankings[0].items[0].article, sourceName: 'Ars Technica RSS', title: 'Ars RSS headline', teaser: 'Ars stored RSS teaser.', url: 'https://arstechnica.com/space/2026/10/ars-fixture/' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 'Ars Technica' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Most read');
+        assert.equal(container.querySelector('.publisher-ranking-rank').textContent, '#3');
+        assert.equal(container.querySelector('.publisher-ranking-list > li').value, 3);
+        assert.equal(container.querySelector('[data-ranking-key="most_commented"], [data-ranking-key="top_news"]'), null);
+        assert.equal(container.querySelector('.article-title-button').textContent, 'Ars RSS headline');
+        assert.equal(container.querySelector('.teaser').textContent, 'Ars stored RSS teaser.');
+        assert.equal(container.querySelector('.article-save-btn').disabled, false);
+        assert.equal(container.querySelector('.article-dismiss-btn').disabled, false);
+        assert.equal(articles.get(7).sourceName, 'Ars Technica RSS');
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

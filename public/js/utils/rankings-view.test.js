@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 
 const payload = (title = 'Saved Golem story') => ({
-    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }], configured: true,
+    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }], configured: true,
     rankingStatus: { state: 'ready', message: null, attemptedAt: '2026-11-01T07:00:00Z' },
     rankings: [{ sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-11-01T07:00:00Z', items: [
         { id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/saved.html', title,
@@ -67,6 +67,17 @@ function techCrunchPayload(title = 'Saved TechCrunch editorial story') {
     }] };
 }
 
+function arsTechnicaPayload(title = 'Saved Ars RSS story') {
+    const base = payload(title);
+    const url = 'https://arstechnica.com/space/2026/10/ars-fixture/';
+    return { ...base, medium: 'arstechnica', rankings: [{
+        ...base.rankings[0], sourceId: 8, sourceName: 'Ars Technica', items: [{
+            ...base.rankings[0].items[0], rank: 3, canonicalUrl: url, articleId: 67,
+            article: { ...base.rankings[0].items[0].article, id: 67, url, teaser: 'Ars stored RSS teaser.' },
+        }],
+    }] };
+}
+
 test('Most read uses automatic consent refresh with its own viewer, saved snapshots and request ordering', async () => {
     const previous = { document: globalThis.document, window: globalThis.window, fetch: globalThis.fetch, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -99,6 +110,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     globalThis.fetch = async (url, options) => {
         requests.push({ url, options });
         if (url === '/api/rankings/refresh') {
+            if (JSON.parse(options.body).medium === 'arstechnica') return Response.json(arsTechnicaPayload('Refreshed Ars RSS story'));
             if (JSON.parse(options.body).medium === 'techcrunch') return Response.json(techCrunchPayload('Refreshed TechCrunch editorial story'));
             if (JSON.parse(options.body).medium === 't3n') return Response.json(t3nPayload('Refreshed t3n story'));
             if (JSON.parse(options.body).medium === 'heise-ix') return Response.json(heiseIxPayload('Refreshed heise iX editorial story'));
@@ -117,6 +129,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         if (url === '/api/rankings?medium=heise-ix') return Response.json(heiseIxPayload());
         if (url === '/api/rankings?medium=t3n') return Response.json(t3nPayload());
         if (url === '/api/rankings?medium=techcrunch') return Response.json(techCrunchPayload());
+        if (url === '/api/rankings?medium=arstechnica') return Response.json(arsTechnicaPayload());
         assert.equal(url, '/api/rankings?medium=golem');
         if (mode === 'delayed-read') return new Promise(resolve => { completeOldRead = resolve; });
         return Response.json({ ...payload(), configured, rankings: configured ? payload().rankings : [], rankingStatus: configured ? payload().rankingStatus : { state: 'idle' } });
@@ -276,6 +289,21 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         await rankings.refreshRankings();
         assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'techcrunch' });
         assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed TechCrunch editorial story/);
+        select.value = 'arstechnica';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 'arstechnica');
+        assert.deepEqual([...document.querySelectorAll('.publisher-ranking-title')].map(title => title.textContent), ['Most read']);
+        assert.equal(document.querySelectorAll('#publisher-rankings .feed-card').length, 1);
+        assert.equal(document.querySelector('#publisher-rankings .teaser').textContent, 'Ars stored RSS teaser.');
+        assert.equal(document.querySelector('.publisher-ranking-rank').textContent, '#3');
+        assert.equal(store.rankings.articlesById.has(57), false);
+        assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Most commented|Top-News|Top Headlines/);
+        click(document.querySelector('.publisher-ranking-card[data-article-id="67"] .article-title-button'));
+        assert.equal(document.querySelector('#rankings-article-viewer-frame').dataset.loadedUrl, 'https://arstechnica.com/space/2026/10/ars-fixture/');
+        await rankings.refreshRankings();
+        assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'arstechnica' });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed Ars RSS story/);
         select.value = 'golem';
         select.dispatchEvent(new window.Event('change'));
         await new Promise(setImmediate);

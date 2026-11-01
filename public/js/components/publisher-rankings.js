@@ -1,7 +1,7 @@
 import { formatDate } from '../utils/format.js';
 import { createArticleCard } from './article-card.js';
 
-const rankingLabels = { most_read: 'Most read', most_commented: 'Most commented' };
+const rankingLabels = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' };
 const positiveId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
 
 function rankingUrl(value) {

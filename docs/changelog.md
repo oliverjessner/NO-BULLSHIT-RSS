@@ -1,5 +1,6 @@
 # 1.7.0
 
+- Add heise iX's Top-News as a distinct editorial list with iX RSS cards, source-specific matching, eight-hour updates and `--top-news heise-ix` CLI access while preserving saved ranking history.
 - Add ComputerBase's most-read news from the last 72 hours to publisher selection, RSS article cards, the eight-hour schedule and the read-only CLI.
 - Read saved publisher rankings through `--most-read <medium>` and `--most-commented <medium>`, with RSS article data and optional JSON output.
 - Refresh all publisher rankings on a separate eight-hour schedule, remember attempts across restarts, and match newly fetched RSS articles without another publisher capture.

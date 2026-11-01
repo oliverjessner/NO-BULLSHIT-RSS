@@ -12,10 +12,12 @@ export function formatPublisherRankings(payload, { rankingKey, json = false }) {
     const rankings = payload.rankings.filter(group => group.rankingKey === rankingKey);
     const result = { medium: payload.medium, rankingKey, configured: payload.configured, rankings };
     if (json) return JSON.stringify(result, null, 2);
-    if (!rankings.length) return `No saved ${rankingKey === 'most_read' ? 'most-read' : 'most-commented'} rankings for ${payload.medium}. Refresh rankings in the app first.`;
+    const label = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' }[rankingKey];
+    const emptyLabel = { most_read: 'most-read', most_commented: 'most-commented', top_news: 'Top-News' }[rankingKey];
+    if (!rankings.length) return `No saved ${emptyLabel} rankings for ${payload.medium}. Refresh rankings in the app first.`;
     const clean = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim();
     return rankings.map(group => [
-        `${clean(group.sourceName)} · ${rankingKey === 'most_read' ? 'Most read' : 'Most commented'} · ${clean(group.capturedAt)}`,
+        `${clean(group.sourceName)} · ${label} · ${clean(group.capturedAt)}`,
         ...group.items.map(item => `${item.rank}\t${clean(item.article?.title || item.title)}\t${clean(item.article?.url || item.canonicalUrl)}`),
     ].join('\n')).join('\n\n');
 }

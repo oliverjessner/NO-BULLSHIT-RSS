@@ -17,6 +17,7 @@ const url = 'https://www.golem.de/news/rankings-ui-fixture.html';
 const unmatchedUrl = 'https://www.golem.de/news/unmatched-ui-fixture.html';
 const winFutureUrl = 'https://winfuture.de/news,162334.html';
 const computerBaseUrl = 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/';
+const heiseIxUrl = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -56,6 +57,11 @@ try {
         await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (3,'computerbase-ui','ComputerBase RSS fixture headline','ComputerBase stored RSS teaser.','ComputerBase article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(computerBaseUrl)}, ${JSON.stringify(computerBaseUrl)}]);
         await saveMostReadSnapshot({ sourceId: 3, capturedAt: new Date().toISOString(), rankings: {
             most_read: [{ canonicalUrl: ${JSON.stringify(computerBaseUrl)}, title: 'ComputerBase publisher headline', rank: 1 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (4,'Generic Heise','https://www.heise.de/','https://www.heise.de/',datetime('now'),datetime('now')), (5,'heise iX','https://www.heise.de/ix/','https://www.heise.de/ix/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (4,4,'Generic Heise RSS','https://www.heise.de/rss/heise-atom.xml',datetime('now'),datetime('now')), (5,5,'heise iX RSS','https://www.heise.de/ix/feed.xml',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (5,'heise-ix-ui','heise iX RSS fixture headline','heise iX stored RSS teaser.','heise iX article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(heiseIxUrl)}, ${JSON.stringify(heiseIxUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 5, capturedAt: new Date().toISOString(), rankings: {
+            top_news: [{ canonicalUrl: ${JSON.stringify(heiseIxUrl)}, title: 'heise iX editorial headline', rank: 1 }]
         } });
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
@@ -128,6 +134,33 @@ try {
         await page.setViewportSize(viewport);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `ComputerBase ${name} horizontal overflow`);
         await page.screenshot({ path: path.join(screenshots, `rankings-computerbase-${name}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'heise iX', exact: true }).click();
+    await waitFor(async () => await cards.count() === 1 && (await cards.first().textContent()).includes('heise iX RSS fixture headline'), 'heise iX editorial Top-News RSS card');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'heise-ix');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Top-News']);
+    assert.equal(await page.locator('[data-ranking-key="most_read"], [data-ranking-key="most_commented"]').count(), 0, 'Editorial Top-News must not be labelled most-read or most-commented');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'heise iX stored RSS teaser.');
+    assert.equal(await cards.first().locator('.article-save-btn').isEnabled(), true);
+    assert.equal(await cards.first().locator('.article-dismiss-btn').isEnabled(), true);
+    const heiseIx = await (await page.request.get(`${origin}/api/rankings?medium=heise-ix`)).json();
+    assert.equal(heiseIx.medium, 'heise-ix');
+    assert.equal(heiseIx.rankings.length, 1);
+    assert.equal(heiseIx.rankings[0].sourceId, 5, 'Generic Heise RSS must not supply the heise iX selection');
+    assert.equal(heiseIx.rankings[0].rankingKey, 'top_news');
+    assert.equal(heiseIx.rankings[0].items[0].article.sourceName, 'heise iX RSS');
+    assert.ok(Number.isFinite(Date.parse(heiseIx.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), heiseIxUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `heise iX ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-heise-ix-${name}.png`), fullPage: true });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
@@ -210,7 +243,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: Golem, WinFuture and ComputerBase selection, ComputerBase most-read-only RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: Golem, WinFuture, ComputerBase and heise iX selection, ComputerBase most-read-only and heise iX editorial Top-News RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

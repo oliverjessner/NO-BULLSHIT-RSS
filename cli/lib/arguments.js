@@ -11,6 +11,7 @@ Usage:
   no-bullshit-rss stats [--json]
   no-bullshit-rss --most-read <medium> [--json]
   no-bullshit-rss --most-commented <medium> [--json]
+  no-bullshit-rss --top-news <medium> [--json]
   no-bullshit-rss rss [--rss-url|--amount]
   no-bullshit-rss topics
   no-bullshit-rss lists [--list <name>]
@@ -42,6 +43,7 @@ Commands:
 Options:
   --most-read <medium>       Show saved publisher most-read rankings
   --most-commented <medium>  Show saved publisher most-commented rankings
+  --top-news <medium>        Show saved publisher editorial Top-News
   --json                     Print stats or publisher rankings as JSON
   --rss-url                  Print one RSS feed URL per line
   --amount                   Print the number of stored RSS feeds
@@ -65,6 +67,7 @@ Examples:
   no-bullshit-rss stats --json
   no-bullshit-rss --most-read golem
   no-bullshit-rss --most-commented golem --json
+  no-bullshit-rss --top-news heise-ix
   no-bullshit-rss rss
   no-bullshit-rss rss --rss-url
   no-bullshit-rss topics
@@ -167,15 +170,18 @@ export function parseCliArgs(argv) {
     }
 
     const [resource, action, countValue, ...flags] = args;
-    if (resource === '--most-read' || resource === '--most-commented') {
+    const rankingKeysByFlag = { '--most-read': 'most_read', '--most-commented': 'most_commented', '--top-news': 'top_news' };
+    if (Object.hasOwn(rankingKeysByFlag, resource)) {
         const medium = String(action || '').trim().toLowerCase();
         const publisher = RANKING_MEDIA.find(item => item.id === medium);
         if (!publisher) {
             throw new Error(`Choose a ranking medium after ${resource}: ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
         }
-        const rankingKey = resource === '--most-read' ? 'most_read' : 'most_commented';
+        const rankingKey = rankingKeysByFlag[resource];
         if (!publisher.rankingKeys.includes(rankingKey)) {
-            throw new Error(`Most-commented rankings are not supported for ${publisher.name}. Use --most-read ${medium}.`);
+            const label = { most_read: 'Most-read', most_commented: 'Most-commented', top_news: 'Top-News' }[rankingKey];
+            const supportedFlag = `--${publisher.rankingKeys[0].replaceAll('_', '-')}`;
+            throw new Error(`${label} rankings are not supported for ${publisher.name}. Use ${supportedFlag} ${medium}.`);
         }
         rejectUnknownFlags(args.slice(2), new Set(['--json']));
         return { command: 'publisher-rankings', medium,

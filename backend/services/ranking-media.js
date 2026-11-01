@@ -5,11 +5,23 @@ export const RANKING_MEDIA = Object.freeze([
     Object.freeze({ id: 'golem', name: 'Golem', hostname: 'golem.de', rankingKeys: RANKING_KEYS }),
     Object.freeze({ id: 'winfuture', name: 'WinFuture', hostname: 'winfuture.de', rankingKeys: RANKING_KEYS }),
     Object.freeze({ id: 'computerbase', name: 'ComputerBase', hostname: 'computerbase.de', rankingKeys: Object.freeze(['most_read']) }),
+    Object.freeze({ id: 'heise-ix', name: 'heise iX', hostname: 'heise.de', pathPrefix: '/ix', feedPath: '/ix/feed.xml', rankingKeys: Object.freeze(['top_news']) }),
 ]);
 
 export function rankingMediumForSource(source) {
     const url = cleanHttpUrl(source?.websiteUrl);
     if (!url) return null;
-    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
-    return RANKING_MEDIA.find(medium => medium.hostname === host) || null;
+    const website = new URL(url);
+    const host = website.hostname.toLowerCase().replace(/^www\./, '');
+    return RANKING_MEDIA.find(medium => {
+        if (medium.hostname !== host) return false;
+        if (medium.pathPrefix && website.pathname !== medium.pathPrefix && !website.pathname.startsWith(`${medium.pathPrefix}/`)) return false;
+        if (medium.feedPath && source.feedUrl !== undefined) {
+            const feedUrl = cleanHttpUrl(source.feedUrl);
+            if (!feedUrl) return false;
+            const feed = new URL(feedUrl);
+            if (feed.hostname.toLowerCase().replace(/^www\./, '') !== medium.hostname || feed.pathname !== medium.feedPath) return false;
+        }
+        return true;
+    }) || null;
 }

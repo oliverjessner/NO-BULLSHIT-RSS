@@ -4,6 +4,7 @@ import { logWarn } from '../utils/logger.js';
 import { fetchGolemRankings } from './golem-rankings.js';
 import { fetchWinFutureRankings } from './winfuture-rankings.js';
 import { fetchComputerBaseRankings } from './computerbase-rankings.js';
+import { fetchHeiseIxRankings } from './heise-ix-rankings.js';
 import { rankingMediumForSource, RANKING_KEYS, RANKING_MEDIA } from './ranking-media.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
 import { normalizeRankingStatus, rankingStatusKey } from './ranking-status.js';
@@ -11,7 +12,7 @@ import { publish } from './events.js';
 
 const database = { all, get };
 const host = value => new URL(value).hostname.toLowerCase().replace(/^www\./, '');
-const publisherCaptures = { golem: fetchGolemRankings, winfuture: fetchWinFutureRankings, computerbase: fetchComputerBaseRankings };
+const publisherCaptures = { golem: fetchGolemRankings, winfuture: fetchWinFutureRankings, computerbase: fetchComputerBaseRankings, 'heise-ix': fetchHeiseIxRankings };
 
 function validateRankings(rankings, websiteUrl) {
     const requiredKeys = rankingMediumForSource({ websiteUrl })?.rankingKeys || RANKING_KEYS;
@@ -19,7 +20,7 @@ function validateRankings(rankings, websiteUrl) {
     return requiredKeys.flatMap(rankingKey => {
         const items = rankings[rankingKey];
         if (!Array.isArray(items) || !items.length || items.length > 50) throw new Error(requiredKeys.length === 2
-            ? 'Both complete article rankings are required' : 'A complete most-read article ranking is required');
+            ? 'Both complete article rankings are required' : `A complete ${rankingKey === 'top_news' ? 'Top-News' : 'most-read'} article ranking is required`);
         const urls = new Set();
         const ranks = new Set();
         return items.map(item => {
@@ -41,7 +42,10 @@ export async function saveMostReadSnapshot({ sourceId, capturedAt, rankings }) {
     return transaction(async () => {
         const source = await get('SELECT websiteUrl FROM sources WHERE id = ?', [id]);
         const feeds = await all('SELECT feedUrl FROM feeds WHERE sourceId = ?', [id]);
-        if (!source || !cleanHttpUrl(source.websiteUrl) || !feeds.some(feed => cleanHttpUrl(feed.feedUrl))) throw new Error('Ranking source requires an RSS feed');
+        const provider = source && rankingMediumForSource(source);
+        const hasRss = source && feeds.some(feed => cleanHttpUrl(feed.feedUrl)
+            && (!provider?.feedPath || rankingMediumForSource({ ...source, feedUrl: feed.feedUrl })?.id === provider.id));
+        if (!source || !cleanHttpUrl(source.websiteUrl) || !hasRss) throw new Error('Ranking source requires an RSS feed for that medium');
         const rows = validateRankings(rankings, source.websiteUrl);
         const previous = await all('SELECT rankingKey, canonicalUrl, rank, title FROM most_read WHERE sourceId = ? AND capturedAt = ? ORDER BY rankingKey, rank', [id, timestamp]);
         const sorted = [...rows].sort((a, b) => a.rankingKey.localeCompare(b.rankingKey) || a.rank - b.rank);

@@ -20,7 +20,7 @@ Save useful articles to reading lists and create keyword alerts for subjects you
 - Follow RSS feeds in compact or card layouts.
 - Search articles and filter by source, topic or reading list.
 - Group related coverage into daily, weekly and monthly digests.
-- Explore Golem and WinFuture's most-read and most-commented articles, plus ComputerBase's most-read news, in the separate Most read view.
+- Explore Golem and WinFuture's most-read and most-commented articles, ComputerBase's most-read news and heise iX's editorial Top-News in the separate Most read view.
 - Automatically tag articles with your own topic keywords and filter unwanted coverage with bullshit rules.
 - Track keyword matches in Watchdog, with optional macOS notifications.
 - Save articles to reading lists and dismiss finished articles or stories.
@@ -91,7 +91,7 @@ Save a story to a reading list or mark it as digested when you are done.
 
 ## Explore publisher rankings
 
-Open **Most read**, choose **Golem**, **WinFuture** or **ComputerBase** and select **Refresh** to load the publisher's latest rankings. ComputerBase's supported ranking covers most-read news from the last 72 hours; ComputerBase most-commented rankings are not supported.
+Open **Most read**, choose **Golem**, **WinFuture**, **ComputerBase** or **heise iX** and select **Refresh** to load the publisher's latest selection. ComputerBase's supported ranking covers most-read news from the last 72 hours; ComputerBase most-commented rankings are not supported. heise iX shows editorial **Top-News**, independently of readership or comment counts.
 
 Refresh automatically accepts Golem's cookie consent when possible. If automatic consent cannot finish, retry **Refresh**.
 

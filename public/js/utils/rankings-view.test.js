@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 
 const payload = (title = 'Saved Golem story') => ({
-    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }], configured: true,
+    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }], configured: true,
     rankingStatus: { state: 'ready', message: null, attemptedAt: '2026-11-01T07:00:00Z' },
     rankings: [{ sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-11-01T07:00:00Z', items: [
         { id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/saved.html', title,
@@ -30,6 +30,17 @@ function computerBasePayload(title = 'Saved ComputerBase story') {
         ...base.rankings[0], sourceId: 3, sourceName: 'ComputerBase', items: [{
             ...base.rankings[0].items[0], canonicalUrl: url, articleId: 27,
             article: { ...base.rankings[0].items[0].article, id: 27, url, teaser: 'ComputerBase RSS teaser.' },
+        }],
+    }] };
+}
+
+function heiseIxPayload(title = 'Saved heise iX editorial story') {
+    const base = payload(title);
+    const url = 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html';
+    return { ...base, medium: 'heise-ix', rankings: [{
+        ...base.rankings[0], sourceId: 5, sourceName: 'heise iX', rankingKey: 'top_news', items: [{
+            ...base.rankings[0].items[0], canonicalUrl: url, articleId: 37,
+            article: { ...base.rankings[0].items[0].article, id: 37, url, teaser: 'heise iX RSS teaser.' },
         }],
     }] };
 }
@@ -66,6 +77,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     globalThis.fetch = async (url, options) => {
         requests.push({ url, options });
         if (url === '/api/rankings/refresh') {
+            if (JSON.parse(options.body).medium === 'heise-ix') return Response.json(heiseIxPayload('Refreshed heise iX editorial story'));
             if (JSON.parse(options.body).medium === 'computerbase') return Response.json(computerBasePayload('Refreshed ComputerBase story'));
             if (JSON.parse(options.body).medium === 'winfuture') return Response.json(winFuturePayload('Refreshed WinFuture story'));
             if (mode === 'failed') return Response.json({ ...payload(), error: 'Could not refresh', rankingStatus: { state: 'error' } }, { status: 502 });
@@ -78,6 +90,7 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
             return Response.json({ ...current, configured, rankings: configured ? current.rankings : [], rankingStatus: configured ? current.rankingStatus : { state: 'idle' } });
         }
         if (url === '/api/rankings?medium=computerbase') return Response.json(computerBasePayload());
+        if (url === '/api/rankings?medium=heise-ix') return Response.json(heiseIxPayload());
         assert.equal(url, '/api/rankings?medium=golem');
         if (mode === 'delayed-read') return new Promise(resolve => { completeOldRead = resolve; });
         return Response.json({ ...payload(), configured, rankings: configured ? payload().rankings : [], rankingStatus: configured ? payload().rankingStatus : { state: 'idle' } });
@@ -194,6 +207,20 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         await rankings.refreshRankings();
         assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'computerbase' });
         assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed ComputerBase story/);
+        select.value = 'heise-ix';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 'heise-ix');
+        assert.deepEqual([...document.querySelectorAll('.publisher-ranking-title')].map(title => title.textContent), ['Top-News']);
+        assert.equal(document.querySelectorAll('#publisher-rankings .feed-card').length, 1);
+        assert.equal(document.querySelector('#publisher-rankings .teaser').textContent, 'heise iX RSS teaser.');
+        assert.equal(store.rankings.articlesById.has(27), false);
+        assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Most read|Most commented/);
+        click(document.querySelector('.publisher-ranking-card[data-article-id="37"] .article-title-button'));
+        assert.equal(document.querySelector('#rankings-article-viewer-frame').dataset.loadedUrl, 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html');
+        await rankings.refreshRankings();
+        assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'heise-ix' });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed heise iX editorial story/);
         select.value = 'golem';
         select.dispatchEvent(new window.Event('change'));
         await new Promise(setImmediate);

@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -208,6 +208,34 @@ test('ComputerBase renders only its available most-read group with the matched R
         assert.equal(container.querySelector('.feed-card .teaser').textContent, 'ComputerBase RSS teaser.');
         assert.equal(articles.get(7).sourceName, 'ComputerBase RSS');
         assert.doesNotMatch(container.textContent, /Most commented|Golem|WinFuture/);
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('heise iX editorial Top-News keeps its distinct label and matched RSS Feed card', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 5, sourceName: 'heise iX', rankingKey: 'top_news' });
+        Object.assign(rankings[0].items[0], {
+            canonicalUrl: 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html',
+            article: { ...rankings[0].items[0].article, sourceName: 'heise iX RSS', title: 'heise iX RSS headline', teaser: 'heise iX RSS teaser.', url: 'https://www.heise.de/ix/news/heise-ix-fixture-12345.html' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        const articles = new Map();
+        renderPublisherRankings(container, rankings, articles, { status: { state: 'ready' }, publisherName: 'heise iX' });
+        assert.equal(container.querySelectorAll('.publisher-ranking-panel').length, 1);
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Top-News');
+        assert.equal(container.querySelector('[data-ranking-key="top_news"]')?.tagName, 'SECTION');
+        assert.equal(container.querySelector('[data-ranking-key="most_read"], [data-ranking-key="most_commented"]'), null);
+        assert.equal(container.querySelector('.feed-card .article-title-button').textContent, 'heise iX RSS headline');
+        assert.equal(container.querySelector('.feed-card .teaser').textContent, 'heise iX RSS teaser.');
+        assert.equal(articles.get(7).sourceName, 'heise iX RSS');
+        assert.doesNotMatch(container.textContent, /Most read|Most commented|Golem|WinFuture/);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

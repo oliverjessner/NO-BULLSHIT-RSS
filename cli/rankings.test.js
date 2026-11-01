@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import sqlite3 from '@vscode/sqlite3';
 import { parseCliArgs } from './lib/arguments.js';
+import { formatPublisherRankings } from './lib/output.js';
 import { runCli } from './main.js';
 
 test('publisher CLI validates media and flags before opening a database', () => {
@@ -19,7 +20,13 @@ test('publisher CLI validates media and flags before opening a database', () => 
         command: 'publisher-rankings', medium: 'computerbase', rankingKey: 'most_read', json: true,
     });
     assert.throws(() => parseCliArgs(['--most-commented', 'computerbase']), /Most-commented rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
-    for (const args of [['--most-read'], ['--most-read', 'unknown'], ['--most-read', 'golem', '--most-commented', 'golem'], ['--most-read', 'golem', '--url']]) {
+    assert.deepEqual(parseCliArgs(['--top-news', 'Heise-IX', '--json']), {
+        command: 'publisher-rankings', medium: 'heise-ix', rankingKey: 'top_news', json: true,
+    });
+    assert.throws(() => parseCliArgs(['--most-read', 'heise-ix']), /Most-read rankings are not supported for heise iX\. Use --top-news heise-ix\./);
+    assert.throws(() => parseCliArgs(['--most-commented', 'heise-ix']), /Most-commented rankings are not supported for heise iX\. Use --top-news heise-ix\./);
+    assert.throws(() => parseCliArgs(['--top-news', 'computerbase']), /Top-News rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
+    for (const args of [['--most-read'], ['--most-read', 'unknown'], ['--top-news'], ['--top-news', 'unknown'], ['--most-read', 'golem', '--most-commented', 'golem'], ['--top-news', 'heise-ix', '--most-read', 'heise-ix'], ['--most-read', 'golem', '--url']]) {
         assert.throws(() => parseCliArgs(args));
     }
 });
@@ -37,7 +44,27 @@ test('unsupported ComputerBase most-commented rankings fail before opening a dat
     assert.match(stderr, /Most-commented rankings are not supported for ComputerBase\. Use --most-read computerbase\./);
 });
 
-test('publisher CLI help includes ComputerBase without opening a database', async () => {
+test('unsupported heise iX ranking kinds suggest editorial Top-News before opening a database', async () => {
+    for (const flag of ['--most-read', '--most-commented']) {
+        let stdout = '', stderr = '';
+        const code = await runCli([flag, 'heise-ix'], {
+            stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
+            discoverDatabase: async () => { throw new Error('Must not open a database'); },
+        });
+        assert.equal(code, 1);
+        assert.equal(stdout, '');
+        assert.match(stderr, /not supported for heise iX\. Use --top-news heise-ix\./);
+        assert.doesNotMatch(stderr, /Must not open a database/);
+    }
+});
+
+test('empty editorial selections keep the Top-News label', () => {
+    const text = formatPublisherRankings({ medium: 'heise-ix', configured: true, rankings: [] }, { rankingKey: 'top_news' });
+    assert.equal(text, 'No saved Top-News rankings for heise-ix. Refresh rankings in the app first.');
+    assert.doesNotMatch(text, /most-read|most-commented/);
+});
+
+test('publisher CLI help includes heise iX and Top-News without opening a database', async () => {
     let stdout = '', stderr = '';
     const code = await runCli(['--help'], {
         stdout: { write: chunk => { stdout += chunk; } }, stderr: { write: chunk => { stderr += chunk; } },
@@ -46,6 +73,9 @@ test('publisher CLI help includes ComputerBase without opening a database', asyn
     assert.equal(code, 0);
     assert.equal(stderr, '');
     assert.match(stdout, /Publisher media:[^\n]*computerbase/);
+    assert.match(stdout, /Publisher media:[^\n]*heise-ix/);
+    assert.match(stdout, /--top-news <medium>/);
+    assert.match(stdout, /--top-news heise-ix/);
 });
 
 test('publisher CLI reads latest ranked RSS data without writes or refreshes', async () => {
@@ -57,7 +87,7 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
             const db = new sqlite3.Database(databasePath, error => error ? reject(error) : resolve(db));
         });
         const exec = sql => new Promise((resolve, reject) => connection.exec(sql, error => error ? reject(error) : resolve()));
-        for (const filename of ['0001_schema.sql', '0002_feed_names.sql', '0003_bullshit_rules.sql', '0005_unified_digest_filters.sql', '0008_most_read.sql']) {
+        for (const filename of ['0001_schema.sql', '0002_feed_names.sql', '0003_bullshit_rules.sql', '0005_unified_digest_filters.sql', '0008_most_read.sql', '0009_top_news.sql']) {
             await exec(await readFile(new URL(`../migrations/${filename}`, import.meta.url), 'utf8'));
         }
         await exec(`INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
@@ -87,7 +117,19 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
             INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
             VALUES (3,3,'cb-one','ComputerBase RSS title','ComputerBase RSS teaser','https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','three','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
             INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
-            (3,3,'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','ComputerBase ranking title',1,'most_read','2026-11-01T00:00:00.000Z');`);
+            (3,3,'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/','ComputerBase ranking title',1,'most_read','2026-11-01T00:00:00.000Z');
+            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
+            VALUES (4,'Generic Heise','https://www.heise.de/','https://www.heise.de/','2026-11-01','2026-11-01'),
+                (5,'heise iX','https://www.heise.de/ix/','https://www.heise.de/ix/','2026-11-01','2026-11-01');
+            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
+            VALUES (4,4,'Generic Heise RSS','https://www.heise.de/rss/heise-atom.xml','2026-11-01','2026-11-01'),
+                (5,5,'heise iX RSS','https://www.heise.de/ix/feed.xml','2026-11-01','2026-11-01');
+            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
+            VALUES (5,5,'ix-one','heise iX RSS title','heise iX RSS teaser','https://www.heise.de/ix/news/heise-ix-fixture-12345.html','https://www.heise.de/ix/news/heise-ix-fixture-12345.html','five','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
+            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
+            (4,NULL,'https://www.heise.de/news/generic.html','Generic Heise article',1,'most_read','2026-11-01T00:00:00.000Z'),
+            (5,5,'https://www.heise.de/ix/news/heise-ix-fixture-12345.html','heise iX editorial title',1,'top_news','2026-11-01T00:00:00.000Z'),
+            (5,NULL,'https://www.heise.de/ix/news/second-12346.html','heise iX editorial second story',2,'top_news','2026-11-01T00:00:00.000Z');`);
         await new Promise((resolve, reject) => connection.close(error => error ? reject(error) : resolve()));
         connection = null;
         const before = await readFile(databasePath);
@@ -126,6 +168,20 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
         assert.equal(computerbase.rankings[0].items[0].article.title, 'ComputerBase RSS title');
         assert.equal(computerbase.rankings[0].items[0].article.teaser, 'ComputerBase RSS teaser');
         assert.match(await run(['--most-read', 'computerbase']), /ComputerBase RSS title/);
+        const heiseIx = JSON.parse(await run(['--top-news', 'heise-ix', '--json']));
+        assert.equal(heiseIx.medium, 'heise-ix');
+        assert.equal(heiseIx.rankingKey, 'top_news');
+        assert.equal(heiseIx.rankings.length, 1);
+        assert.equal(heiseIx.rankings[0].sourceId, 5);
+        assert.equal(heiseIx.rankings[0].rankingKey, 'top_news');
+        assert.equal(heiseIx.rankings[0].sourceName, 'heise iX');
+        assert.equal(heiseIx.rankings[0].items[0].article.title, 'heise iX RSS title');
+        assert.equal(heiseIx.rankings[0].items[0].article.teaser, 'heise iX RSS teaser');
+        assert.equal(heiseIx.rankings[0].items[1].article, null);
+        const heiseIxText = await run(['--top-news', 'heise-ix']);
+        assert.match(heiseIxText, /heise iX · Top-News · 2026-11-01T00:00:00\.000Z/);
+        assert.match(heiseIxText, /1\theise iX RSS title\thttps:\/\/www.heise.de\/ix\/news\/heise-ix-fixture-12345.html/);
+        assert.doesNotMatch(heiseIxText, /Most read|Most commented|Generic Heise/);
         assert.deepEqual(await readFile(databasePath), before);
         assert.deepEqual(await readdir(directory), filesBefore);
     } finally {

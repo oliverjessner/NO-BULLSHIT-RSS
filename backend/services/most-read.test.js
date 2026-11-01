@@ -13,6 +13,7 @@ const { readRankingRefreshStatus, RANKING_STATUS_KEY } = await import('./ranking
 const { getStoredDigestPayload } = await import('./digest-store.js');
 const { readPublisherRankingsPayload } = await import('./publisher-rankings-reader.js');
 const { openReadOnlyDatabase } = await import('../../cli/lib/read-only-database.js');
+const { rankingMediumForSource } = await import('./ranking-media.js');
 await db.initSchema();
 
 const firstCapture = '2026-10-31T20:00:00.000Z';
@@ -56,6 +57,28 @@ async function computerBaseSource() {
 }
 const computerBaseUrl = 'https://www.computerbase.de/news/gaming/fixture.100081/';
 const computerBaseRankings = () => ({ most_read: [{ rank: 1, canonicalUrl: computerBaseUrl, title: 'ComputerBase chart title' }] });
+
+async function heiseIxSources() {
+    const sources = [
+        [701, 'heise iX', 'https://www.heise.de/ix', 'https://www.heise.de/ix/feed.xml'],
+        [702, 'heise online', 'https://www.heise.de/', 'https://www.heise.de/newsticker/heise-atom.xml'],
+        [703, 'c’t', 'https://www.heise.de/ct', 'https://www.heise.de/ct/rss/artikel.rdf'],
+        [704, 'Lookalike path', 'https://www.heise.de/ix-other', 'https://www.heise.de/ix/feed.xml?scope=lookalike'],
+        [705, 'Wrong feed', 'https://www.heise.de/ix/archive', 'https://www.heise.de/newsticker/heise-atom.xml?scope=wrong-feed'],
+        [706, 'iX imports', 'https://www.heise.de/ix/import', 'nbs-import:https://www.heise.de/ix'],
+    ];
+    for (const [id, name, websiteUrl, feedUrl] of sources) {
+        await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`, [id, name, websiteUrl, websiteUrl]);
+        await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`, [id + 100, id, name, feedUrl]);
+    }
+}
+const heiseIxUrl = 'https://www.heise.de/news/ix-fixture-11505931.html';
+const heiseIxRankings = () => ({ top_news: [
+    { rank: 1, canonicalUrl: heiseIxUrl, title: 'Editorial iX title' },
+    { rank: 2, canonicalUrl: 'https://www.heise.de/news/ix-second-11505793.html', title: 'Second iX top news' },
+] });
 
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
@@ -199,7 +222,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -368,6 +391,68 @@ test('the all-publisher schedule includes ComputerBase and preserves the two-lis
     for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
     assert.equal((await readRankingRefreshStatus(db)).state, 'ready');
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 6);
+});
+
+test('heise iX stores editorial Top-News separately and matches its RSS source without relabeling them as readership rankings', async () => {
+    await heiseIxSources();
+    await article('heise-online', 802, { url: heiseIxUrl, canonicalUrl: heiseIxUrl, title: 'Generic heise title' });
+    const rssId = await article('heise-ix', 801, { url: heiseIxUrl, canonicalUrl: heiseIxUrl, title: 'Actual iX RSS title' });
+    const snapshot = { sourceId: 701, capturedAt: firstCapture, rankings: heiseIxRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 2, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('heise-ix', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'top_news');
+        assert.equal(payload.rankings[0].sourceId, 701);
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'Actual iX RSS title');
+        assert.equal(payload.rankings[0].items[1].articleId, null);
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { most_read: heiseIxRankings().top_news } }), /Invalid ranking keys/);
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { top_news: [] } }), /complete Top-News/);
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, sourceId: 705 }), /RSS feed for that medium/);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read WHERE sourceId = 701')).count, 2);
+});
+
+test('heise iX matching requires the iX website path and RSS feed, excluding generic heise, c’t and lookalike paths', async () => {
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.heise.de/ix/' }).id, 'heise-ix');
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://heise.de/ix', feedUrl: 'https://heise.de/ix/feed.xml' }).id, 'heise-ix');
+    for (const websiteUrl of ['https://www.heise.de/', 'https://www.heise.de/ct/', 'https://www.heise.de/ix-other', 'https://heise.de.evil.test/ix']) {
+        assert.equal(rankingMediumForSource({ websiteUrl, feedUrl: 'https://www.heise.de/ix/feed.xml' }), null);
+    }
+    await heiseIxSources();
+    const captured = [];
+    await refreshMostReadRankings({ medium: 'heise-ix', capture: async ({ medium, source }) => {
+        captured.push([medium, source.id]);
+        return { capturedAt: firstCapture, rankings: heiseIxRankings() };
+    } });
+    assert.deepEqual(captured, [['heise-ix', 701]]);
+    await db.run('DELETE FROM feeds WHERE id = 801');
+    assert.equal((await readPublisherRankingsPayload('heise-ix', db)).configured, false, 'Other heise feeds do not configure iX');
+});
+
+test('all-publisher updates include iX Top-News while a failed manual iX refresh keeps history and the global cadence', async () => {
+    await heiseIxSources();
+    await winFutureSource();
+    await computerBaseSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings(), 'heise-ix': heiseIxRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix']);
+    assert.deepEqual(result, { updated: 4, total: 4 });
+    const cadence = (await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value;
+    await refreshMostReadRankings({ medium: 'heise-ix', capture: async () => { throw new Error('iX unavailable'); } });
+    const payload = await readPublisherRankingsPayload('heise-ix', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
+    assert.equal((await readRankingRefreshStatus(db, 'golem')).state, 'ready');
 });
 
 test('migration constraints, source deletion and article deletion preserve ranking history safely', async () => {

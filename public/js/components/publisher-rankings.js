@@ -17,9 +17,9 @@ function rankingUrl(value) {
 }
 
 function rankingLabel(group) {
-    const editorialLabel = group.rankingKey === 'top_news' && typeof group.label === 'string'
+    const providerLabel = ['top_news', 'most_read'].includes(group.rankingKey) && typeof group.label === 'string'
         ? group.label.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').trim().slice(0, 80) : '';
-    return editorialLabel || rankingLabels[group.rankingKey];
+    return providerLabel || rankingLabels[group.rankingKey];
 }
 
 export function normalizePublisherRankings(rankings) {

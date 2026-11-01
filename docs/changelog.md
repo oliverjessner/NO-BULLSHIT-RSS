@@ -1,6 +1,6 @@
 # 2.0.0
 
-- Add a separate Most read view for Golem, WinFuture, ComputerBase, heise iX, t3n, TechCrunch and Ars Technica, showing each publisher's supported most-read, most-commented or editorial lists. See the [compatibility guide](most-read-compatibility.md) for coverage and access requirements.
+- Add a separate Most read view for Golem, WinFuture, ComputerBase, heise iX, t3n, TechCrunch, Ars Technica and WIRED, showing each publisher's supported most-read, most-commented or editorial lists with their original labels. See the [compatibility guide](most-read-compatibility.md) for coverage and access requirements.
 - Combine saved ranking history in an All media feed, with duplicate articles removed and the newest RSS publications first. Show 40 articles initially and load more while scrolling or through Load more.
 - Display rankings with Feed-style RSS cards, previews, reading-list actions and dismiss/Undo controls. Refresh automatically accepts Golem's cookie consent when possible.
 - Unify ranking queries under `no-bullshit-rss articles top [count]`, with optional `--medium`, readable `--list`, `--json` and interactive `--choose` output.

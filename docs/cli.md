@@ -72,7 +72,7 @@ no-bullshit-rss articles top --medium techcrunch --list
 
 The count must be a positive integer and defaults to 40. It limits unique articles,
 not ranking rows. Supported media are `all` (the default), `golem`, `winfuture`,
-`computerbase`, `heise-ix`, `t3n`, `techcrunch` and `arstechnica`. A medium filter includes every
+`computerbase`, `heise-ix`, `t3n`, `techcrunch`, `arstechnica` and `wired`. A medium filter includes every
 kind of saved selection supported by that publisher.
 
 Default output and `--list` print a readable text list with source, title, URL,

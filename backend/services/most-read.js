@@ -8,6 +8,7 @@ import { fetchHeiseIxRankings } from './heise-ix-rankings.js';
 import { fetchT3nRankings } from './t3n-rankings.js';
 import { fetchTechCrunchRankings } from './techcrunch-rankings.js';
 import { fetchArsTechnicaRankings } from './arstechnica-rankings.js';
+import { fetchWiredRankings } from './wired-rankings.js';
 import { rankingMediumForSource, RANKING_KEYS, RANKING_MEDIA } from './ranking-media.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
 import { normalizeRankingStatus, rankingStatusKey } from './ranking-status.js';
@@ -23,6 +24,7 @@ const publisherCaptures = {
     t3n: fetchT3nRankings,
     techcrunch: fetchTechCrunchRankings,
     arstechnica: fetchArsTechnicaRankings,
+    wired: fetchWiredRankings,
 };
 
 function validateRankings(rankings, websiteUrl) {

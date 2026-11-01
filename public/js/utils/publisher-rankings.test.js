@@ -69,7 +69,7 @@ test('Most read has its own main menu, publisher selector and viewer outside Dig
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch'], ['arstechnica', 'Ars Technica']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['all', 'All media'], ['golem', 'Golem'], ['winfuture', 'WinFuture'], ['computerbase', 'ComputerBase'], ['heise-ix', 'heise iX'], ['t3n', 't3n'], ['techcrunch', 'TechCrunch'], ['arstechnica', 'Ars Technica'], ['wired', 'WIRED']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
@@ -273,14 +273,19 @@ test('t3n renders only its most-read selection with matched RSS metadata and Fee
     }
 });
 
-test('editorial labels are bounded strings with safe defaults for existing ranking kinds', () => {
+test('publisher labels are bounded strings with safe defaults for existing ranking kinds', () => {
     const group = { ...snapshot()[0], rankingKey: 'top_news', label: ' Top\nHeadlines\t' };
     assert.equal(normalizePublisherRankings([group])[0].label, 'Top Headlines');
     assert.equal(normalizePublisherRankings([{ ...group, label: 'x'.repeat(100) }])[0].label, 'x'.repeat(80));
     for (const label of ['', ' \n ', null, { text: 'Other' }]) {
         assert.equal(normalizePublisherRankings([{ ...group, label }])[0].label, 'Top-News');
     }
-    assert.equal(normalizePublisherRankings([{ ...group, rankingKey: 'most_read' }])[0].label, 'Most read');
+    const mostRead = { ...group, rankingKey: 'most_read', label: ' Most\nPopular\t' };
+    assert.equal(normalizePublisherRankings([mostRead])[0].label, 'Most Popular');
+    assert.equal(normalizePublisherRankings([{ ...mostRead, label: 'x'.repeat(100) }])[0].label, 'x'.repeat(80));
+    for (const label of ['', ' \n ', null, { text: 'Other' }]) {
+        assert.equal(normalizePublisherRankings([{ ...mostRead, label }])[0].label, 'Most read');
+    }
     assert.equal(normalizePublisherRankings([{ ...group, rankingKey: 'most_commented' }])[0].label, 'Most commented');
 });
 
@@ -339,6 +344,37 @@ test('Ars Technica renders its most-read RSS card with the original publisher po
         assert.equal(container.querySelector('.article-save-btn').disabled, false);
         assert.equal(container.querySelector('.article-dismiss-btn').disabled, false);
         assert.equal(articles.get(7).sourceName, 'Ars Technica RSS');
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+    }
+});
+
+test('WIRED Most Popular remains visible in grouped and mixed RSS cards without parsing label HTML', () => {
+    const previousDocument = globalThis.document;
+    const { document } = parseHTML(markup);
+    globalThis.document = document;
+    try {
+        const rankings = snapshot();
+        Object.assign(rankings[0], { sourceId: 9, sourceName: 'WIRED', label: 'Most Popular' });
+        Object.assign(rankings[0].items[0], {
+            rank: 2, canonicalUrl: 'https://www.wired.com/story/wired-fixture/',
+            article: { ...rankings[0].items[0].article, sourceName: 'WIRED RSS', title: 'WIRED RSS headline', teaser: 'WIRED stored RSS teaser.', url: 'https://www.wired.com/story/wired-fixture/' },
+        });
+        const container = document.querySelector('#publisher-rankings');
+        renderPublisherRankings(container, rankings, new Map(), { status: { state: 'ready' }, publisherName: 'WIRED' });
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, 'Most Popular');
+        assert.equal(container.querySelector('.publisher-ranking-rank').textContent, '#2');
+        assert.equal(container.querySelector('.article-title-button').textContent, 'WIRED RSS headline');
+        assert.equal(container.querySelector('.teaser').textContent, 'WIRED stored RSS teaser.');
+        const article = { ...rankings[0].items[0].article, canonicalUrl: rankings[0].items[0].canonicalUrl,
+            rankings: [{ medium: 'wired', rankingKey: 'most_read', label: 'Most Popular', rank: 2 }] };
+        renderTopArticles(container, [article], new Map(), { status: { state: 'ready' }, media: [{ id: 'wired', name: 'WIRED' }] });
+        assert.equal(container.querySelector('.publisher-ranking-provenance').textContent, 'WIRED · Most Popular #2');
+        rankings[0].label = '<img src=x onerror=alert(1)>';
+        renderPublisherRankings(container, rankings, new Map(), { status: { state: 'ready' }, publisherName: 'WIRED' });
+        assert.equal(container.querySelector('.publisher-ranking-title').textContent, '<img src=x onerror=alert(1)>');
+        assert.equal(container.querySelector('.publisher-ranking-title img'), null);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

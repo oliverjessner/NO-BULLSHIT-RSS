@@ -104,6 +104,18 @@ const techCrunchRankings = () => ({ top_news: [
     { rank: 2, canonicalUrl: 'https://techcrunch.com/2026/10/30/second-fixture/', title: 'Second TechCrunch headline' },
 ] });
 
+async function arsTechnicaSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (1301, 'Ars Technica', 'https://arstechnica.com/', 'https://arstechnica.com/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (1401, 1301, 'Ars RSS', 'https://feeds.arstechnica.com/arstechnica/index', datetime('now'), datetime('now'))`);
+}
+const arsUrl = 'https://arstechnica.com/space/2026/10/ars-fixture/';
+const arsRankings = () => ({ most_read: [
+    { rank: 1, canonicalUrl: arsUrl, title: 'Ars publisher headline' },
+    { rank: 5, canonicalUrl: 'https://arstechnica.com/gadgets/2026/10/second-ars-fixture/', title: 'Second Ars headline' },
+] });
+
 async function article(slug, feedId = 201, extra = {}) {
     const result = await db.run(`INSERT INTO articles
         (feedId, externalId, title, teaser, content, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
@@ -246,7 +258,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }, { id: 'computerbase', name: 'ComputerBase' }, { id: 'heise-ix', name: 'heise iX' }, { id: 't3n', name: 't3n' }, { id: 'techcrunch', name: 'TechCrunch' }, { id: 'arstechnica', name: 'Ars Technica' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -590,6 +602,62 @@ test('the all-publisher schedule includes TechCrunch Top Headlines with all exis
     } });
     assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch']);
     assert.deepEqual(result, { updated: 6, total: 6 });
+    for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
+});
+
+test('Ars Technica preserves most-read ranks and matches only its RSS source despite the external feed hostname', async () => {
+    await arsTechnicaSource();
+    await article('other-ars', 203, { url: arsUrl, canonicalUrl: arsUrl });
+    const rssId = await article('actual-ars', 1401, { url: `${arsUrl}?utm_source=rss`, canonicalUrl: arsUrl, title: 'Actual Ars RSS title' });
+    const snapshot = { sourceId: 1301, capturedAt: firstCapture, rankings: arsRankings() };
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 2, capturedAt: firstCapture });
+    assert.deepEqual(await saveMostReadSnapshot(snapshot), { inserted: 0, capturedAt: firstCapture });
+    const readonly = await openReadOnlyDatabase(process.env.DB_PATH);
+    try {
+        const payload = await readPublisherRankingsPayload('arstechnica', readonly);
+        assert.equal(payload.configured, true);
+        assert.equal(payload.rankings.length, 1);
+        assert.equal(payload.rankings[0].rankingKey, 'most_read');
+        assert.deepEqual(payload.rankings[0].items.map(item => item.rank), [1, 5]);
+        assert.equal(payload.rankings[0].items[0].articleId, rssId);
+        assert.equal(payload.rankings[0].items[0].article.title, 'Actual Ars RSS title');
+        assert.equal(payload.rankings[0].items[1].articleId, null);
+        assert.equal((await readonly.get('SELECT total_changes() AS count')).count, 0);
+    } finally { await readonly.close(); }
+    await assert.rejects(saveMostReadSnapshot({ ...snapshot, capturedAt: nextCapture, rankings: { ...arsRankings(), most_commented: arsRankings().most_read } }), /Invalid ranking keys/);
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://www.arstechnica.com/' }).id, 'arstechnica');
+    assert.equal(rankingMediumForSource({ websiteUrl: 'https://arstechnica.com.evil.test/' }), null);
+});
+
+test('failed manual Ars capture preserves its saved chart and global cadence while the collected reader includes it', async () => {
+    await arsTechnicaSource();
+    await saveMostReadSnapshot({ sourceId: 1301, capturedAt: firstCapture, rankings: arsRankings() });
+    const cadence = JSON.stringify({ state: 'ready', attemptedAt: firstCapture });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, cadence]);
+    const captured = [];
+    await refreshMostReadRankings({ medium: 'arstechnica', capture: async ({ medium }) => {
+        captured.push(medium); throw new Error('Ars chart unavailable');
+    } });
+    assert.deepEqual(captured, ['arstechnica']);
+    const payload = await readPublisherRankingsPayload('arstechnica', db);
+    assert.equal(payload.rankingStatus.state, 'error');
+    assert.equal(payload.rankings[0].capturedAt, firstCapture);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, cadence);
+    const { readTopArticles } = await import('./top-articles-reader.js');
+    const top = await readTopArticles(db, { medium: 'arstechnica' });
+    assert.equal(top.items.length, 2);
+    assert.ok(top.items.every(item => item.rankings[0].medium === 'arstechnica' && item.rankings[0].label === 'Most read'));
+});
+
+test('all-publisher captures include Ars Technica with every existing medium and selection type', async () => {
+    await winFutureSource(); await computerBaseSource(); await heiseIxSources(); await t3nSource(); await techCrunchSource(); await arsTechnicaSource();
+    const captured = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: { golem: rankings(), winfuture: winFutureRankings(), computerbase: computerBaseRankings(), 'heise-ix': heiseIxRankings(), t3n: t3nRankings(), techcrunch: techCrunchRankings(), arstechnica: arsRankings() }[medium] };
+    } });
+    assert.deepEqual(captured, ['golem', 'winfuture', 'computerbase', 'heise-ix', 't3n', 'techcrunch', 'arstechnica']);
+    assert.deepEqual(result, { updated: 7, total: 7 });
     for (const medium of captured) assert.equal((await readRankingRefreshStatus(db, medium)).state, 'ready');
 });
 

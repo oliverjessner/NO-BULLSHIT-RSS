@@ -153,11 +153,6 @@ html {
 .rankings-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--oj-space-3); }
 .rankings-medium { display: grid; gap: var(--oj-space-1); min-inline-size: 11rem; }
 .rankings-medium .select-dropdown { inline-size: 100%; }
-.rankings-access { display: grid; gap: var(--oj-space-3); margin-block-end: var(--oj-space-6); padding: var(--oj-space-4); }
-.rankings-access h2, .rankings-access p { margin: 0; }
-.rankings-access p { font-size: var(--oj-text-sm); line-height: var(--oj-leading-normal); }
-.rankings-access-actions { display: flex; flex-wrap: wrap; gap: var(--oj-space-2); }
-.rankings-access-actions [hidden] { display: none; }
 @media (max-width: 45rem) {
     .rankings-controls { inline-size: 100%; }
     .rankings-medium { flex: 1; min-inline-size: 8rem; }

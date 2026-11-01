@@ -2,7 +2,6 @@ import { extractSelector } from 'fetchary';
 import { parseHTML } from 'linkedom';
 import { cleanHttpUrl } from '../utils/url.js';
 import { configureRankingBrowser } from './ranking-browser.js';
-import { getGolemSessionOptions } from './ranking-session.js';
 import { logWarn } from '../utils/logger.js';
 
 export const GOLEM_RANKINGS_URL = 'https://www.golem.de/';
@@ -16,7 +15,7 @@ const hostname = value => new URL(value).hostname.toLowerCase().replace(/^www\./
 
 export class GolemConsentRequiredError extends Error {
     constructor(cause) {
-        super('Automatic Golem consent could not be completed. Refresh again or set up saved Golem access.', { cause });
+        super('Automatic Golem consent could not be completed. Try refreshing again.', { cause });
         this.name = 'GolemConsentRequiredError';
         this.code = 'GOLEM_CONSENT_REQUIRED';
         this.phase = 'consent';
@@ -95,13 +94,9 @@ function parseCapture(result) {
 export async function fetchGolemRankings({
     extract = extractSelector,
     configureBrowser = extract === extractSelector ? configureRankingBrowser : null,
-    getSessionOptions = extract === extractSelector ? getGolemSessionOptions : async () => ({}),
 } = {}) {
     const signal = AbortSignal.timeout(30_000);
-    const sessionOptions = await getSessionOptions();
-    signal.throwIfAborted();
     const options = {
-        ...(sessionOptions.session ? { session: sessionOptions.session, sessionDir: sessionOptions.sessionDir } : {}),
         selector: '.go-teaser-block', all: true, format: 'html', consent: 'accept',
         timeout: 12_000, signal, cacheTtlMs: 60_000,
         maxResponseBytes: 3 * 1024 * 1024, insecure: false,

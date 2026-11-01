@@ -204,29 +204,21 @@ test('accepts inline consent dialogs through a rendered retry', async () => {
     assert.deepEqual(modes, ['http', 'browser']);
 });
 
-test('does not report a completed consent decision as requiring manual access when ranking markup is missing', async () => {
+test('reports missing rankings separately from a completed consent decision', async () => {
     await assert.rejects(fetchGolemRankings({ extract: async () => result({
         data: { values: [read] },
         consent: { detected: true, action: 'accept', status: 'handled' },
     }) }), error => error.code === 'GOLEM_RANKINGS_MISSING');
 });
 
-test('resolves saved Golem access once and reuses it for HTTP and browser capture with the explicit accept policy and without reading browser profiles', async () => {
-    let sessionReads = 0;
+test('HTTP and browser capture use automatic consent acceptance without saved sessions or browser profiles', async () => {
     const modes = [];
     const snapshot = await fetchGolemRankings({
-        getSessionOptions: async () => {
-            sessionReads += 1;
-            return {
-                session: 'nbs-golem', sessionDir: '/private/publisher-sessions',
-                consent: 'off', cookiesFromBrowser: 'chrome', browserProfile: 'Default',
-            };
-        },
         configureBrowser: () => ({ source: 'system' }),
         extract: async (_url, options) => {
             modes.push(options.mode);
-            assert.equal(options.session, 'nbs-golem');
-            assert.equal(options.sessionDir, '/private/publisher-sessions');
+            assert.equal(Object.hasOwn(options, 'session'), false);
+            assert.equal(Object.hasOwn(options, 'sessionDir'), false);
             assert.equal(options.consent, 'accept');
             assert.equal(Object.hasOwn(options, 'cookiesFromBrowser'), false);
             assert.equal(Object.hasOwn(options, 'browserProfile'), false);
@@ -234,19 +226,7 @@ test('resolves saved Golem access once and reuses it for HTTP and browser captur
             return options.mode === 'http' ? result({ data: { values: [read] } }) : result();
         },
     });
-    assert.equal(sessionReads, 1);
     assert.deepEqual(modes, ['http', 'browser']);
     assert.equal(snapshot.rankings.most_read.length, 1);
     assert.equal(snapshot.rankings.most_commented.length, 1);
-});
-
-test('does not start capture when saved access storage reports an error', async () => {
-    const storageError = new Error('Saved Golem access is unavailable');
-    storageError.code = 'ACCESS_STORAGE';
-    let captures = 0;
-    await assert.rejects(fetchGolemRankings({
-        getSessionOptions: async () => { throw storageError; },
-        extract: async () => { captures += 1; return result(); },
-    }), error => error === storageError);
-    assert.equal(captures, 0);
 });

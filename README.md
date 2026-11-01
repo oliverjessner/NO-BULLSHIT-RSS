@@ -91,6 +91,8 @@ Save a story to a reading list or mark it as digested when you are done.
 
 ## Explore publisher rankings
 
+See the [Most read compatibility guide](docs/most-read-compatibility.md) for supported media, selection types and access requirements.
+
 Open **Most read**, choose **Golem**, **WinFuture**, **ComputerBase**, **heise iX**, **t3n** or **TechCrunch** and select **Refresh** to load the publisher's latest selection. ComputerBase's supported ranking covers most-read news from the last 72 hours. t3n supports most-read articles. ComputerBase and t3n most-commented rankings are not supported. heise iX shows editorial **Top-News** and TechCrunch shows its homepage's editorial **Top Headlines**, independently of readership or comment counts.
 
 Refresh automatically accepts Golem's cookie consent when possible. If automatic consent cannot finish, retry **Refresh**.

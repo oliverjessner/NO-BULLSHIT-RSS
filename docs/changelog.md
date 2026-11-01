@@ -1,4 +1,4 @@
-# 1.7.0
+# 2.0.0
 
 - Add TechCrunch's Top Headlines from its homepage, matched to its RSS feed, with publisher selection, eight-hour updates and `--top-news techcrunch` CLI access.
 - Add t3n's dynamically loaded most-read articles to publisher selection, RSS cards, eight-hour updates and the read-only `--most-read t3n` CLI.
@@ -7,18 +7,13 @@
 - Read saved publisher rankings through `--most-read <medium>` and `--most-commented <medium>`, with RSS article data and optional JSON output.
 - Refresh all publisher rankings on a separate eight-hour schedule, remember attempts across restarts, and match newly fetched RSS articles without another publisher capture.
 - Add WinFuture's most-read and most-commented rankings with publisher selection, saved ranking history and RSS matching.
-- Update Tauri's opener to 2.7.2 (Dependabot #14).
-- Update the cc build dependency to 1.10.0 (Dependabot #21).
-- Keep Compact feed rows at their content height when scrolling or switching layouts.
 - Share RSS decoding and validation across Settings and scheduled imports and report publisher access blocks such as VentureBeat's HTTP 429.
 - Seed the 40 production RSS feeds on new or incomplete installations while preserving existing preferences and later deletions.
 - Include the 13 production Bullshit rules for new installations and add missing defaults without changing existing rule preferences.
 - Clean saved and displayed feed, website and article URLs with Linkary, removing tracking parameters and fragments while retaining functional query parameters and recognizing legacy import URLs.
 - Deliver Watchdog notifications through macOS UserNotifications with foreground banners, delivery errors, tap routing and permission recovery in Settings.
-- Show Golem's most-read and most-commented articles in a dedicated Most read view with Golem selection, independent refresh, ranking history and RSS matching.
+- most-read menu
 - Keep publisher rankings visible while loading or after failed updates, report refresh status, and fall back to installed Chrome when available.
-- Keep Golem access automatic through Fetchary's consent acceptance without manual login, session setup or PUR controls.
-- Use Fetchary's accept consent policy for Golem and handle its cookie choice automatically during browser capture.
 - Render publisher rankings with the Feed's article cards, RSS titles and previews, reading-list actions and dismiss/Undo controls, without repeated access or refresh explanations.
 - Remove regenerable Tauri and desktop build caches only after the release and Homebrew update succeed, preserving release artifacts and application data.
 

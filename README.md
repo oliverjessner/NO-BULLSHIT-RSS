@@ -95,6 +95,8 @@ Open **Most read**, choose **Golem** and select **Refresh** to load its latest m
 
 Refresh automatically accepts Golem's cookie consent when possible. If automatic consent cannot finish, retry **Refresh**.
 
+Publisher rankings refresh automatically every eight hours while the app is running. The last attempt is remembered across restarts. **Refresh** captures new rankings immediately; regular RSS updates continue independently.
+
 ## Follow keyword alerts with Watchdog
 
 Collect keyword matches in a dedicated inbox, with exclusions, feed restrictions and filters for reading state and publication time.

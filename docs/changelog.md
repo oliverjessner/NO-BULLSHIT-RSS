@@ -1,6 +1,7 @@
 # 1.7.0
 
 - Read saved publisher rankings through `--most-read <medium>` and `--most-commented <medium>`, with RSS article data and optional JSON output.
+- Refresh all publisher rankings on a separate eight-hour schedule, remember attempts across restarts, and match newly fetched RSS articles without another publisher capture.
 - Update Tauri's opener to 2.7.2 (Dependabot #14).
 - Update the cc build dependency to 1.10.0 (Dependabot #21).
 - Keep Compact feed rows at their content height when scrolling or switching layouts.

@@ -4,11 +4,22 @@ import { closeViewer, isViewerOpen, openArticle, openExternal, renderViewer } fr
 import { store } from '../state/store.js';
 import { dom } from '../ui/dom.js';
 import { isAbortError } from '../utils/data.js';
+import { setSelectValue } from '../ui/select-dropdown.js';
 
 let initialized = false;
 let refreshPromise = null;
 let pollTimer = null;
 const pendingDismissals = new Set();
+
+function selectedMedium() {
+    return [...dom.rankings.medium.options].some(option => option.value === store.ui.rankingsMedium) ? store.ui.rankingsMedium : 'golem';
+}
+
+function publisherName() {
+    const medium = selectedMedium();
+    return store.rankings.payload?.media?.find(item => item.id === medium)?.name
+        || [...dom.rankings.medium.options].find(option => option.value === medium)?.textContent || medium;
+}
 
 function clearPoll() {
     if (pollTimer !== null) clearTimeout(pollTimer);
@@ -26,8 +37,8 @@ function schedulePoll(status = store.rankings.payload?.rankingStatus) {
 
 function updateControls(status = store.rankings.payload?.rankingStatus) {
     const refreshing = Boolean(refreshPromise) || status?.state === 'refreshing';
-    dom.rankings.medium.value = 'golem';
     dom.rankings.medium.disabled = refreshing;
+    setSelectValue(dom.rankings.medium, selectedMedium());
     dom.rankings.refresh.disabled = refreshing || store.rankings.payload?.configured === false;
     dom.rankings.refresh.setAttribute('aria-busy', String(refreshing));
     const icon = document.createElement('i');
@@ -36,7 +47,7 @@ function updateControls(status = store.rankings.payload?.rankingStatus) {
     const label = refreshing ? 'Refreshing…' : status?.state === 'error' ? 'Retry refresh' : 'Refresh';
     dom.rankings.refresh.replaceChildren(icon, document.createTextNode(` ${label}`));
     const errorMessage = status?.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Automatic Golem consent could not be completed.' : 'Refresh failed.';
-    dom.rankings.refresh.title = status?.state === 'error' ? `${errorMessage} Retry refresh.` : "Refresh rankings; Golem's cookie consent is accepted automatically.";
+    dom.rankings.refresh.title = status?.state === 'error' ? `${errorMessage} Retry refresh.` : `Refresh ${publisherName()} rankings`;
     dom.rankings.refresh.setAttribute('aria-label', status?.state === 'error' ? `${label}: ${errorMessage}` : label);
 }
 
@@ -44,26 +55,27 @@ function render(payload, { status = payload?.rankingStatus } = {}) {
     const rankings = pendingDismissals.size ? payload?.rankings?.map(group => ({
         ...group, items: group.items.filter(item => !pendingDismissals.has(Number(item.articleId))),
     })) : payload?.rankings;
-    const fingerprint = publisherRankingsFingerprint(rankings, status, payload?.configured);
+    const fingerprint = `${selectedMedium()}|${publisherRankingsFingerprint(rankings, status, payload?.configured)}`;
     if (fingerprint !== store.rankings.fingerprint) {
         store.rankings.fingerprint = fingerprint;
         store.rankings.articlesById = new Map();
-        renderPublisherRankings(dom.rankings.content, rankings, store.rankings.articlesById, { status, configured: payload?.configured });
+        renderPublisherRankings(dom.rankings.content, rankings, store.rankings.articlesById, { status, configured: payload?.configured, publisherName: publisherName() });
         renderViewer();
     }
     updateControls(status);
 }
 
-function applyPayload(payload) {
-    if (payload?.medium !== 'golem' || !Array.isArray(payload.rankings)) throw new Error('Invalid publisher rankings response');
+function applyPayload(payload, medium = selectedMedium()) {
+    if (payload?.medium !== medium || !Array.isArray(payload.rankings)) throw new Error('Invalid publisher rankings response');
     store.rankings.payload = payload;
     store.rankings.needsRefresh = false;
     render(payload);
 }
 
 export async function loadRankings({ force = false, silent = false } = {}) {
+    const medium = selectedMedium();
     if (refreshPromise) { store.rankings.needsRefresh = true; return; }
-    if (!force && !store.rankings.needsRefresh && store.rankings.payload) return;
+    if (!force && !store.rankings.needsRefresh && store.rankings.payload?.medium === medium) return;
     clearPoll();
     store.rankings.requestController?.abort();
     const controller = new AbortController();
@@ -71,12 +83,12 @@ export async function loadRankings({ force = false, silent = false } = {}) {
     store.rankings.requestController = controller;
     if (!silent && !store.rankings.payload) render(null, { status: { state: 'loading' } });
     try {
-        const payload = await api.rankings('golem', controller.signal);
-        if (requestId !== store.rankings.requestId) return;
-        applyPayload(payload);
+        const payload = await api.rankings(medium, controller.signal);
+        if (requestId !== store.rankings.requestId || medium !== selectedMedium()) return;
+        applyPayload(payload, medium);
         schedulePoll(payload.rankingStatus);
     } catch (error) {
-        if (isAbortError(error) || requestId !== store.rankings.requestId) return;
+        if (isAbortError(error) || requestId !== store.rankings.requestId || medium !== selectedMedium()) return;
         store.rankings.needsRefresh = true;
         render(store.rankings.payload, { status: { state: 'error' } });
     } finally {
@@ -87,6 +99,7 @@ export async function loadRankings({ force = false, silent = false } = {}) {
 export function refreshRankings() {
     if (refreshPromise) return refreshPromise;
     if (store.rankings.payload?.configured === false) return Promise.resolve();
+    const medium = selectedMedium();
     clearPoll();
     store.rankings.requestController?.abort();
     ++store.rankings.requestId;
@@ -96,13 +109,15 @@ export function refreshRankings() {
     refreshPromise = (async () => {
         let finalStatus;
         try {
-            const payload = await api.refreshRankings('golem');
-            applyPayload(payload);
+            const payload = await api.refreshRankings(medium);
+            if (medium !== selectedMedium()) return;
+            applyPayload(payload, medium);
             finalStatus = payload.rankingStatus;
         } catch (error) {
+            if (medium !== selectedMedium()) return;
             const status = error.status === 409 ? 'refreshing' : 'error';
             finalStatus = { ...error.data?.rankingStatus, state: status };
-            if (error.data?.medium === 'golem' && Array.isArray(error.data.rankings)) {
+            if (error.data?.medium === medium && Array.isArray(error.data.rankings)) {
                 applyPayload({ ...error.data, rankingStatus: finalStatus });
             } else {
                 render(store.rankings.payload, { status: finalStatus });
@@ -110,6 +125,11 @@ export function refreshRankings() {
             }
         } finally {
             refreshPromise = null;
+            if (medium !== selectedMedium()) {
+                store.rankings.needsRefresh = true;
+                if (store.ui.activeView === 'rankings') void loadRankings({ force: true });
+                return;
+            }
             // A 409 may omit a payload; keep checking the running refresh rather
             // than turning its button into a second refresh request.
             updateControls(finalStatus);
@@ -173,10 +193,17 @@ async function activateCardAction(event) {
 
 function bindEvents() {
     dom.rankings.medium.addEventListener('change', () => {
-        // Golem is the only supported medium until another adapter is added.
-        dom.rankings.medium.value = 'golem';
-        store.ui.rankingsMedium = 'golem';
-        void loadRankings({ force: true, silent: true });
+        const medium = dom.rankings.medium.value;
+        if (refreshPromise || ![...dom.rankings.medium.options].some(option => option.value === medium)) {
+            setSelectValue(dom.rankings.medium, selectedMedium());
+            return;
+        }
+        if (medium === selectedMedium()) return;
+        store.ui.rankingsMedium = medium;
+        store.rankings.payload = null;
+        store.rankings.needsRefresh = true;
+        closeViewer();
+        void loadRankings({ force: true });
     });
     dom.rankings.refresh.addEventListener('click', () => { void refreshRankings(); });
     dom.rankings.content.addEventListener('click', event => {

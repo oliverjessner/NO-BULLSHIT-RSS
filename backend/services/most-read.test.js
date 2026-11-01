@@ -25,6 +25,7 @@ const save = (extra = {}) => saveMostReadSnapshot({ sourceId: 101, capturedAt: f
 test.beforeEach(async () => {
     await db.run('DELETE FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY]);
     await db.exec(`DELETE FROM digest_periods; DELETE FROM sources; DELETE FROM bullshit_rules;
+        DELETE FROM app_metadata WHERE key LIKE 'rankings.refresh.status%';
         INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt) VALUES
             (101, 'Golem', 'https://www.golem.de/', 'https://www.golem.de/', datetime('now'), datetime('now')),
             (102, 'Other', 'https://other.test/', 'https://other.test/', datetime('now'), datetime('now')),
@@ -34,6 +35,17 @@ test.beforeEach(async () => {
             (202, 101, 'Golem imports', 'nbs-import:https://www.golem.de', datetime('now'), datetime('now')),
             (203, 102, 'Other RSS', 'https://other.test/feed', datetime('now'), datetime('now')),
             (204, 103, 'Manual only', 'nbs-import:https://golem.de', datetime('now'), datetime('now'));`);
+});
+
+async function winFutureSource() {
+    await db.run(`INSERT INTO sources (id, name, websiteUrl, canonicalWebsiteUrl, createdAt, updatedAt)
+        VALUES (301, 'WinFuture', 'https://winfuture.de/', 'https://winfuture.de/', datetime('now'), datetime('now'))`);
+    await db.run(`INSERT INTO feeds (id, sourceId, name, feedUrl, createdAt, updatedAt)
+        VALUES (401, 301, 'WinFuture RSS', 'https://static.winfuture.de/feeds/WinFuture-News-rss2.0.xml', datetime('now'), datetime('now'))`);
+}
+const winFutureRankings = () => ({
+    most_read: [{ rank: 1, canonicalUrl: 'https://winfuture.de/news,162334.html', title: 'FritzOS 8.40' }],
+    most_commented: [{ rank: 1, canonicalUrl: 'https://winfuture.de/news,162318.html', title: 'VW ID. Golf' }],
 });
 
 async function article(slug, feedId = 201, extra = {}) {
@@ -178,7 +190,7 @@ test('standalone publisher data is read-only and separate from Digest periods', 
         assert.equal(current.rankings.length, 2);
         assert.deepEqual(readonly, current);
         assert.equal(current.rankings[0].capturedAt, firstCapture);
-        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }]);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }]);
         assert.equal(current.configured, true);
         await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
         assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
@@ -224,6 +236,68 @@ test('old read-only databases without the new table return no rankings without q
         return [];
     } }), []);
     assert.equal(queries, 1);
+});
+
+test('dispatches WinFuture by source host and reuses atomic ranking history and RSS matching separately from Golem', async () => {
+    await winFutureSource();
+    const article = await db.run(`INSERT INTO articles (feedId, externalId, title, url, canonicalUrl, contentHash, publishedAt, fetchedAt, createdAt, updatedAt)
+        VALUES (401, 'wf-fixture', 'WinFuture RSS story', 'https://winfuture.de/news,162334.html', 'https://winfuture.de/news,162334.html', 'fixture', ?, ?, ?, ?)`,
+    [firstCapture, firstCapture, firstCapture, firstCapture]);
+    const media = [];
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        media.push(medium);
+        return { capturedAt: firstCapture, rankings: medium === 'golem' ? rankings() : winFutureRankings() };
+    } });
+    assert.deepEqual(media, ['golem', 'winfuture']);
+    assert.deepEqual(result, { updated: 2, total: 2 });
+    const payload = await readPublisherRankingsPayload('winfuture', db);
+    assert.equal(payload.configured, true);
+    assert.equal(payload.rankings.length, 2);
+    assert.ok(payload.rankings.every(group => group.sourceId === 301));
+    const read = payload.rankings.find(group => group.rankingKey === 'most_read');
+    assert.equal(read.items[0].articleId, article.lastID);
+    assert.equal(payload.rankings.find(group => group.rankingKey === 'most_commented').items[0].articleId, null);
+    assert.ok((await readPublisherRankingsPayload('golem', db)).rankings.every(group => group.sourceId === 101));
+});
+
+test('manual WinFuture refresh captures only that medium and cannot postpone the all-publisher schedule or inherit legacy Golem failures', async () => {
+    await winFutureSource();
+    const legacy = JSON.stringify({ state: 'error', attemptedAt: firstCapture, errorCode: 'GOLEM_CONSENT_REQUIRED' });
+    await db.run("INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))", [RANKING_STATUS_KEY, legacy]);
+    assert.equal((await readRankingRefreshStatus(db, 'golem')).errorCode, 'GOLEM_CONSENT_REQUIRED');
+    assert.equal((await readRankingRefreshStatus(db, 'winfuture')).state, 'idle');
+    const captured = [];
+    assert.deepEqual(await refreshMostReadRankings({ medium: 'winfuture', capture: async ({ medium }) => {
+        captured.push(medium);
+        return { capturedAt: firstCapture, rankings: winFutureRankings() };
+    } }), { updated: 1, total: 1 });
+    assert.deepEqual(captured, ['winfuture']);
+    assert.equal((await readRankingRefreshStatus(db, 'winfuture')).state, 'ready');
+    assert.equal((await readRankingRefreshStatus(db, 'winfuture')).errorCode, null);
+    assert.equal((await db.get('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY])).value, legacy);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read WHERE sourceId = 101')).count, 0);
+});
+
+test('an all-publisher pass records independent outcomes when Golem fails and WinFuture succeeds', async () => {
+    await winFutureSource();
+    const result = await refreshMostReadRankings({ capture: async ({ medium }) => {
+        if (medium === 'golem') {
+            const error = new Error('Automatic Golem consent failed');
+            error.code = 'GOLEM_CONSENT_REQUIRED';
+            throw error;
+        }
+        return { capturedAt: firstCapture, rankings: winFutureRankings() };
+    } });
+    assert.deepEqual(result, { updated: 1, total: 2 });
+    const golem = await readPublisherRankingsPayload('golem', db);
+    const winfuture = await readPublisherRankingsPayload('winfuture', db);
+    assert.equal(golem.rankingStatus.state, 'error');
+    assert.equal(golem.rankingStatus.errorCode, 'GOLEM_CONSENT_REQUIRED');
+    assert.equal(winfuture.rankingStatus.state, 'ready');
+    assert.equal(winfuture.rankingStatus.errorCode, null);
+    assert.equal(winfuture.rankings.length, 2);
+    assert.equal((await readRankingRefreshStatus(db)).state, 'error');
+    assert.ok((await readRankingRefreshStatus(db)).attemptedAt);
 });
 
 test('migration constraints, source deletion and article deletion preserve ranking history safely', async () => {

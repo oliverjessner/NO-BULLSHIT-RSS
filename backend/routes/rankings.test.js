@@ -16,7 +16,7 @@ async function fixture(t, overrides = {}) {
     const state = {
         rankingStatus: { state: 'ready', attemptedAt: '2026-11-01T00:00:00Z', errorCode: null, message: null },
     };
-    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }], configured: true,
+    const payload = medium => ({ medium, media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }], configured: true,
         rankings: [{ sourceId: 1, rankingKey: 'most_read', items: [{ rank: 1, title: 'Saved article', canonicalUrl: 'https://www.golem.de/news/saved.html' }] }],
         rankingStatus: state.rankingStatus });
     const app = express(); app.use(express.json());
@@ -41,10 +41,21 @@ test('GET rankings is read-only and exposes only the supported Golem medium', as
     const response = await fetch(`${f.base}?medium=golem`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }]);
+    assert.deepEqual(body.media, [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }]);
     assert.equal(body.medium, 'golem');
     assert.equal(body.rankings[0].items[0].title, 'Saved article');
     assert.equal(Object.hasOwn(body, 'access'), false);
+    assert.deepEqual(f.calls, []);
+});
+
+test('WinFuture can be selected and refreshed independently', async t => {
+    let captured;
+    const f = await fixture(t, { refresh: async options => { captured = options; } });
+    assert.equal((await (await fetch(`${f.base}?medium=winfuture`)).json()).medium, 'winfuture');
+    const refreshed = await f.request('/refresh', { medium: 'winfuture' });
+    assert.equal(refreshed.status, 200);
+    assert.equal((await refreshed.json()).medium, 'winfuture');
+    assert.deepEqual(captured, { medium: 'winfuture' });
     assert.deepEqual(f.calls, []);
 });
 

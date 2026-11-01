@@ -15,6 +15,7 @@ const env = { ...process.env, DB_PATH: path.join(directory, 'fixture.db'), TOPIC
 let backend, browser;
 const url = 'https://www.golem.de/news/rankings-ui-fixture.html';
 const unmatchedUrl = 'https://www.golem.de/news/unmatched-ui-fixture.html';
+const winFutureUrl = 'https://winfuture.de/news,162334.html';
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -43,6 +44,12 @@ try {
         await saveMostReadSnapshot({ sourceId: 1, capturedAt: new Date().toISOString(), rankings: {
             most_read: [{ canonicalUrl: ${JSON.stringify(url)}, title: 'Publisher ranking headline', rank: 1 }, { canonicalUrl: ${JSON.stringify(`${url}?id=second`)}, title: 'Second publisher headline', rank: 2 }, { canonicalUrl: ${JSON.stringify(unmatchedUrl)}, title: 'Unmatched publisher headline', rank: 3 }],
             most_commented: [{ canonicalUrl: ${JSON.stringify(url)}, title: 'Publisher ranking headline', rank: 1 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (2,'WinFuture','https://winfuture.de/','https://winfuture.de/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (2,2,'WinFuture RSS','https://static.winfuture.de/fixture',datetime('now'),datetime('now'));");
+        const winfuture = await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (2,'winfuture-ui','WinFuture RSS fixture headline','WinFuture stored teaser.','WinFuture article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(winFutureUrl)}, ${JSON.stringify(winFutureUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 2, capturedAt: new Date().toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(winFutureUrl)}, title: 'WinFuture publisher headline', rank: 1 }],
+            most_commented: [{ canonicalUrl: ${JSON.stringify(winFutureUrl)}, title: 'WinFuture publisher headline', rank: 1 }]
         } });
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
@@ -82,6 +89,20 @@ try {
     assert.equal(await unmatched.locator('.article-dismiss-btn').isDisabled(), true);
     assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most read', 'Most commented']);
     assert.equal(await page.locator('.publisher-rankings-note, .publisher-rankings-title, #rankings-header p').count(), 0);
+
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'WinFuture', exact: true }).click();
+    await waitFor(async () => await cards.count() === 2 && (await cards.first().textContent()).includes('WinFuture RSS fixture headline'), 'WinFuture selection and ranked RSS cards');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'winfuture');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'WinFuture stored teaser.');
+    assert.equal(await matched().count(), 0);
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
+    await waitFor(async () => await cards.count() === 4 && await matched().count() === 2, 'return to Golem rankings');
+    assert.equal(await page.locator('#rankings-article-viewer').isVisible(), false);
 
     await matched().first().locator('.article-title-button').click();
     await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });

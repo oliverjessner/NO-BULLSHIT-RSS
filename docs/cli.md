@@ -49,7 +49,7 @@ no-bullshit-rss stats --json
 
 ## Publisher rankings
 
-Read the latest saved Golem or WinFuture rankings, independently of the Digest period:
+Read the latest saved Golem, WinFuture or ComputerBase rankings, independently of the Digest period:
 
 ```bash
 no-bullshit-rss --most-read golem
@@ -57,9 +57,13 @@ no-bullshit-rss --most-commented golem
 no-bullshit-rss --most-read golem --json
 no-bullshit-rss --most-read winfuture
 no-bullshit-rss --most-commented winfuture --json
+no-bullshit-rss --most-read computerbase
+no-bullshit-rss --most-read computerbase --json
 ```
 
 Text output contains publisher, capture time and ranked titles with URLs. JSON also includes the matched RSS article data when available. These commands read the existing database without fetching or changing anything; use Refresh in the app to capture new rankings. The help lists supported media when an invalid medium is supplied.
+
+The ComputerBase integration supports most-read news from the last 72 hours. Most-commented rankings are not supported for ComputerBase; `--most-commented computerbase` reports this and suggests `--most-read computerbase`.
 
 ## Latest articles
 

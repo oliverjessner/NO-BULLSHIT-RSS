@@ -169,12 +169,17 @@ export function parseCliArgs(argv) {
     const [resource, action, countValue, ...flags] = args;
     if (resource === '--most-read' || resource === '--most-commented') {
         const medium = String(action || '').trim().toLowerCase();
-        if (!RANKING_MEDIA.some(item => item.id === medium)) {
+        const publisher = RANKING_MEDIA.find(item => item.id === medium);
+        if (!publisher) {
             throw new Error(`Choose a ranking medium after ${resource}: ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
+        }
+        const rankingKey = resource === '--most-read' ? 'most_read' : 'most_commented';
+        if (!publisher.rankingKeys.includes(rankingKey)) {
+            throw new Error(`Most-commented rankings are not supported for ${publisher.name}. Use --most-read ${medium}.`);
         }
         rejectUnknownFlags(args.slice(2), new Set(['--json']));
         return { command: 'publisher-rankings', medium,
-            rankingKey: resource === '--most-read' ? 'most_read' : 'most_commented', json: args.includes('--json') };
+            rankingKey, json: args.includes('--json') };
     }
     if (resource === 'watchdog' || resource === 'watchdogs') return parseWatchdogArgs(args.slice(1));
     if (resource === 'stats') {

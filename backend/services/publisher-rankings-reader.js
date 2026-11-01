@@ -19,7 +19,8 @@ export async function readPublisherRankingsPayload(medium, database) {
         medium,
         media: RANKING_MEDIA.map(({ id, name }) => ({ id, name })),
         configured: allowed.some(source => Boolean(source.hasRss)),
-        rankings: (await readMostReadRankings(database, { respectDigestExclusions: false })).filter(group => ids.has(group.sourceId)),
+        rankings: (await readMostReadRankings(database, { respectDigestExclusions: false }))
+            .filter(group => ids.has(group.sourceId) && publisher.rankingKeys.includes(group.rankingKey)),
         rankingStatus: await readRankingRefreshStatus(database, medium),
     };
 }

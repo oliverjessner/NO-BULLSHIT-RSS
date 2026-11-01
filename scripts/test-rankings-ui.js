@@ -16,6 +16,7 @@ let backend, browser;
 const url = 'https://www.golem.de/news/rankings-ui-fixture.html';
 const unmatchedUrl = 'https://www.golem.de/news/unmatched-ui-fixture.html';
 const winFutureUrl = 'https://winfuture.de/news,162334.html';
+const computerBaseUrl = 'https://www.computerbase.de/news/pc-systeme/computerbase-fixture.12345/';
 
 async function waitFor(condition, label) {
     const deadline = Date.now() + 15_000;
@@ -50,6 +51,11 @@ try {
         await saveMostReadSnapshot({ sourceId: 2, capturedAt: new Date().toISOString(), rankings: {
             most_read: [{ canonicalUrl: ${JSON.stringify(winFutureUrl)}, title: 'WinFuture publisher headline', rank: 1 }],
             most_commented: [{ canonicalUrl: ${JSON.stringify(winFutureUrl)}, title: 'WinFuture publisher headline', rank: 1 }]
+        } });
+        await db.exec("INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt) VALUES (3,'ComputerBase','https://www.computerbase.de/','https://www.computerbase.de/',datetime('now'),datetime('now')); INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt) VALUES (3,3,'ComputerBase RSS','https://www.computerbase.de/rss/news.xml',datetime('now'),datetime('now'));");
+        await db.run("INSERT INTO articles (feedId,externalId,title,teaser,content,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt) VALUES (3,'computerbase-ui','ComputerBase RSS fixture headline','ComputerBase stored RSS teaser.','ComputerBase article body.',?,?,'fixture',datetime('now'),datetime('now'),datetime('now'),datetime('now'))", [${JSON.stringify(computerBaseUrl)}, ${JSON.stringify(computerBaseUrl)}]);
+        await saveMostReadSnapshot({ sourceId: 3, capturedAt: new Date().toISOString(), rankings: {
+            most_read: [{ canonicalUrl: ${JSON.stringify(computerBaseUrl)}, title: 'ComputerBase publisher headline', rank: 1 }]
         } });
         console.log(JSON.stringify({ articleId: article.lastID, secondArticleId: second.lastID, topicSlug: topic.slug }));
         await db.closeDatabase();
@@ -99,6 +105,31 @@ try {
     await cards.first().locator('.article-title-button').click();
     await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
     await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    await page.locator('#rankings-medium-trigger').click();
+    await page.getByRole('menuitemradio', { name: 'ComputerBase', exact: true }).click();
+    await waitFor(async () => await cards.count() === 1 && (await cards.first().textContent()).includes('ComputerBase RSS fixture headline'), 'ComputerBase most-read RSS card');
+    assert.equal(await page.locator('#rankings-medium').inputValue(), 'computerbase');
+    assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most read']);
+    assert.equal(await page.locator('[data-ranking-key="most_commented"]').count(), 0, 'ComputerBase must not invent a most-commented section');
+    assert.equal(await cards.first().locator('.teaser').textContent(), 'ComputerBase stored RSS teaser.');
+    const computerbase = await (await page.request.get(`${origin}/api/rankings?medium=computerbase`)).json();
+    assert.equal(computerbase.medium, 'computerbase');
+    assert.equal(computerbase.rankings.length, 1);
+    assert.equal(computerbase.rankings[0].sourceId, 3);
+    assert.equal(computerbase.rankings[0].rankingKey, 'most_read');
+    assert.equal(computerbase.rankings[0].items[0].article.sourceName, 'ComputerBase RSS');
+    assert.ok(Number.isFinite(Date.parse(computerbase.rankings[0].capturedAt)));
+    await cards.first().locator('.article-title-button').click();
+    await page.locator('#rankings-article-viewer').waitFor({ state: 'visible' });
+    await page.frameLocator('#rankings-article-viewer-frame').getByText('Isolated ranking article viewer fixture.').waitFor();
+    assert.equal(await page.locator('#rankings-article-viewer-frame').getAttribute('data-loaded-url'), computerBaseUrl);
+    await page.locator('#rankings-article-viewer-hide').click();
+    for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['narrow', { width: 390, height: 844 }]]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `ComputerBase ${name} horizontal overflow`);
+        await page.screenshot({ path: path.join(screenshots, `rankings-computerbase-${name}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('#rankings-medium-trigger').click();
     await page.getByRole('menuitemradio', { name: 'Golem', exact: true }).click();
     await waitFor(async () => await cards.count() === 4 && await matched().count() === 2, 'return to Golem rankings');
@@ -179,7 +210,7 @@ try {
         await page.screenshot({ path: path.join(screenshots, `rankings-${name}.png`), fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log(`Ranking browser fixture passed: RSS Feed cards, stored metadata, viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
+    console.log(`Ranking browser fixture passed: Golem, WinFuture and ComputerBase selection, ComputerBase most-read-only RSS data/viewer, matched save/list/remove/dismiss/Undo/filter flows, unmatched links, quiet errors and responsive layout. Screenshots: ${screenshots}`);
 } finally {
     await browser?.close();
     if (backend && backend.exitCode === null) {

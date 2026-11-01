@@ -3,6 +3,7 @@ import { cleanHttpUrl } from '../utils/url.js';
 import { logWarn } from '../utils/logger.js';
 import { fetchGolemRankings } from './golem-rankings.js';
 import { fetchWinFutureRankings } from './winfuture-rankings.js';
+import { fetchComputerBaseRankings } from './computerbase-rankings.js';
 import { rankingMediumForSource, RANKING_KEYS, RANKING_MEDIA } from './ranking-media.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
 import { normalizeRankingStatus, rankingStatusKey } from './ranking-status.js';
@@ -10,12 +11,15 @@ import { publish } from './events.js';
 
 const database = { all, get };
 const host = value => new URL(value).hostname.toLowerCase().replace(/^www\./, '');
+const publisherCaptures = { golem: fetchGolemRankings, winfuture: fetchWinFutureRankings, computerbase: fetchComputerBaseRankings };
 
 function validateRankings(rankings, websiteUrl) {
-    if (!rankings || Object.keys(rankings).some(key => !RANKING_KEYS.includes(key))) throw new Error('Invalid ranking keys');
-    return RANKING_KEYS.flatMap(rankingKey => {
+    const requiredKeys = rankingMediumForSource({ websiteUrl })?.rankingKeys || RANKING_KEYS;
+    if (!rankings || Object.keys(rankings).some(key => !requiredKeys.includes(key))) throw new Error('Invalid ranking keys');
+    return requiredKeys.flatMap(rankingKey => {
         const items = rankings[rankingKey];
-        if (!Array.isArray(items) || !items.length || items.length > 50) throw new Error('Both complete article rankings are required');
+        if (!Array.isArray(items) || !items.length || items.length > 50) throw new Error(requiredKeys.length === 2
+            ? 'Both complete article rankings are required' : 'A complete most-read article ranking is required');
         const urls = new Set();
         const ranks = new Set();
         return items.map(item => {
@@ -125,7 +129,7 @@ async function refreshRankings({ capture, medium = null } = {}) {
             const outcome = outcomes.get(provider.id);
             outcome.total += 1;
             try {
-                const read = capture || (provider.id === 'winfuture' ? fetchWinFutureRankings : fetchGolemRankings);
+                const read = capture || publisherCaptures[provider.id];
                 const snapshot = await read({ medium: provider.id, source });
                 const result = await saveMostReadSnapshot({ sourceId: source.id, ...snapshot });
                 if (result.inserted) updated += 1;

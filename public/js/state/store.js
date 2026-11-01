@@ -44,6 +44,15 @@ export const store = {
         pendingMutationEvents: 0,
         renderedCount: 0,
     },
+    rankings: {
+        payload: null,
+        articlesById: new Map(),
+        requestId: 0,
+        requestController: null,
+        fingerprint: '',
+        needsRefresh: true,
+        initialized: false,
+    },
     settings: {
         initialized: false,
         feedEditingId: null,
@@ -53,6 +62,7 @@ export const store = {
     },
     ui: {
         activeView: 'main',
+        rankingsMedium: 'golem',
         listLayout: readStorage(STORAGE_KEYS.layout, 'cards') === 'list',
         digestSort: readStorage(STORAGE_KEYS.digestSort, 'desc') === 'asc' ? 'asc' : 'desc',
         digestRange: ['day', 'week', 'month'].includes(readStorage(STORAGE_KEYS.digestRange, 'day'))

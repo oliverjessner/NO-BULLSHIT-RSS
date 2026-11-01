@@ -4,7 +4,10 @@ export async function apiFetch(path, options = {}) {
     const response = await fetch(path, { ...options, headers });
     if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${response.status}`);
+        const error = new Error(body.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        error.data = body;
+        throw error;
     }
     return response.status === 204 ? null : response.json();
 }
@@ -52,6 +55,12 @@ export const api = Object.freeze({
     statistics: signal => apiFetch('/api/articles/statistics', { signal }),
     dismissArticle: (id, dismissed) => apiFetch(`/api/articles/${id}/dismissed`, json('PATCH', { dismissed })),
     digest: (range, signal) => apiFetch(`/api/articles/digest?${new URLSearchParams({ variant: range })}`, { signal }),
+    rankings: (medium = 'golem', signal) => apiFetch(`/api/rankings?${new URLSearchParams({ medium })}`, { signal }),
+    refreshRankings: (medium = 'golem') => apiFetch('/api/rankings/refresh', json('POST', { medium })),
+    startRankingsAccess: (medium = 'golem') => apiFetch('/api/rankings/access/start', json('POST', { medium })),
+    confirmRankingsAccess: (medium, jobId) => apiFetch('/api/rankings/access/confirm', json('POST', { medium, jobId })),
+    cancelRankingsAccess: (medium, jobId) => apiFetch('/api/rankings/access/cancel', json('POST', { medium, jobId })),
+    forgetRankingsAccess: (medium = 'golem') => apiFetch(`/api/rankings/access?${new URLSearchParams({ medium })}`, { method: 'DELETE' }),
     markDigested: (ids, variant = 'day') => apiFetch('/api/articles/digest/state', json('POST', { articleIds: ids, variant, completed: true })),
     restoreDigested: (ids, variant = 'day') => apiFetch('/api/articles/digest/state', json('POST', { articleIds: ids, variant, completed: false })),
     digestSettings: () => apiFetch('/api/digest-settings'),

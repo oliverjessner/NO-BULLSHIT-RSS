@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fetchGolemRankings, isGolemSource, parseGolemRankings, GOLEM_RANKINGS_URL } from './golem-rankings.js';
+import { fetchGolemRankings, GolemConsentRequiredError, isGolemSource, parseGolemRankings, GOLEM_RANKINGS_URL } from './golem-rankings.js';
 
 const article = (href, title) => `<div class="go-teaser-container"><article class="go-teaser go-teaser--inline">
     <h2 class="go-heading go-teaser__heading"><a class="go-teaser__link" href="${href}">${title}</a></h2>
@@ -48,13 +48,13 @@ test('selects Golem by source host rather than names or source IDs', () => {
     assert.equal(isGolemSource({ websiteUrl: 'javascript:alert(1)' }), false);
 });
 
-test('uses bounded Fetchary auto capture with consent interaction disabled and preserves capture provenance', async () => {
+test('uses bounded Fetchary HTTP capture with consent interaction disabled and preserves capture provenance', async () => {
     const snapshot = await fetchGolemRankings({ extract: async (url, options) => {
         assert.equal(url, GOLEM_RANKINGS_URL);
         assert.equal(options.selector, '.go-teaser-block');
         assert.equal(options.all, true);
         assert.equal(options.format, 'html');
-        assert.equal(options.mode, 'auto');
+        assert.equal(options.mode, 'http');
         assert.equal(options.consent, 'off');
         assert.equal(options.timeout, 12_000);
         assert.equal(options.cacheTtlMs, 60_000);
@@ -72,7 +72,7 @@ test('rejects error/consent pages, redirected sites and missing capture timestam
     }
 });
 
-test('accepts complete HTTP rankings when the optional browser installation is unavailable', async () => {
+test('does not configure an optional browser when complete public HTTP rankings are sufficient', async () => {
     let configured = 0;
     const snapshot = await fetchGolemRankings({
         configureBrowser: () => {
@@ -86,25 +86,29 @@ test('accepts complete HTTP rankings when the optional browser installation is u
             return result();
         },
     });
-    assert.equal(configured, 1);
+    assert.equal(configured, 0);
     assert.equal(snapshot.capturedAt, capturedAt);
     assert.equal(snapshot.rankings.most_read.length, 1);
     assert.equal(snapshot.rankings.most_commented.length, 1);
 });
 
-test('retains the browser configuration failure with the HTTP failure as its cause when HTTP cannot provide rankings', async () => {
+test('does not attempt browser rendering for failed HTTP requests', async () => {
     const captureFailure = new Error('HTTP extraction failed');
+    let configured = 0;
     await assert.rejects(fetchGolemRankings({
-        configureBrowser: () => { throw new Error('Configured ranking browser is unavailable'); },
+        configureBrowser: () => { configured += 1; },
         extract: async (_url, options) => {
             assert.equal(options.mode, 'http');
             throw captureFailure;
         },
     }), error => {
-        assert.equal(error.message, 'Configured ranking browser is unavailable');
-        assert.equal(error.cause, captureFailure);
+        assert.equal(error, captureFailure);
         return true;
     });
+    assert.equal(configured, 0);
+});
+
+test('reports a required browser configuration failure with the incomplete HTTP capture as its cause', async () => {
     await assert.rejects(fetchGolemRankings({
         configureBrowser: () => { throw new Error('Bundled ranking browser is incomplete'); },
         extract: async () => result({ data: { values: [read] } }),
@@ -113,4 +117,110 @@ test('retains the browser configuration failure with the HTTP failure as its cau
         assert.match(error.cause.message, /both article rankings/);
         return true;
     });
+});
+
+test('renders explicitly when unrelated HTTP teaser blocks match but both required sections are missing', async () => {
+    const modes = [];
+    let signal;
+    let configured = 0;
+    const snapshot = await fetchGolemRankings({
+        configureBrowser: () => { configured += 1; return { source: 'system' }; },
+        extract: async (_url, options) => {
+            modes.push(options.mode);
+            assert.equal(options.consent, 'off');
+            assert.equal(options.timeout, 12_000);
+            assert.equal(options.maxResponseBytes, 3 * 1024 * 1024);
+            if (options.mode === 'http') {
+                signal = options.signal;
+                assert.equal(options.waitAfterLoad, 0);
+                return result({ data: { matched: true, values: [block('Neueste Meldungen', article('/news/other.html', 'Other'))] } });
+            }
+            assert.equal(options.mode, 'browser');
+            assert.equal(options.waitAfterLoad, 1_000);
+            assert.equal(options.signal, signal);
+            return result();
+        },
+    });
+    assert.deepEqual(modes, ['http', 'browser']);
+    assert.equal(configured, 1);
+    assert.equal(snapshot.capturedAt, capturedAt);
+    assert.equal(snapshot.rankings.most_read.length, 1);
+    assert.equal(snapshot.rankings.most_commented.length, 1);
+});
+
+test('identifies the actual Golem choice-page redirect and never attempts to bypass consent with a browser', async () => {
+    let requests = 0;
+    let configured = 0;
+    await assert.rejects(fetchGolemRankings({
+        configureBrowser: () => { configured += 1; },
+        extract: async (_url, options) => {
+            requests += 1;
+            assert.equal(options.mode, 'http');
+            return result({
+                finalUrl: 'https://www.golem.de/sonstiges/zustimmung/auswahl.html?from=https%3A%2F%2Fwww.golem.de%2F',
+                data: { matched: false, values: [] },
+                consent: { detected: true, provider: 'sourcepoint', action: 'off', status: 'unsupported' },
+            });
+        },
+    }), error => {
+        assert.ok(error instanceof GolemConsentRequiredError);
+        assert.equal(error.code, 'GOLEM_CONSENT_REQUIRED');
+        assert.equal(error.phase, 'consent');
+        assert.equal(error.retryable, false);
+        assert.match(error.message, /cookie choice or Golem pur/);
+        return true;
+    });
+    assert.equal(requests, 1);
+    assert.equal(configured, 0);
+});
+
+test('distinguishes an inline consent wall from missing article markup', async () => {
+    await assert.rejects(fetchGolemRankings({ extract: async () => result({
+        data: { matched: false, values: [] },
+        consent: { detected: true, action: 'off', status: 'unsupported' },
+    }) }), error => {
+        assert.equal(error.code, 'GOLEM_CONSENT_REQUIRED');
+        assert.equal(error.cause.code, 'GOLEM_RANKINGS_MISSING');
+        return true;
+    });
+});
+
+test('resolves saved Golem access once and reuses it for HTTP and browser capture without changing consent or reading browser profiles', async () => {
+    let sessionReads = 0;
+    const modes = [];
+    const snapshot = await fetchGolemRankings({
+        getSessionOptions: async () => {
+            sessionReads += 1;
+            return {
+                session: 'nbs-golem', sessionDir: '/private/publisher-sessions',
+                consent: 'accept', cookiesFromBrowser: 'chrome', browserProfile: 'Default',
+            };
+        },
+        configureBrowser: () => ({ source: 'system' }),
+        extract: async (_url, options) => {
+            modes.push(options.mode);
+            assert.equal(options.session, 'nbs-golem');
+            assert.equal(options.sessionDir, '/private/publisher-sessions');
+            assert.equal(options.consent, 'off');
+            assert.equal(Object.hasOwn(options, 'cookiesFromBrowser'), false);
+            assert.equal(Object.hasOwn(options, 'browserProfile'), false);
+            assert.equal(Object.hasOwn(options, 'cookieFile'), false);
+            return options.mode === 'http' ? result({ data: { values: [read] } }) : result();
+        },
+    });
+    assert.equal(sessionReads, 1);
+    assert.deepEqual(modes, ['http', 'browser']);
+    assert.equal(snapshot.rankings.most_read.length, 1);
+    assert.equal(snapshot.rankings.most_commented.length, 1);
+});
+
+test('does not start capture when saved access storage reports an error', async () => {
+    const storageError = new Error('Saved Golem access is unavailable');
+    storageError.code = 'ACCESS_STORAGE';
+    let captures = 0;
+    await assert.rejects(fetchGolemRankings({
+        getSessionOptions: async () => { throw storageError; },
+        extract: async () => { captures += 1; return result(); },
+    }), error => error === storageError);
+    assert.equal(captures, 0);
 });

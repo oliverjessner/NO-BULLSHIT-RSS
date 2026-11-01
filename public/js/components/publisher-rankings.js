@@ -14,7 +14,7 @@ function rankingUrl(value) {
     }
 }
 
-export function normalizeDigestRankings(rankings) {
+export function normalizePublisherRankings(rankings) {
     return (Array.isArray(rankings) ? rankings : []).flatMap(group => {
         if (!group || !Object.hasOwn(rankingLabels, group.rankingKey)) return [];
         const items = (Array.isArray(group.items) ? group.items : []).flatMap(item => {
@@ -47,53 +47,56 @@ export function normalizeDigestRankings(rankings) {
     });
 }
 
-export function digestRankingsFingerprint(rankings, status) {
+export function publisherRankingsFingerprint(rankings, status, configured) {
     // Snapshot identity, source names, ranks, reassociations and article content
     // can change independently of the current digest's clusters.
-    return JSON.stringify({ rankings: Array.isArray(rankings) ? rankings : [], status: status || null });
+    return JSON.stringify({ rankings: Array.isArray(rankings) ? rankings : [], status: status || null, configured });
 }
 
-export function renderDigestRankings(container, rankings, articleMap, { status } = {}) {
-    const groups = normalizeDigestRankings(rankings);
+export function renderPublisherRankings(container, rankings, articleMap, { status, configured } = {}) {
+    const groups = normalizePublisherRankings(rankings);
     container.replaceChildren();
     container.hidden = false;
 
     const heading = document.createElement('h2');
-    heading.className = 'digest-rankings-title oj-heading-3';
+    heading.className = 'publisher-rankings-title oj-heading-3';
     heading.textContent = 'Most read & most commented';
     const note = document.createElement('p');
-    note.className = 'digest-rankings-note oj-muted';
-    note.textContent = 'Current publisher rankings, independent of the selected digest period.';
+    note.className = 'publisher-rankings-note oj-muted';
+    note.textContent = 'Latest rankings published by the selected medium.';
     const state = document.createElement('p');
-    state.className = 'digest-rankings-status oj-muted';
+    state.className = 'publisher-rankings-status oj-muted';
     state.setAttribute('role', 'status');
     state.setAttribute('aria-live', 'polite');
     // The API's diagnostic message can contain browser or network details. Keep
     // the product message stable and never expose commands or exception traces.
-    if (status?.state === 'loading') state.textContent = 'Loading publisher rankings…';
+    if (configured === false) state.textContent = 'Add a Golem RSS feed in Settings to load publisher rankings.';
+    else if (status?.state === 'loading') state.textContent = 'Loading publisher rankings…';
     else if (status?.state === 'refreshing') state.textContent = groups.length
         ? 'Refreshing publisher rankings. Showing the latest saved rankings.' : 'Refreshing publisher rankings…';
+    else if (status?.state === 'error' && status?.errorCode === 'GOLEM_CONSENT_REQUIRED') state.textContent = 'Golem requires a consent or PUR choice. Use Set up Golem access, complete your choice in the Golem window, then save access here.'
+        + (groups.length ? ' Showing the latest saved rankings.' : '');
     else if (status?.state === 'error') state.textContent = groups.length
         ? 'Publisher rankings could not be refreshed. Showing the latest saved rankings.'
-        : 'Publisher rankings could not be refreshed. Try another feed refresh.';
+        : 'Publisher rankings could not be refreshed. Try Refresh again.';
     else if (!groups.length) state.textContent = status?.state === 'ready' || (Array.isArray(rankings) && rankings.length)
-        ? 'No publisher rankings are available for the current filters.'
-        : 'No publisher rankings yet. They are loaded during feed refresh.';
+        ? 'No publisher rankings are available.'
+        : 'No publisher rankings yet. Choose Refresh to load them.';
     state.hidden = !state.textContent;
     container.append(heading, note, state);
     if (!groups.length) return;
     const grid = document.createElement('div');
-    grid.className = 'digest-rankings-grid';
+    grid.className = 'publisher-rankings-grid';
 
     for (const group of groups) {
         const panel = document.createElement('section');
-        panel.className = 'digest-ranking-panel oj-panel oj-panel-compact';
+        panel.className = 'publisher-ranking-panel oj-panel oj-panel-compact';
         panel.dataset.rankingKey = group.rankingKey;
         const title = document.createElement('h3');
-        title.className = 'digest-ranking-title oj-heading-3';
+        title.className = 'publisher-ranking-title oj-heading-3';
         title.textContent = `${group.label} · ${group.sourceName}`;
         const captured = document.createElement('p');
-        captured.className = 'digest-ranking-captured oj-muted';
+        captured.className = 'publisher-ranking-captured oj-muted';
         if (group.capturedAt) {
             const time = document.createElement('time');
             time.dateTime = group.capturedAt;
@@ -104,12 +107,12 @@ export function renderDigestRankings(container, rankings, articleMap, { status }
             captured.textContent = 'Capture time unavailable';
         }
         const list = document.createElement('ol');
-        list.className = 'digest-ranking-list';
+        list.className = 'publisher-ranking-list';
         for (const item of group.items) {
             const row = document.createElement('li');
             row.value = item.rank;
             const link = document.createElement('a');
-            link.className = 'digest-ranking-link';
+            link.className = 'publisher-ranking-link';
             link.href = item.canonicalUrl;
             link.dataset.itemUrl = item.canonicalUrl;
             const text = document.createElement('span');

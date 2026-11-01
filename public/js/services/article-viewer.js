@@ -6,6 +6,7 @@ import { normalizeArticleUrl } from '../utils/format.js';
 import { createViewerSync, invokeDesktop, isDesktop, openBrowser } from './desktop.js';
 
 const viewerState = { open: false, url: null, articleId: null, title: 'Article viewer', message: '' };
+const viewerContexts = { main: dom.viewer.feed, digest: dom.viewer.digest, rankings: dom.viewer.rankings };
 const syncNative = createViewerSync(payload => invokeDesktop('sync_article_viewer', payload));
 let syncScheduled = false;
 
@@ -16,9 +17,10 @@ function scheduleNativeViewer() {
     // A microtask also updates modal visibility before the next browser paint.
     queueMicrotask(() => {
         syncScheduled = false;
-        const context = store.ui.activeView === 'main' ? dom.viewer.feed : dom.viewer.digest;
+        const context = viewerContexts[store.ui.activeView];
+        if (!context) { void syncNative({ url: null, bounds: null }); return; }
         const rect = context.frame.getBoundingClientRect();
-        const visible = viewerState.open && viewerState.url && ['main', 'digest'].includes(store.ui.activeView)
+        const visible = viewerState.open && viewerState.url
             && !document.querySelector('dialog[open]') && !context.panel.classList.contains('hide');
         const x = Math.max(0, rect.left), y = Math.max(0, rect.top);
         const width = Math.min(window.innerWidth, rect.right) - x;
@@ -31,18 +33,20 @@ function scheduleNativeViewer() {
 
 function articleById(id) {
     const normalized = Number(id);
-    return store.feed.articlesById.get(normalized) || store.digest.articlesById.get(normalized) || null;
+    const active = store.ui.activeView === 'main' ? store.feed : store[store.ui.activeView];
+    return active?.articlesById?.get(normalized) || store.feed.articlesById.get(normalized)
+        || store.digest.articlesById.get(normalized) || store.rankings.articlesById.get(normalized) || null;
 }
 
 function setActiveCards() {
-    for (const card of document.querySelectorAll('[data-article-id].feed-card, [data-article-id].digest-item-card')) {
+    for (const card of document.querySelectorAll('[data-article-id].feed-card, [data-article-id].digest-item-card, [data-article-id].publisher-ranking-link')) {
         const inActiveView = card.closest(`#view-${store.ui.activeView}`);
         card.classList.toggle('is-active', viewerState.open && Boolean(inActiveView) && Number(card.dataset.articleId) === viewerState.articleId);
     }
 }
 
 export function renderViewer() {
-    for (const [view, context] of Object.entries({ main: dom.viewer.feed, digest: dom.viewer.digest })) {
+    for (const [view, context] of Object.entries(viewerContexts)) {
         const visible = viewerState.open && store.ui.activeView === view;
         context.layout.dataset.viewerWidth = store.ui.viewerWidth;
         context.layout.classList.toggle('is-viewer-open', visible);
@@ -98,7 +102,7 @@ export function isViewerOpen() { return viewerState.open; }
 
 export function initArticleViewer() {
     if (isDesktop) {
-        for (const context of [dom.viewer.feed, dom.viewer.digest]) {
+        for (const context of Object.values(viewerContexts)) {
             context.frame.removeAttribute('src');
             context.frame.style.pointerEvents = 'none';
             context.frame.style.visibility = 'hidden';
@@ -108,7 +112,7 @@ export function initArticleViewer() {
         window.addEventListener('resize', scheduleNativeViewer);
         document.addEventListener('scroll', scheduleNativeViewer, true);
     }
-    [dom.viewer.feed.hide, dom.viewer.digest.hide].forEach(button => button?.addEventListener('click', closeViewer));
+    Object.values(viewerContexts).forEach(context => context.hide?.addEventListener('click', closeViewer));
     dom.viewer.widthOptions.forEach(option => option.addEventListener('click', () => {
         const width = ['35', '50'].includes(option.dataset.viewerWidth) ? option.dataset.viewerWidth : '50';
         store.ui.viewerWidth = width;

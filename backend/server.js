@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import feedsRouter from './routes/feeds.js';
+import rankingsRouter from './routes/rankings.js';
 import watchdogsRouter from './routes/watchdogs.js';
 import articlesRouter from './routes/articles.js';
 import listsRouter from './routes/lists.js';
@@ -17,6 +18,7 @@ import { getLastFetchStatus, updateAllFeeds } from './services/fetcher.js';
 import { subscribe } from './services/events.js';
 import { logLine } from './utils/logger.js';
 import { initDatabase } from '../scripts/init-db.js';
+import { cancelGolemAccess } from './services/golem-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
@@ -26,6 +28,7 @@ const PORT = process.env.PORT || 1377;
 const HOST = process.env.HOST || '127.0.0.1';
 
 let isManualFetchRunning = false;
+let shuttingDown = false;
 
 function getStartMessage() {
     return `starting pid=${process.pid} node=${process.version} cwd=${process.cwd()}`;
@@ -138,6 +141,10 @@ app.use(express.static(publicDir));
 app.use('/api', requireLocalApiClient, apiLimiter, writeLimiter);
 app.use('/api/feeds', feedsRouter);
 app.use('/api/watchdogs', watchdogsRouter);
+app.use('/api/rankings', (_req, res, next) => {
+    if (shuttingDown) return res.status(503).json({ error: 'The app is shutting down.' });
+    return next();
+}, rankingsRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/lists', listsRouter);
 app.use('/api/digest-settings', digestSettingsRouter);
@@ -158,8 +165,21 @@ registerProcessHandlers();
 // The desktop shell owns stdin. Closing it also stops the backend after a shell crash.
 if (process.env.DESKTOP_PARENT_WATCHDOG === '1') {
     process.stdin.resume();
-    process.stdin.once('end', () => process.exit(0));
+    process.stdin.once('end', () => { void shutdown(); });
 }
+async function shutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    let timer;
+    await Promise.race([
+        cancelGolemAccess(),
+        new Promise(resolve => { timer = setTimeout(resolve, 2_000); }),
+    ]).catch(error => logLine(`Golem access cleanup failed: ${error.message}`));
+    clearTimeout(timer);
+    process.exit(0);
+}
+process.once('SIGINT', () => { void shutdown(); });
+process.once('SIGTERM', () => { void shutdown(); });
 start().catch(err => {
     console.error('Failed to start server:', err);
     logLine(`Failed to start server: ${err?.stack || err?.message || String(err)}`);

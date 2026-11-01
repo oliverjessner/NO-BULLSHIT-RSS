@@ -4,7 +4,7 @@ import { normalizeRankingStatus, readRankingRefreshStatus, RANKING_STATUS_KEY } 
 
 test('ranking status rejects malformed storage and never exposes raw diagnostic messages', () => {
     for (const input of [undefined, 'invalid', '{', { state: 'unexpected' }]) {
-        assert.deepEqual(normalizeRankingStatus(input), { state: 'idle', attemptedAt: null, message: null });
+        assert.deepEqual(normalizeRankingStatus(input), { state: 'idle', attemptedAt: null, message: null, errorCode: null });
     }
     const status = normalizeRankingStatus(JSON.stringify({ state: 'error', attemptedAt: '2026-11-01T00:00:00Z', message: 'chrome --no-sandbox secret' }));
     assert.equal(status.state, 'error');

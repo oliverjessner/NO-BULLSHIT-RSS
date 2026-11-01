@@ -73,8 +73,8 @@ export async function reconcileMostReadArticles() {
     });
 }
 
-async function setRankingStatus(state, attemptedAt) {
-    const status = normalizeRankingStatus({ state, attemptedAt });
+async function setRankingStatus(state, attemptedAt, errorCode = null) {
+    const status = normalizeRankingStatus({ state, attemptedAt, errorCode });
     await run(`INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
     [RANKING_STATUS_KEY, JSON.stringify(status)]);
@@ -91,7 +91,16 @@ function failureDetails(error) {
     return details;
 }
 
-export async function refreshMostReadRankings({ capture = fetchGolemRankings } = {}) {
+let activeRankingRefresh = null;
+export const isRankingRefreshRunning = () => activeRankingRefresh !== null;
+export const waitForRankingRefresh = () => activeRankingRefresh || Promise.resolve();
+
+export function refreshMostReadRankings(options = {}) {
+    if (!activeRankingRefresh) activeRankingRefresh = refreshRankings(options).finally(() => { activeRankingRefresh = null; });
+    return activeRankingRefresh;
+}
+
+async function refreshRankings({ capture = fetchGolemRankings } = {}) {
     const attemptedAt = new Date().toISOString();
     await setRankingStatus('refreshing', attemptedAt);
     try {
@@ -103,6 +112,7 @@ export async function refreshMostReadRankings({ capture = fetchGolemRankings } =
         const sources = new Map(rows.filter(row => cleanHttpUrl(row.feedUrl) && isGolemSource(row)).map(row => [row.id, row]));
         let updated = 0;
         let failed = false;
+        let failureCode = null;
         for (const source of sources.values()) {
             try {
                 const snapshot = await capture();
@@ -110,13 +120,14 @@ export async function refreshMostReadRankings({ capture = fetchGolemRankings } =
                 if (result.inserted) updated += 1;
             } catch (error) {
                 failed = true;
+                if (error.code === 'GOLEM_CONSENT_REQUIRED') failureCode = error.code;
                 logWarn('Publisher rankings refresh failed', { sourceId: source.id, error: error.message, failures: failureDetails(error) });
             }
         }
-        await setRankingStatus(failed ? 'error' : sources.size ? 'ready' : 'idle', attemptedAt);
+        await setRankingStatus(failed ? 'error' : sources.size ? 'ready' : 'idle', attemptedAt, failureCode);
         return { updated, total: sources.size };
     } catch (error) {
-        await setRankingStatus('error', attemptedAt);
+        await setRankingStatus('error', attemptedAt, error.code);
         throw error;
     }
 }

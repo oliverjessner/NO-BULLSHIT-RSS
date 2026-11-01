@@ -9,7 +9,7 @@ export const dom = Object.freeze({
         content: byId('statistics-content'), total: byId('statistics-total'), bullshit: byId('statistics-bullshit'),
         feeds: byId('statistics-feeds'), topics: byId('statistics-topics'),
     }),
-    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), watchdog: byId('view-watchdog'), settings: byId('view-settings') }),
+    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), rankings: byId('view-rankings'), watchdog: byId('view-watchdog'), settings: byId('view-settings') }),
     feed: Object.freeze({
         count: byId('feed-count'), search: byId('search-input'), topicFilter: byId('filter-topic'),
         sourceFilter: byId('filter-source'), listFilter: byId('filter-list'), bullshitFilter: byId('filter-bullshit'), filterRow: byId('active-filter-row'),
@@ -21,16 +21,23 @@ export const dom = Object.freeze({
         exportTrigger: byId('feed-export-trigger'), exportPopover: byId('feed-export-popover'),
     }),
     digest: Object.freeze({
-        state: byId('digest-state'), list: byId('digest-list'), subtitle: byId('digest-subtitle'), rankings: byId('digest-rankings'),
+        state: byId('digest-state'), list: byId('digest-list'), subtitle: byId('digest-subtitle'),
         layout: byId('digest-layout'), template: byId('digest-cluster-template'), range: byId('digest-range-toggle'),
         rangeOptions: document.querySelectorAll('#digest-range-toggle .digest-range-option'),
         sort: byId('digest-sort-toggle'), sortOptions: document.querySelectorAll('#digest-sort-toggle .digest-sort-option'),
         markAll: byId('digest-mark-all'), bulkMenu: byId('digest-bulk-menu'), header: document.querySelector('.digest-header'),
         exportMenu: byId('digest-bulk-menu'), exportTrigger: byId('digest-export-trigger'), exportPopover: byId('digest-export-popover'),
     }),
+    rankings: Object.freeze({
+        medium: byId('rankings-medium'), refresh: byId('rankings-refresh'),
+        content: byId('publisher-rankings'), header: byId('rankings-header'),
+        accessStatus: byId('rankings-access-status'), accessStart: byId('rankings-access-start'),
+        accessConfirm: byId('rankings-access-confirm'), accessCancel: byId('rankings-access-cancel'), accessForget: byId('rankings-access-forget'),
+    }),
     viewer: Object.freeze({
         feed: Object.freeze({ layout: byId('dashboard-layout'), panel: byId('article-viewer'), title: byId('article-viewer-title'), message: byId('article-viewer-message'), frame: byId('article-viewer-frame'), hide: byId('article-viewer-hide') }),
         digest: Object.freeze({ layout: byId('digest-layout'), panel: byId('digest-article-viewer'), title: byId('digest-article-viewer-title'), message: byId('digest-article-viewer-message'), frame: byId('digest-article-viewer-frame'), hide: byId('digest-article-viewer-hide') }),
+        rankings: Object.freeze({ layout: byId('rankings-layout'), panel: byId('rankings-article-viewer'), title: byId('rankings-article-viewer-title'), message: byId('rankings-article-viewer-message'), frame: byId('rankings-article-viewer-frame'), hide: byId('rankings-article-viewer-hide') }),
         widthOptions: document.querySelectorAll('.article-viewer-width-option'),
     }),
     settings: Object.freeze({

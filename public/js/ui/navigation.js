@@ -31,6 +31,7 @@ function updateStickyUi() {
     const top = window.scrollY || document.documentElement.scrollTop || 0;
     dom.settings.tabsWrap?.classList.toggle('is-scrolled', store.ui.activeView === 'settings' && top > 2);
     dom.digest.header?.classList.toggle('is-scrolled', store.ui.activeView === 'digest' && top > 2);
+    dom.rankings.header?.classList.toggle('is-scrolled', store.ui.activeView === 'rankings' && top > 2);
     dom.feed.backToTop?.classList.toggle('hide', !(store.ui.activeView === 'main' && top > 480));
 }
 

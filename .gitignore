@@ -21,4 +21,5 @@ electron/build/
 .next/
 coverage/
 *.log
+publisher-sessions/
 data.db-journal

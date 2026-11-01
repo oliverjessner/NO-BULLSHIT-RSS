@@ -17,6 +17,7 @@
             <nav class="nav oj-nav" aria-label="Main views">
                 <button class="nav-link oj-nav-link is-active" data-view="main" aria-pressed="true" aria-current="page"><i class="fa-solid fa-rss" aria-hidden="true"></i> Feed</button>
                 <button class="nav-link oj-nav-link" data-view="digest" aria-pressed="false"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> Digest</button>
+                <button class="nav-link oj-nav-link" data-view="rankings" aria-pressed="false"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> Most read</button>
                 <button class="nav-link oj-nav-link" data-view="watchdog" aria-pressed="false"><i class="fa-solid fa-binoculars" aria-hidden="true"></i> Watchdog <span id="watchdog-nav-badge" class="watchdog-nav-badge" hidden>0</span></button>
                 <button class="nav-link oj-nav-link" data-view="settings" aria-pressed="false"><i class="fa-solid fa-gear" aria-hidden="true"></i> Settings</button>
             </nav>
@@ -210,11 +211,6 @@
 
                     <div id="digest-layout" class="dashboard-layout digest-layout">
                         <div class="dashboard-primary">
-                            <section id="digest-rankings" class="digest-rankings" aria-label="Most read and most commented">
-                                <h2 class="digest-rankings-title oj-heading-3">Most read &amp; most commented</h2>
-                                <p class="digest-rankings-note oj-muted">Current publisher rankings, independent of the selected digest period.</p>
-                                <p class="digest-rankings-status oj-muted" role="status" aria-live="polite">Loading publisher rankings…</p>
-                            </section>
                             <h2 id="digest-state" class="state oj-status">Loading…</h2>
                             <div id="digest-list" class="digest-clusters"></div>
                         </div>
@@ -257,6 +253,52 @@
                                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
                                 referrerpolicy="no-referrer"
                             ></iframe>
+                        </aside>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-rankings" class="view view-rankings" hidden aria-labelledby="rankings-heading">
+                <div class="rankings-scroll">
+                    <header id="rankings-header" class="rankings-header oj-panel">
+                        <div><h1 id="rankings-heading">Most read</h1><p class="oj-muted">Most read and most commented articles from your selected medium.</p></div>
+                        <div class="rankings-controls">
+                            <label class="rankings-medium"><span class="oj-label">Medium</span><select id="rankings-medium" data-oj-select-dropdown><option value="golem">Golem</option></select></label>
+                            <button id="rankings-refresh" class="oj-button oj-button-primary" type="button"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>
+                        </div>
+                    </header>
+                    <div id="rankings-layout" class="dashboard-layout rankings-layout">
+                        <div class="dashboard-primary">
+                            <section class="rankings-access oj-panel oj-panel-compact" aria-labelledby="rankings-access-heading">
+                                <h2 id="rankings-access-heading" class="oj-heading-3">Golem access</h2>
+                                <p class="oj-muted">Set up access in a separate Golem window. Choose your consent or PUR option there, then return here and choose Save access.</p>
+                                <p id="rankings-access-status" class="oj-muted" role="status" aria-live="polite">No Golem access saved.</p>
+                                <div class="rankings-access-actions">
+                                    <button id="rankings-access-start" class="oj-button oj-button-secondary" type="button">Set up Golem access</button>
+                                    <button id="rankings-access-confirm" class="oj-button oj-button-primary" type="button" hidden>Save access</button>
+                                    <button id="rankings-access-cancel" class="oj-button oj-button-ghost" type="button" hidden>Cancel</button>
+                                    <button id="rankings-access-forget" class="oj-button oj-button-ghost" type="button" hidden>Forget saved access</button>
+                                </div>
+                            </section>
+                            <section id="publisher-rankings" class="publisher-rankings" aria-label="Most read and most commented">
+                                <h2 class="publisher-rankings-title oj-heading-3">Most read &amp; most commented</h2>
+                                <p class="publisher-rankings-note oj-muted">Latest rankings published by the selected medium.</p>
+                                <p class="publisher-rankings-status oj-muted" role="status" aria-live="polite">Loading publisher rankings…</p>
+                            </section>
+                        </div>
+                        <aside id="rankings-article-viewer" class="article-viewer oj-panel hide" aria-live="polite">
+                            <div class="article-viewer-header">
+                                <h2 id="rankings-article-viewer-title" class="article-viewer-title oj-heading-3">Article viewer</h2>
+                                <div class="article-viewer-controls">
+                                    <div class="article-viewer-width-toggle" role="group" aria-label="Viewer width">
+                                        <button class="article-viewer-width-option oj-button oj-button-ghost" data-viewer-width="35" type="button" aria-pressed="false">35%</button>
+                                        <button class="article-viewer-width-option oj-button oj-button-ghost" data-viewer-width="50" type="button" aria-pressed="true">50%</button>
+                                    </div>
+                                    <button id="rankings-article-viewer-hide" class="btn ghost oj-button oj-button-ghost" type="button">Hide</button>
+                                </div>
+                            </div>
+                            <p id="rankings-article-viewer-message" class="article-viewer-message hide"></p>
+                            <iframe id="rankings-article-viewer-frame" class="article-viewer-frame hide" title="In-app article viewer" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
                         </aside>
                     </div>
                 </div>

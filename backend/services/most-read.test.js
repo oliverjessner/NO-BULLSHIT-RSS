@@ -7,11 +7,11 @@ import test from 'node:test';
 const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-most-read-'));
 process.env.DB_PATH = path.join(directory, 'rankings.db');
 const db = await import('../database/datenbank.js');
-const { saveMostReadSnapshot, reconcileMostReadArticles, refreshMostReadRankings } = await import('./most-read.js');
+const { saveMostReadSnapshot, reconcileMostReadArticles, refreshMostReadRankings, isRankingRefreshRunning } = await import('./most-read.js');
 const { readMostReadRankings } = await import('./most-read-reader.js');
 const { readRankingRefreshStatus, RANKING_STATUS_KEY } = await import('./ranking-status.js');
 const { getStoredDigestPayload } = await import('./digest-store.js');
-const { readStoredDigestPayload } = await import('./digest-reader.js');
+const { readPublisherRankingsPayload } = await import('./publisher-rankings-reader.js');
 const { openReadOnlyDatabase } = await import('../../cli/lib/read-only-database.js');
 await db.initSchema();
 
@@ -105,6 +105,8 @@ test('filters excluded feeds and Bullshit matches immediately while preserving o
     assert.equal(groups.find(group => group.rankingKey === 'most_commented').items.length, 0);
     await db.run("INSERT INTO digest_excluded_feeds VALUES (201, datetime('now'))");
     assert.deepEqual(await readMostReadRankings(db), []);
+    const standalone = await readPublisherRankingsPayload('golem', db);
+    assert.deepEqual(standalone.rankings.find(group => group.rankingKey === 'most_read').items.map(item => item.rank), [1, 3]);
 });
 
 test('matches raw functional query bytes as well as a legacy canonical URL that reserialized them', async () => {
@@ -131,7 +133,7 @@ test('failed/partial publisher captures preserve the last good snapshot and skip
 
 test('ranking refresh status persists failures and clears them after a successful capture', async () => {
     await refreshMostReadRankings({ capture: async () => { throw new Error('could not launch Chromium'); } });
-    assert.equal((await getStoredDigestPayload('day')).rankingStatus.state, 'error');
+    assert.equal((await readPublisherRankingsPayload('golem', db)).rankingStatus.state, 'error');
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 0);
     await refreshMostReadRankings({ capture: async () => ({ capturedAt: firstCapture, rankings: rankings() }) });
     const status = await readRankingRefreshStatus(db);
@@ -141,21 +143,52 @@ test('ranking refresh status persists failures and clears them after a successfu
     assert.equal((await db.get('SELECT COUNT(*) AS count FROM most_read')).count, 3);
 });
 
-test('digest API data and independent read-only connections include latest rankings independently of the period', async () => {
+test('standalone publisher data is read-only and separate from Digest periods', async () => {
     await article('one');
     await save();
     const independent = await openReadOnlyDatabase(process.env.DB_PATH);
     try {
-        for (const variant of ['day', 'week', 'month']) {
-            const current = await getStoredDigestPayload(variant, new Date('2026-10-01T12:00:00Z'));
-            const readonly = await readStoredDigestPayload(variant, independent, new Date('2026-10-01T12:00:00Z'));
-            assert.equal(current.rankings.length, 2);
-            assert.deepEqual(readonly.rankings, current.rankings);
-            assert.deepEqual(readonly.rankingStatus, current.rankingStatus);
-            assert.equal(current.rankings[0].capturedAt, firstCapture);
-        }
+        const current = await readPublisherRankingsPayload('golem', db);
+        const readonly = await readPublisherRankingsPayload('golem', independent);
+        assert.equal(current.rankings.length, 2);
+        assert.deepEqual(readonly, current);
+        assert.equal(current.rankings[0].capturedAt, firstCapture);
+        assert.deepEqual(current.media, [{ id: 'golem', name: 'Golem' }]);
+        assert.equal(current.configured, true);
+        await assert.rejects(readPublisherRankingsPayload('other', independent), /Unsupported/);
+        assert.equal(Object.hasOwn(await getStoredDigestPayload('day'), 'rankings'), false);
         assert.equal((await independent.get('SELECT total_changes() AS count')).count, 0);
     } finally { await independent.close(); }
+});
+
+test('concurrent manual and scheduled ranking refreshes share a single capture', async () => {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let captures = 0;
+    const capture = async () => {
+        captures += 1;
+        await gate;
+        return { capturedAt: firstCapture, rankings: rankings() };
+    };
+    const first = refreshMostReadRankings({ capture });
+    const second = refreshMostReadRankings({ capture });
+    assert.equal(isRankingRefreshRunning(), true);
+    assert.equal(first, second);
+    release();
+    await Promise.all([first, second]);
+    assert.equal(captures, 1);
+    assert.equal(isRankingRefreshRunning(), false);
+});
+
+test('Golem consent failures retain an actionable typed status instead of generic retries', async () => {
+    await refreshMostReadRankings({ capture: async () => {
+        const error = new Error('Cookie choice required');
+        error.code = 'GOLEM_CONSENT_REQUIRED';
+        throw error;
+    } });
+    const status = await readRankingRefreshStatus(db);
+    assert.equal(status.errorCode, 'GOLEM_CONSENT_REQUIRED');
+    assert.match(status.message, /cookie choice or Golem pur/);
 });
 
 test('old read-only databases without the new table return no rankings without querying article bodies', async () => {

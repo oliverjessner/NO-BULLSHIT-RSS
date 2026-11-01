@@ -25,7 +25,7 @@ export function initEvents(handlers = {}) {
         }
     });
     // A disconnected backend may never send the final ranking status. Refresh
-    // the active Digest so its normal request error replaces an endless spinner.
+    // the active Most read view so a request error replaces an endless spinner.
     source.addEventListener('error', () => handlers.rankingsUpdated?.({ state: 'error' }));
 }
 

@@ -41,7 +41,7 @@ export async function loadRankingArticleIndex(sourceId, database, canonicalUrls)
     return index;
 }
 
-export async function readMostReadRankings(database) {
+export async function readMostReadRankings(database, { respectDigestExclusions = true } = {}) {
     const tables = await database.all("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'most_read'");
     if (!tables.length) return [];
     const rows = await database.all(`SELECT most_read.*, sources.name AS sourceName
@@ -50,7 +50,7 @@ export async function readMostReadRankings(database) {
             WHERE latest.sourceId = most_read.sourceId AND latest.rankingKey = most_read.rankingKey)
         AND EXISTS (SELECT 1 FROM feeds WHERE feeds.sourceId = sources.id
             AND (feeds.feedUrl LIKE 'https://%' OR feeds.feedUrl LIKE 'http://%')
-            AND NOT EXISTS (SELECT 1 FROM digest_excluded_feeds WHERE feedId = feeds.id))
+            ${respectDigestExclusions ? 'AND NOT EXISTS (SELECT 1 FROM digest_excluded_feeds WHERE feedId = feeds.id)' : ''})
         ORDER BY sources.name COLLATE NOCASE, most_read.sourceId, most_read.rankingKey, most_read.rank`);
     const groups = new Map();
     const indexes = new Map();
@@ -69,7 +69,7 @@ export async function readMostReadRankings(database) {
         const candidates = indexes.get(row.sourceId).get(canonicalUrl) || [];
         const rssCandidates = candidates.filter(article => !article.manual);
         const preferred = rssCandidates.length ? rssCandidates : candidates;
-        const match = preferred.find(article => !article.excluded && !article.bullshit);
+        const match = preferred.find(article => (!respectDigestExclusions || !article.excluded) && !article.bullshit);
         if (preferred.length && !match) continue;
         let article = null;
         if (match) {

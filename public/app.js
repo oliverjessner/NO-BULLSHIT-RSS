@@ -61,6 +61,17 @@ async function ensureController(name) {
         controllers.set(name, controller);
         return controller;
     }
+    if (name === 'rankings') {
+        const module = await import('./js/views/rankings.js');
+        const controller = {
+            activate: module.activateRankings,
+            deactivate: module.deactivateRankings,
+            dirty: module.markRankingsDirty,
+            refresh: () => module.loadRankings({ force: true, silent: true }),
+        };
+        controllers.set(name, controller);
+        return controller;
+    }
     if (name === 'settings') {
         settingsModule = await import('./js/views/settings.js');
         const options = {
@@ -99,6 +110,12 @@ function markDigestDirty() {
     if (store.ui.activeView === 'digest') void controllers.get('digest')?.refresh?.();
 }
 
+function markRankingsDirty() {
+    store.rankings.needsRefresh = true;
+    controllers.get('rankings')?.dirty?.();
+    if (store.ui.activeView === 'rankings') void controllers.get('rankings')?.refresh?.();
+}
+
 function setupLiveUpdates() {
     initEvents({
         watchdogsUpdated: event => {
@@ -108,14 +125,16 @@ function setupLiveUpdates() {
         fetchCompleted: () => {
             markFeedDirty();
             markDigestDirty();
+            markRankingsDirty();
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
             void settingsModule?.refreshSettingsMeta();
         },
-        rankingsUpdated: () => markDigestDirty(),
+        rankingsUpdated: () => markRankingsDirty(),
         feedsUpdated: () => {
             void refreshReferences('feeds');
             markFeedDirty();
             markDigestDirty();
+            markRankingsDirty();
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
         },
         listsUpdated: () => void refreshReferences('lists'),
@@ -129,14 +148,17 @@ function setupLiveUpdates() {
         },
         digestSettingsUpdated: () => {
             markDigestDirty();
+            markRankingsDirty();
             void settingsModule?.reloadDigestSettings();
         },
         bullshitRulesUpdated: () => {
             markFeedDirty();
             markDigestDirty();
+            markRankingsDirty();
             void settingsModule?.reloadBullshitRules();
         },
         articlesUpdated: () => {
+            markRankingsDirty();
             if (store.digest.pendingMutationEvents > 0) {
                 store.digest.pendingMutationEvents -= 1;
                 return;

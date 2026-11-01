@@ -7,8 +7,6 @@ import { getDigestPeriodDefinition, getDigestTimezone, isPeriodInsideRebuildWind
 import { getRebuildWindow } from './digest-periods.js';
 import { getActiveTopicRulesVersion } from './topics.js';
 import { loadActiveClusters } from './digest-reader.js';
-import { readMostReadRankings } from './most-read-reader.js';
-import { readRankingRefreshStatus } from './ranking-status.js';
 
 function hash(value) {
     return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -244,8 +242,6 @@ export async function getStoredDigestPayload(type = 'day', referenceDate = new D
         totalArticles,
         totalClusters: clusters.length,
         clusters,
-        rankings: await readMostReadRankings({ all }),
-        rankingStatus: await readRankingRefreshStatus({ all }),
     };
 }
 
@@ -266,8 +262,6 @@ export async function readStoredDigestPayload(type = 'day', { all: readAll, get:
         totalArticles: clusters.reduce((sum, cluster) => sum + cluster.items.length, 0),
         totalClusters: clusters.length,
         clusters,
-        rankings: await readMostReadRankings({ all: readAll }),
-        rankingStatus: await readRankingRefreshStatus({ all: readAll }),
     };
 }
 

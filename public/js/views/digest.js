@@ -1,6 +1,5 @@
 import { api } from '../api/client.js';
 import { createDigestCluster } from '../components/digest-cluster.js';
-import { digestRankingsFingerprint, renderDigestRankings } from '../components/digest-rankings.js';
 import { CONFIG, STORAGE_KEYS } from '../config.js';
 import { closeViewer, isViewerOpen, openArticle, openExternal } from '../services/article-viewer.js';
 import { store } from '../state/store.js';
@@ -28,7 +27,7 @@ function sortedClusters(payload) {
 }
 
 function fingerprint(payload) {
-    return [payload?.variant, payload?.totalArticles, payload?.totalClusters, ...(payload?.clusters || []).map(cluster => `${cluster?.representative?.id}:${cluster?.clusterCount}:${cluster?.representative?.publishedAt}`), digestRankingsFingerprint(payload?.rankings, payload?.rankingStatus)].join('|');
+    return [payload?.variant, payload?.totalArticles, payload?.totalClusters, ...(payload?.clusters || []).map(cluster => `${cluster?.representative?.id}:${cluster?.clusterCount}:${cluster?.representative?.publishedAt}`)].join('|');
 }
 
 function updateControls() {
@@ -79,7 +78,6 @@ function render(payload, { force = false } = {}) {
     store.digest.fingerprint = nextFingerprint;
     store.digest.articlesById = new Map(); store.digest.renderedCount = 0;
     renderQueue = sortedClusters(payload); clear(dom.digest.list);
-    renderDigestRankings(dom.digest.rankings, payload?.rankings, store.digest.articlesById, { status: payload?.rankingStatus });
     renderSubtitle(payload); updateControls();
     if (!renderQueue.length) { text(dom.digest.state, emptyLabel(payload?.variant || store.ui.digestRange)); show(dom.digest.state); return; }
     text(dom.digest.state, ''); hide(dom.digest.state); renderNextBatch();
@@ -92,9 +90,6 @@ export async function loadDigest({ force = false, silent = false } = {}) {
     const controller = new AbortController(); const requestId = ++store.digest.requestId;
     store.digest.requestController = controller;
     const isRangeSwitch = store.digest.payload && store.digest.payload.variant !== requestedRange;
-    if (!store.digest.payload) {
-        renderDigestRankings(dom.digest.rankings, [], store.digest.articlesById, { status: { state: 'loading' } });
-    }
     if (!silent && (!store.digest.payload || isRangeSwitch)) {
         clear(dom.digest.list);
         text(dom.digest.state, `Loading ${rangeLabel(requestedRange).toLowerCase()}…`);
@@ -111,8 +106,6 @@ export async function loadDigest({ force = false, silent = false } = {}) {
         store.digest.needsRefresh = false; render(store.digest.payload, { force });
     } catch (error) {
         if (isAbortError(error) || requestId !== store.digest.requestId) return;
-        renderDigestRankings(dom.digest.rankings, store.digest.payload?.rankings, store.digest.articlesById, { status: { state: 'error' } });
-        store.digest.fingerprint = '';
         text(dom.digest.state, `Error: ${error.message}`); show(dom.digest.state); text(dom.digest.subtitle, 'Failed to load digest.');
     } finally {
         if (store.digest.requestController === controller) store.digest.requestController = null;
@@ -181,13 +174,6 @@ function bindEvents() {
         if (trigger?.getAttribute('aria-expanded') === 'true') trigger.click();
         const ids = (store.digest.payload?.clusters || []).flatMap(cluster => (cluster.items || []).map(item => item.id));
         void markDigested(ids, dom.digest.markAll);
-    });
-    dom.digest.rankings.addEventListener('click', event => {
-        const link = event.target.closest('.digest-ranking-link');
-        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        if (link.dataset.articleId) openArticle(link.dataset.articleId);
-        else openExternal(null, link.dataset.itemUrl);
     });
     dom.digest.list.addEventListener('click', async event => {
         const action = event.target.closest('[data-action]'); if (!action) return;

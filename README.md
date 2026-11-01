@@ -20,6 +20,7 @@ Save useful articles to reading lists and create keyword alerts for subjects you
 - Follow RSS feeds in compact or card layouts.
 - Search articles and filter by source, topic or reading list.
 - Group related coverage into daily, weekly and monthly digests.
+- Explore Golem's most-read and most-commented articles in the separate Most read view.
 - Automatically tag articles with your own topic keywords and filter unwanted coverage with bullshit rules.
 - Track keyword matches in Watchdog, with optional macOS notifications.
 - Save articles to reading lists and dismiss finished articles or stories.
@@ -87,6 +88,12 @@ Choose Day, Week or Month to see related articles grouped into stories across yo
 Save a story to a reading list or mark it as digested when you are done.
 
 ![Monthly digest grouping related articles into stories with source links and save controls](public/images/mockups/digest_month.webp)
+
+## Explore Golem rankings
+
+Open **Most read**, choose **Golem** and select **Refresh** to load its latest most-read and most-commented articles.
+
+If Golem requires access, select **Set up Golem access**, make your cookie or PUR choice in the separate browser window, then return to the app and select **Save access**. **Forget saved access** removes that saved access from the app.
 
 ## Follow keyword alerts with Watchdog
 

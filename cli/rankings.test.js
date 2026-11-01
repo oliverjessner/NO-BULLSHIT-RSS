@@ -12,6 +12,9 @@ test('publisher CLI validates media and flags before opening a database', () => 
         command: 'publisher-rankings', medium: 'golem', rankingKey: 'most_read', json: true,
     });
     assert.equal(parseCliArgs(['--most-commented', 'Golem']).rankingKey, 'most_commented');
+    assert.deepEqual(parseCliArgs(['--most-read', 'WinFuture']), {
+        command: 'publisher-rankings', medium: 'winfuture', rankingKey: 'most_read', json: false,
+    });
     for (const args of [['--most-read'], ['--most-read', 'unknown'], ['--most-read', 'golem', '--most-commented', 'golem'], ['--most-read', 'golem', '--url']]) {
         assert.throws(() => parseCliArgs(args));
     }
@@ -39,7 +42,16 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
             (1,NULL,'https://www.golem.de/news/old.html','Old',1,'most_read','2026-10-31T00:00:00.000Z'),
             (1,1,'https://www.golem.de/news/one.html','Ranking title',1,'most_read','2026-11-01T00:00:00.000Z'),
             (1,NULL,'https://www.golem.de/news/two.html','Unmatched',2,'most_read','2026-11-01T00:00:00.000Z'),
-            (1,NULL,'https://www.golem.de/news/three.html','Comments',1,'most_commented','2026-11-01T00:00:00.000Z');`);
+            (1,NULL,'https://www.golem.de/news/three.html','Comments',1,'most_commented','2026-11-01T00:00:00.000Z');
+            INSERT INTO sources (id,name,websiteUrl,canonicalWebsiteUrl,createdAt,updatedAt)
+            VALUES (2,'WinFuture','https://winfuture.de/','https://winfuture.de/','2026-11-01','2026-11-01');
+            INSERT INTO feeds (id,sourceId,name,feedUrl,createdAt,updatedAt)
+            VALUES (2,2,'WinFuture RSS','https://static.winfuture.de/feed','2026-11-01','2026-11-01');
+            INSERT INTO articles (id,feedId,externalId,title,teaser,url,canonicalUrl,contentHash,publishedAt,fetchedAt,createdAt,updatedAt)
+            VALUES (2,2,'wf-one','WinFuture RSS title','WinFuture teaser','https://winfuture.de/news,162334.html','https://winfuture.de/news,162334.html','two','2026-11-01','2026-11-01','2026-11-01','2026-11-01');
+            INSERT INTO most_read (sourceId,articleId,canonicalUrl,title,rank,rankingKey,capturedAt) VALUES
+            (2,2,'https://winfuture.de/news,162334.html','WinFuture ranking title',1,'most_read','2026-11-01T00:00:00.000Z'),
+            (2,NULL,'https://winfuture.de/news,162318.html','WinFuture comments',1,'most_commented','2026-11-01T00:00:00.000Z');`);
         await new Promise((resolve, reject) => connection.close(error => error ? reject(error) : resolve()));
         connection = null;
         const before = await readFile(databasePath);
@@ -64,6 +76,12 @@ test('publisher CLI reads latest ranked RSS data without writes or refreshes', a
         assert.match(text, /1\tRSS title\thttps:\/\/www.golem.de\/news\/one.html/);
         assert.doesNotMatch(text, /Old|Comments/);
         assert.match(await run(['--most-commented', 'golem']), /Comments/);
+        const winfuture = JSON.parse(await run(['--most-read', 'winfuture', '--json']));
+        assert.equal(winfuture.medium, 'winfuture');
+        assert.equal(winfuture.rankings.length, 1);
+        assert.equal(winfuture.rankings[0].sourceName, 'WinFuture');
+        assert.equal(winfuture.rankings[0].items[0].article.teaser, 'WinFuture teaser');
+        assert.match(await run(['--most-commented', 'winfuture']), /WinFuture comments/);
         assert.deepEqual(await readFile(databasePath), before);
         assert.deepEqual(await readdir(directory), filesBefore);
     } finally {

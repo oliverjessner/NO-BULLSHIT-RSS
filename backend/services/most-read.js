@@ -1,9 +1,11 @@
 import { all, get, run, transaction } from '../database/datenbank.js';
 import { cleanHttpUrl } from '../utils/url.js';
 import { logWarn } from '../utils/logger.js';
-import { fetchGolemRankings, isGolemSource, RANKING_KEYS } from './golem-rankings.js';
+import { fetchGolemRankings } from './golem-rankings.js';
+import { fetchWinFutureRankings } from './winfuture-rankings.js';
+import { rankingMediumForSource, RANKING_KEYS, RANKING_MEDIA } from './ranking-media.js';
 import { loadRankingArticleIndex } from './most-read-reader.js';
-import { normalizeRankingStatus, RANKING_STATUS_KEY } from './ranking-status.js';
+import { normalizeRankingStatus, rankingStatusKey } from './ranking-status.js';
 import { publish } from './events.js';
 
 const database = { all, get };
@@ -73,12 +75,12 @@ export async function reconcileMostReadArticles() {
     });
 }
 
-async function setRankingStatus(state, attemptedAt, errorCode = null) {
+async function setRankingStatus(state, attemptedAt, errorCode = null, medium = null) {
     const status = normalizeRankingStatus({ state, attemptedAt, errorCode });
     await run(`INSERT INTO app_metadata (key, value, updatedAt) VALUES (?, ?, datetime('now'))
         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
-    [RANKING_STATUS_KEY, JSON.stringify(status)]);
-    publish('rankings.updated', status);
+    [rankingStatusKey(medium), JSON.stringify(status)]);
+    publish('rankings.updated', { ...status, ...(medium ? { medium } : {}) });
 }
 
 function failureDetails(error) {
@@ -99,34 +101,52 @@ export function refreshMostReadRankings(options = {}) {
     return activeRankingRefresh;
 }
 
-async function refreshRankings({ capture = fetchGolemRankings } = {}) {
+async function refreshRankings({ capture, medium = null } = {}) {
+    if (medium && !RANKING_MEDIA.some(item => item.id === medium)) throw new Error('Unsupported ranking medium');
     const attemptedAt = new Date().toISOString();
-    await setRankingStatus('refreshing', attemptedAt);
+    const requested = RANKING_MEDIA.filter(item => !medium || item.id === medium);
+    // Only an all-publisher pass advances the independent scheduler's cadence.
+    if (!medium) await setRankingStatus('refreshing', attemptedAt);
+    for (const provider of requested) await setRankingStatus('refreshing', attemptedAt, null, provider.id);
     try {
         // Reconcile even when the publisher is unavailable, so newly imported
         // RSS articles can open the last successful ranking in the viewer.
         await reconcileMostReadArticles();
         const rows = await all(`SELECT sources.id, sources.name, sources.websiteUrl, feeds.feedUrl
             FROM sources JOIN feeds ON feeds.sourceId = sources.id ORDER BY sources.id, feeds.id`);
-        const sources = new Map(rows.filter(row => cleanHttpUrl(row.feedUrl) && isGolemSource(row)).map(row => [row.id, row]));
+        const sources = new Map(rows.filter(row => {
+            const provider = rankingMediumForSource(row);
+            return cleanHttpUrl(row.feedUrl) && provider && (!medium || provider.id === medium);
+        }).map(row => [row.id, row]));
         let updated = 0;
-        let failed = false;
-        let failureCode = null;
+        const outcomes = new Map(requested.map(provider => [provider.id, { total: 0, failed: false, errorCode: null }]));
         for (const source of sources.values()) {
+            const provider = rankingMediumForSource(source);
+            const outcome = outcomes.get(provider.id);
+            outcome.total += 1;
             try {
-                const snapshot = await capture();
+                const read = capture || (provider.id === 'winfuture' ? fetchWinFutureRankings : fetchGolemRankings);
+                const snapshot = await read({ medium: provider.id, source });
                 const result = await saveMostReadSnapshot({ sourceId: source.id, ...snapshot });
                 if (result.inserted) updated += 1;
             } catch (error) {
-                failed = true;
-                if (error.code === 'GOLEM_CONSENT_REQUIRED') failureCode = error.code;
+                outcome.failed = true;
+                if (error.code === 'GOLEM_CONSENT_REQUIRED') outcome.errorCode = error.code;
                 logWarn('Publisher rankings refresh failed', { sourceId: source.id, error: error.message, failures: failureDetails(error) });
             }
         }
-        await setRankingStatus(failed ? 'error' : sources.size ? 'ready' : 'idle', attemptedAt, failureCode);
+        for (const [id, outcome] of outcomes) {
+            await setRankingStatus(outcome.failed ? 'error' : outcome.total ? 'ready' : 'idle', attemptedAt, outcome.errorCode, id);
+        }
+        if (!medium) {
+            const failed = [...outcomes.values()].some(outcome => outcome.failed);
+            const failureCode = [...outcomes.values()].find(outcome => outcome.errorCode)?.errorCode || null;
+            await setRankingStatus(failed ? 'error' : sources.size ? 'ready' : 'idle', attemptedAt, failureCode);
+        }
         return { updated, total: sources.size };
     } catch (error) {
-        await setRankingStatus('error', attemptedAt, error.code);
+        for (const provider of requested) await setRankingStatus('error', attemptedAt, error.code, provider.id);
+        if (!medium) await setRankingStatus('error', attemptedAt, error.code);
         throw error;
     }
 }

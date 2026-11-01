@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseHTML } from 'linkedom';
 
 const payload = (title = 'Saved Golem story') => ({
-    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }], configured: true,
+    medium: 'golem', media: [{ id: 'golem', name: 'Golem' }, { id: 'winfuture', name: 'WinFuture' }], configured: true,
     rankingStatus: { state: 'ready', message: null, attemptedAt: '2026-11-01T07:00:00Z' },
     rankings: [{ sourceId: 1, sourceName: 'Golem', rankingKey: 'most_read', capturedAt: '2026-11-01T07:00:00Z', items: [
         { id: 901, articleId: 7, rank: 1, canonicalUrl: 'https://www.golem.de/news/saved.html', title,
@@ -12,6 +12,16 @@ const payload = (title = 'Saved Golem story') => ({
         { id: 902, articleId: null, rank: 2, canonicalUrl: 'https://www.golem.de/news/external.html', title: 'External story', article: null },
     ] }],
 });
+
+function winFuturePayload(title = 'Saved WinFuture story') {
+    const base = payload(title);
+    return { ...base, medium: 'winfuture', rankings: base.rankings.map(group => ({
+        ...group, sourceId: 2, sourceName: 'WinFuture', items: group.items.map(item => ({
+            ...item, canonicalUrl: 'https://winfuture.de/news,162334.html', articleId: item.articleId ? 17 : null,
+            article: item.article ? { ...item.article, id: 17, url: 'https://winfuture.de/news,162334.html' } : null,
+        })),
+    })) };
+}
 
 test('Most read uses automatic consent refresh with its own viewer, saved snapshots and request ordering', async () => {
     const previous = { document: globalThis.document, window: globalThis.window, fetch: globalThis.fetch, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
@@ -45,10 +55,15 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
     globalThis.fetch = async (url, options) => {
         requests.push({ url, options });
         if (url === '/api/rankings/refresh') {
+            if (JSON.parse(options.body).medium === 'winfuture') return Response.json(winFuturePayload('Refreshed WinFuture story'));
             if (mode === 'failed') return Response.json({ ...payload(), error: 'Could not refresh', rankingStatus: { state: 'error' } }, { status: 502 });
             if (mode === 'consent-required') return Response.json({ ...payload(), error: 'Automatic consent could not be completed', rankingStatus: { state: 'error', errorCode: 'GOLEM_CONSENT_REQUIRED' } }, { status: 502 });
             if (mode === 'busy') return Response.json({ error: 'Refresh already running' }, { status: 409 });
             return Response.json(payload('Refreshed Golem story'));
+        }
+        if (url === '/api/rankings?medium=winfuture') {
+            const current = winFuturePayload();
+            return Response.json({ ...current, configured, rankings: configured ? current.rankings : [], rankingStatus: configured ? current.rankingStatus : { state: 'idle' } });
         }
         assert.equal(url, '/api/rankings?medium=golem');
         if (mode === 'delayed-read') return new Promise(resolve => { completeOldRead = resolve; });
@@ -126,6 +141,38 @@ test('Most read uses automatic consent refresh with its own viewer, saved snapsh
         assert.equal(document.querySelector('#rankings-refresh').disabled, false);
         assert.equal(polls.size, 0);
         assert.equal(requests.some(request => request.url.startsWith('/api/fetch') || request.url.includes('/access')), false);
+
+        // A provider switch invalidates a pending response from the old medium
+        // and closes its article viewer before rendering the newly selected one.
+        mode = 'delayed-read';
+        const oldGolemRead = rankings.loadRankings({ force: true });
+        mode = 'ready';
+        const select = document.querySelector('#rankings-medium');
+        select.value = 'winfuture';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 'winfuture');
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Saved WinFuture story/);
+        assert.equal(store.rankings.articlesById.has(7), false);
+        assert.equal(store.rankings.articlesById.get(17).title, 'Saved WinFuture story');
+        assert.equal(document.querySelector('#rankings-article-viewer').classList.contains('hide'), true);
+        completeOldRead(Response.json(payload('Late Golem response')));
+        await oldGolemRead;
+        assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Late Golem response/);
+        assert.equal(select.value, 'winfuture');
+        await rankings.refreshRankings();
+        assert.deepEqual(JSON.parse(requests.filter(request => request.url.endsWith('/refresh')).at(-1).options.body), { medium: 'winfuture' });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Refreshed WinFuture story/);
+        configured = false;
+        await rankings.loadRankings({ force: true });
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Add a WinFuture RSS feed/);
+        assert.doesNotMatch(document.querySelector('#publisher-rankings').textContent, /Golem/);
+        configured = true;
+        select.value = 'golem';
+        select.dispatchEvent(new window.Event('change'));
+        await new Promise(setImmediate);
+        assert.equal(store.ui.rankingsMedium, 'golem');
+        assert.match(document.querySelector('#publisher-rankings').textContent, /Saved Golem story/);
     } finally {
         rankings?.deactivateRankings();
         for (const [key, value] of Object.entries(previous)) {

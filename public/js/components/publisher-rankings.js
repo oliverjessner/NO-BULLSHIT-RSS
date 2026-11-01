@@ -54,7 +54,7 @@ export function publisherRankingsFingerprint(rankings, status, configured) {
     return JSON.stringify({ rankings: Array.isArray(rankings) ? rankings : [], status: status || null, configured });
 }
 
-export function renderPublisherRankings(container, rankings, articleMap, { status, configured, template = document.getElementById('article-card-template'), activeTopic = '' } = {}) {
+export function renderPublisherRankings(container, rankings, articleMap, { status, configured, publisherName = 'Golem', template = document.getElementById('article-card-template'), activeTopic = '' } = {}) {
     const groups = normalizePublisherRankings(rankings);
     container.replaceChildren();
     container.hidden = false;
@@ -63,7 +63,7 @@ export function renderPublisherRankings(container, rankings, articleMap, { statu
     state.className = 'publisher-rankings-status oj-muted';
     state.setAttribute('role', 'status');
     state.setAttribute('aria-live', 'polite');
-    if (configured === false) state.textContent = 'Add a Golem RSS feed in Settings.';
+    if (configured === false) state.textContent = `Add a ${publisherName} RSS feed in Settings.`;
     else if (status?.state === 'loading' && !groups.length) state.textContent = 'Loading…';
     else if (status?.state === 'refreshing' && !groups.length) state.textContent = 'Refreshing…';
     else if (status?.state === 'error') {

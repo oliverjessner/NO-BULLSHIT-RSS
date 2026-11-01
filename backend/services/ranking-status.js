@@ -1,4 +1,7 @@
+import { RANKING_MEDIA } from './ranking-media.js';
+
 export const RANKING_STATUS_KEY = 'rankings.refresh.status';
+export const rankingStatusKey = medium => medium ? `${RANKING_STATUS_KEY}.${medium}` : RANKING_STATUS_KEY;
 const states = new Set(['idle', 'refreshing', 'ready', 'error']);
 
 export function normalizeRankingStatus(value, { now = Date.now() } = {}) {
@@ -21,9 +24,13 @@ export function normalizeRankingStatus(value, { now = Date.now() } = {}) {
     };
 }
 
-export async function readRankingRefreshStatus(database) {
+export async function readRankingRefreshStatus(database, medium = null) {
+    if (medium && !RANKING_MEDIA.some(item => item.id === medium)) throw new Error('Unsupported ranking medium');
     const tables = await database.all("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_metadata'");
     if (!tables.length) return normalizeRankingStatus(null);
-    const rows = await database.all('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY]);
-    return normalizeRankingStatus(rows[0]?.value);
+    const rows = await database.all('SELECT value FROM app_metadata WHERE key = ?', [rankingStatusKey(medium)]);
+    if (rows.length || medium !== 'golem') return normalizeRankingStatus(rows[0]?.value);
+    // Existing installations recorded only Golem refreshes in the global key.
+    const legacy = await database.all('SELECT value FROM app_metadata WHERE key = ?', [RANKING_STATUS_KEY]);
+    return normalizeRankingStatus(legacy[0]?.value);
 }

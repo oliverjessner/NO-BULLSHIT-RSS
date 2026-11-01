@@ -1,8 +1,8 @@
 import { cleanHttpUrl } from '../utils/url.js';
 import { readMostReadRankings } from './most-read-reader.js';
 import { readRankingRefreshStatus } from './ranking-status.js';
-
-export const RANKING_MEDIA = Object.freeze([Object.freeze({ id: 'golem', name: 'Golem', hostname: 'golem.de' })]);
+import { RANKING_MEDIA } from './ranking-media.js';
+export { RANKING_MEDIA } from './ranking-media.js';
 
 export async function readPublisherRankingsPayload(medium, database) {
     const publisher = RANKING_MEDIA.find(item => item.id === medium);
@@ -20,6 +20,6 @@ export async function readPublisherRankingsPayload(medium, database) {
         media: RANKING_MEDIA.map(({ id, name }) => ({ id, name })),
         configured: allowed.some(source => Boolean(source.hasRss)),
         rankings: (await readMostReadRankings(database, { respectDigestExclusions: false })).filter(group => ids.has(group.sourceId)),
-        rankingStatus: await readRankingRefreshStatus(database),
+        rankingStatus: await readRankingRefreshStatus(database, medium),
     };
 }

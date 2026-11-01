@@ -57,6 +57,7 @@ Options:
   -h, --help                 Show this help
 
 When --url and --title are combined, each line is URL<TAB>TITLE.
+Publisher media: ${RANKING_MEDIA.map(item => item.id).join(', ')}.
 Without a projection flag, "articles last" prints a JSON array and "articles random" prints one JSON object.
 
 Examples:

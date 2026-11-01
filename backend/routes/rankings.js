@@ -2,10 +2,10 @@ import express from 'express';
 import { all } from '../database/datenbank.js';
 import { auth } from '../middleware/auth.js';
 import { requestSchema as schema } from '../middleware/validate-request.js';
-import { readPublisherRankingsPayload } from '../services/publisher-rankings-reader.js';
+import { readPublisherRankingsPayload, RANKING_MEDIA } from '../services/publisher-rankings-reader.js';
 import { isRankingRefreshRunning, refreshMostReadRankings } from '../services/most-read.js';
 
-const mediumProperty = { type: 'string', enum: ['golem'] };
+const mediumProperty = { type: 'string', enum: RANKING_MEDIA.map(medium => medium.id) };
 const mediumQuery = { type: 'object', properties: { medium: mediumProperty }, additionalProperties: false };
 const mediumBody = { ...mediumQuery, required: ['medium'] };
 
@@ -26,7 +26,7 @@ export function createRankingsRouter({
     router.post('/refresh', auth, schema.validate({ body: mediumBody }), async (req, res) => {
         const { medium } = req.body;
         if (isRefreshing()) return res.status(409).json({ ...await payload(medium), error: 'Publisher rankings are already refreshing.' });
-        await refresh();
+        await refresh({ medium });
         return sendRefreshResult(res, medium);
     });
     return router;

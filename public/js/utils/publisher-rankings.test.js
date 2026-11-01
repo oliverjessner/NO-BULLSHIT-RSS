@@ -61,7 +61,7 @@ test('unsafe links, invalid ranks, unsupported groups and empty groups produce n
     assert.deepEqual(normalizePublisherRankings(null), []);
 });
 
-test('Most read has its own main menu, Golem-only medium selector and viewer outside Digest', async () => {
+test('Most read has its own main menu, publisher selector and viewer outside Digest', async () => {
     const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
     const { document } = parseHTML(html);
     const container = document.querySelector('#view-rankings #publisher-rankings');
@@ -69,12 +69,12 @@ test('Most read has its own main menu, Golem-only medium selector and viewer out
     assert.equal(container.hasAttribute('hidden'), false);
     assert.equal(document.querySelector('#view-digest #publisher-rankings'), null);
     assert.equal(document.querySelectorAll('.nav-link[data-view="rankings"]').length, 1);
-    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem']]);
+    assert.deepEqual([...document.querySelectorAll('#rankings-medium option')].map(option => [option.value, option.textContent]), [['golem', 'Golem'], ['winfuture', 'WinFuture']]);
     assert.equal(document.querySelector('#rankings-medium').hasAttribute('data-oj-select-dropdown'), true);
     assert.ok(document.querySelector('#view-rankings #rankings-refresh'));
     assert.ok(document.querySelector('#view-rankings #rankings-article-viewer-frame'));
     assert.equal(container.querySelector('.publisher-rankings-note'), null);
-    assert.match(document.querySelector('#rankings-refresh').title, /cookie consent is accepted automatically/);
+    assert.match(document.querySelector('#rankings-refresh').title, /Refresh Golem rankings/);
     assert.equal(document.querySelector('[id^="rankings-access-"]'), null);
     assert.equal(container.querySelector('h2'), null);
     assert.match(container.querySelector('[role="status"]').textContent, /Loading/);
@@ -103,6 +103,9 @@ test('rankings show one compact empty or error state without repeated introducto
             assert.equal(container.querySelectorAll('li').length, 0, 'Status displays must never invent articles');
             assert.doesNotMatch(container.textContent, /--no-sandbox|browser\.js|Error:/);
         }
+        renderPublisherRankings(container, [], new Map(), { configured: false, publisherName: 'WinFuture' });
+        assert.match(container.textContent, /Add a WinFuture RSS feed/);
+        assert.doesNotMatch(container.textContent, /Golem/);
     } finally {
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;

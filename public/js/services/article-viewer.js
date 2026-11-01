@@ -39,7 +39,7 @@ function articleById(id) {
 }
 
 function setActiveCards() {
-    for (const card of document.querySelectorAll('[data-article-id].feed-card, [data-article-id].digest-item-card, [data-article-id].publisher-ranking-link')) {
+    for (const card of document.querySelectorAll('[data-article-id].feed-card, [data-article-id].digest-item-card')) {
         const inActiveView = card.closest(`#view-${store.ui.activeView}`);
         card.classList.toggle('is-active', viewerState.open && Boolean(inActiveView) && Number(card.dataset.articleId) === viewerState.articleId);
     }

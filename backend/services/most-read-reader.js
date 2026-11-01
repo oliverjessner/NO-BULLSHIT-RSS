@@ -8,11 +8,14 @@ export async function loadRankingArticleIndex(sourceId, database, canonicalUrls)
     if (!requested.size) return new Map();
     const select = `SELECT articles.id, articles.feedId, articles.title, articles.teaser, articles.content,
             articles.url, articles.canonicalUrl, articles.publishedAt, articles.externalId AS guidOrHash,
+            articles.createdAt, articles.updatedAt, article_state.readAt, article_state.dismissedAt,
+            EXISTS (SELECT 1 FROM list_items WHERE list_items.articleId = articles.id) AS saved,
             ${database.feedNamesAvailable === false ? 'sources.name' : "COALESCE(NULLIF(feeds.name, ''), sources.name)"} AS sourceName,
             sources.logo IS NOT NULL AS hasSourceLogo, feeds.feedUrl,
             EXISTS (SELECT 1 FROM digest_excluded_feeds WHERE feedId = feeds.id) AS excluded,
             ${database.bullshitRulesAvailable === false ? '0' : 'EXISTS (SELECT 1 FROM article_bullshit_matches WHERE articleId = articles.id)'} AS bullshit
         FROM articles JOIN feeds ON feeds.id = articles.feedId JOIN sources ON sources.id = feeds.sourceId
+        LEFT JOIN article_state ON article_state.articleId = articles.id
         WHERE feeds.sourceId = ?`;
     const urlsJson = JSON.stringify([...requested]);
     const rows = await database.all(`${select}
@@ -20,7 +23,7 @@ export async function loadRankingArticleIndex(sourceId, database, canonicalUrls)
     [sourceId, urlsJson, urlsJson]);
     const known = new Set(rows.map(row => row.id));
     const unresolved = new Set([...requested].filter(url => !rows.some(row =>
-        articleUrlKeys(row).includes(url) && cleanHttpUrl(row.feedUrl) && !row.excluded && !row.bullshit)));
+        articleUrlKeys(row).includes(url) && cleanHttpUrl(row.feedUrl) && !row.excluded && !row.bullshit && !row.dismissedAt)));
     if (unresolved.size) {
         // Legacy URLs may still contain tracking parameters. Only scan their
         // small URL fields, then hydrate the few matching articles.
@@ -69,13 +72,14 @@ export async function readMostReadRankings(database, { respectDigestExclusions =
         const candidates = indexes.get(row.sourceId).get(canonicalUrl) || [];
         const rssCandidates = candidates.filter(article => !article.manual);
         const preferred = rssCandidates.length ? rssCandidates : candidates;
-        const match = preferred.find(article => (!respectDigestExclusions || !article.excluded) && !article.bullshit);
+        const match = preferred.find(article => (!respectDigestExclusions || !article.excluded) && !article.bullshit && !article.dismissedAt);
         if (preferred.length && !match) continue;
         let article = null;
         if (match) {
             article = {
                 id: Number(match.id), feedId: Number(match.feedId), title: match.title, teaser: match.teaser, content: match.content,
                 url: cleanHttpUrl(match.url) || canonicalUrl, publishedAt: match.publishedAt, guidOrHash: match.guidOrHash, sourceName: match.sourceName,
+                createdAt: match.createdAt, updatedAt: match.updatedAt, readAt: match.readAt, dismissedAt: match.dismissedAt, saved: Boolean(match.saved),
                 sourceLogoDataUrl: match.hasSourceLogo ? `/api/feeds/${encodeURIComponent(match.feedId)}/logo` : null,
                 topics: [],
             };

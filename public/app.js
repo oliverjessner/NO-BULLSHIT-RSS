@@ -140,6 +140,7 @@ function setupLiveUpdates() {
         listsUpdated: () => void refreshReferences('lists'),
         listItemsUpdated: () => {
             markFeedDirty();
+            markRankingsDirty();
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
         },
         topicsUpdated: () => {
@@ -180,6 +181,7 @@ async function init() {
     initModal({
         onSaved: async () => {
             markFeedDirty();
+            markRankingsDirty();
             if (store.ui.activeView === 'main') await loadArticles({ force: true, showLoading: false });
         },
     });

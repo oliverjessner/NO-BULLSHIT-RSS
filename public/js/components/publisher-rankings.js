@@ -1,4 +1,5 @@
 import { formatDate } from '../utils/format.js';
+import { createArticleCard } from './article-card.js';
 
 const rankingLabels = { most_read: 'Most read', most_commented: 'Most commented' };
 const positiveId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
@@ -44,7 +45,7 @@ export function normalizePublisherRankings(rankings) {
             capturedAt: group.capturedAt && Number.isFinite(captured.getTime()) ? captured.toISOString() : null,
             items,
         }];
-    });
+    }).sort((left, right) => Number(left.rankingKey === 'most_commented') - Number(right.rankingKey === 'most_commented'));
 }
 
 export function publisherRankingsFingerprint(rankings, status, configured) {
@@ -53,87 +54,88 @@ export function publisherRankingsFingerprint(rankings, status, configured) {
     return JSON.stringify({ rankings: Array.isArray(rankings) ? rankings : [], status: status || null, configured });
 }
 
-export function renderPublisherRankings(container, rankings, articleMap, { status, configured } = {}) {
+export function renderPublisherRankings(container, rankings, articleMap, { status, configured, template = document.getElementById('article-card-template'), activeTopic = '' } = {}) {
     const groups = normalizePublisherRankings(rankings);
     container.replaceChildren();
     container.hidden = false;
 
-    const heading = document.createElement('h2');
-    heading.className = 'publisher-rankings-title oj-heading-3';
-    heading.textContent = 'Most read & most commented';
-    const note = document.createElement('p');
-    note.className = 'publisher-rankings-note oj-muted';
-    note.textContent = "Refreshing automatically accepts Golem's cookie consent when possible.";
     const state = document.createElement('p');
     state.className = 'publisher-rankings-status oj-muted';
     state.setAttribute('role', 'status');
     state.setAttribute('aria-live', 'polite');
-    // The API's diagnostic message can contain browser or network details. Keep
-    // the product message stable and never expose commands or exception traces.
-    if (configured === false) state.textContent = 'Add a Golem RSS feed in Settings to load publisher rankings.';
-    else if (status?.state === 'loading') state.textContent = 'Loading publisher rankings…';
-    else if (status?.state === 'refreshing') state.textContent = groups.length
-        ? 'Refreshing publisher rankings. Showing the latest saved rankings.' : 'Refreshing publisher rankings…';
-    else if (status?.state === 'error' && status?.errorCode === 'GOLEM_CONSENT_REQUIRED') state.textContent = "Golem's cookie consent could not be completed automatically. Try Refresh again."
-        + (groups.length ? ' Showing the latest saved rankings.' : '');
-    else if (status?.state === 'error') state.textContent = groups.length
-        ? 'Publisher rankings could not be refreshed. Showing the latest saved rankings.'
-        : 'Publisher rankings could not be refreshed. Try Refresh again.';
+    if (configured === false) state.textContent = 'Add a Golem RSS feed in Settings.';
+    else if (status?.state === 'loading' && !groups.length) state.textContent = 'Loading…';
+    else if (status?.state === 'refreshing' && !groups.length) state.textContent = 'Refreshing…';
+    else if (status?.state === 'error') {
+        state.classList.add('is-error');
+        state.textContent = groups.length ? ''
+            : status.errorCode === 'GOLEM_CONSENT_REQUIRED' ? 'Consent could not be completed. Retry refresh.' : 'Could not load rankings. Retry refresh.';
+        if (status.errorCode === 'GOLEM_CONSENT_REQUIRED') state.title = "Golem's cookie consent could not be completed automatically.";
+    }
     else if (!groups.length) state.textContent = status?.state === 'ready' || (Array.isArray(rankings) && rankings.length)
-        ? 'No publisher rankings are available.'
-        : 'No publisher rankings yet. Choose Refresh to load them.';
+        ? 'No articles available.'
+        : 'No rankings yet. Select Refresh.';
     state.hidden = !state.textContent;
-    container.append(heading, note, state);
+    container.appendChild(state);
     if (!groups.length) return;
     const grid = document.createElement('div');
     grid.className = 'publisher-rankings-grid';
 
     for (const group of groups) {
         const panel = document.createElement('section');
-        panel.className = 'publisher-ranking-panel oj-panel oj-panel-compact';
+        panel.className = 'publisher-ranking-panel';
         panel.dataset.rankingKey = group.rankingKey;
-        const title = document.createElement('h3');
+        const header = document.createElement('header');
+        header.className = 'publisher-ranking-header';
+        const title = document.createElement('h2');
         title.className = 'publisher-ranking-title oj-heading-3';
-        title.textContent = `${group.label} · ${group.sourceName}`;
-        const captured = document.createElement('p');
+        title.textContent = group.label;
+        const captured = document.createElement('time');
         captured.className = 'publisher-ranking-captured oj-muted';
         if (group.capturedAt) {
-            const time = document.createElement('time');
-            time.dateTime = group.capturedAt;
-            time.title = group.capturedAt;
-            time.textContent = formatDate(group.capturedAt);
-            captured.append(document.createTextNode('Captured '), time);
+            captured.dateTime = group.capturedAt;
+            captured.title = `Captured ${group.capturedAt}`;
+            captured.textContent = formatDate(group.capturedAt);
         } else {
             captured.textContent = 'Capture time unavailable';
         }
         const list = document.createElement('ol');
-        list.className = 'publisher-ranking-list';
+        list.className = 'publisher-ranking-list cards';
         for (const item of group.items) {
             const row = document.createElement('li');
             row.value = item.rank;
-            const link = document.createElement('a');
-            link.className = 'publisher-ranking-link';
-            link.href = item.canonicalUrl;
-            link.dataset.itemUrl = item.canonicalUrl;
-            const text = document.createElement('span');
-            text.textContent = item.title;
-            link.appendChild(text);
+            const article = item.article || { title: item.title, url: item.canonicalUrl, sourceName: group.sourceName, teaser: '', topics: [] };
+            const fragment = createArticleCard(article, template, activeTopic);
+            const card = fragment.querySelector('.feed-card');
+            card.classList.add('publisher-ranking-card');
+            card.dataset.itemUrl = item.canonicalUrl;
+            const rank = document.createElement('span');
+            rank.className = 'publisher-ranking-rank oj-mono';
+            rank.textContent = `#${item.rank}`;
+            rank.title = `Rank ${item.rank}`;
+            card.querySelector('.meta').prepend(rank);
+            if (!article.teaser) card.querySelector('.teaser').hidden = true;
             if (item.article) {
-                link.dataset.articleId = String(item.articleId);
                 if (!articleMap.has(item.articleId)) articleMap.set(item.articleId, item.article);
             } else {
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.setAttribute('aria-label', `${item.title} (opens in browser)`);
-                const icon = document.createElement('i');
-                icon.className = 'fa-solid fa-arrow-up-right-from-square';
-                icon.setAttribute('aria-hidden', 'true');
-                link.appendChild(icon);
+                card.removeAttribute('data-article-id');
+                card.querySelector('.meta-date').hidden = true;
+                card.querySelector('.meta-separator').hidden = true;
+                const source = card.querySelector('.meta-source');
+                source.disabled = true;
+                source.removeAttribute('data-action');
+                const external = card.querySelector('.btn-open-external');
+                external.disabled = false;
+                external.dataset.itemUrl = item.canonicalUrl;
+                for (const action of card.querySelectorAll('.article-save-btn, .article-dismiss-btn')) {
+                    action.title = 'Available when this article is in your RSS feeds';
+                }
             }
-            row.appendChild(link);
+            row.appendChild(fragment);
             list.appendChild(row);
         }
-        panel.append(title, captured, list);
+        header.append(title, captured);
+        panel.append(header, list);
         grid.appendChild(panel);
     }
     container.appendChild(grid);

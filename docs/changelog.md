@@ -1,3 +1,7 @@
+# 2.0.1
+
+- Add URL-only output to `articles top --url`, including interactive selection with `--choose`.
+
 # 2.0.0
 
 - Add a separate Most read view for Golem, WinFuture, ComputerBase, heise iX, t3n, TechCrunch, Ars Technica, WIRED and The Verge, showing each publisher's supported most-read, most-commented or editorial lists with their original labels. See the [compatibility guide](most-read-compatibility.md) for coverage and access requirements.

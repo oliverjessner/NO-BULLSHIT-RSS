@@ -60,10 +60,12 @@ Query saved publisher rankings with the same command for most-read, most-comment
 no-bullshit-rss articles top
 no-bullshit-rss articles top 100 --list
 no-bullshit-rss articles top --medium t3n --json
+no-bullshit-rss articles top 100 --url
 no-bullshit-rss articles top --choose
+no-bullshit-rss articles top 100 --choose --url
 ```
 
-`articles top` returns up to 40 unique articles from all supported media by default, newest first. Supply a count for more results, `--medium` to choose a publisher, `--list` for readable text, `--json` for JSON or `--choose` to select an article interactively. These commands read saved rankings without fetching new data.
+`articles top` returns up to 40 unique articles from all supported media by default, newest first. Supply a count for more results and `--medium` to choose a publisher. Choose one output format: `--list` for readable text, `--json` for JSON or `--url` for one URL per line. Add `--choose` to select an article interactively; `--choose --url` prints only the selected URL to stdout, with the chooser on stderr. These commands read saved rankings without fetching new data.
 
 Homebrew makes the command available automatically; DMG users can follow the launcher setup in the guide below.
 

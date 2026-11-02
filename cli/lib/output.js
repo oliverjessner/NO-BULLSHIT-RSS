@@ -10,8 +10,9 @@ export function compactArticle(article) {
 
 const cleanTopText = value => String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' ').replace(/\s+/gu, ' ').trim();
 
-export function formatTopArticles(articles, { json = false, medium = 'all' } = {}) {
+export function formatTopArticles(articles, { json = false, url = false, medium = 'all' } = {}) {
     if (json) return JSON.stringify(articles, null, 2);
+    if (url) return articles.map(article => cleanTopText(article.url || article.canonicalUrl)).join('\n');
     if (!articles.length) return `No saved top articles${medium === 'all' ? '' : ` for ${cleanTopText(medium)}`}. Refresh publisher selections in the app first.`;
     const labels = { most_read: 'Most read', most_commented: 'Most commented', top_news: 'Top-News' };
     return articles.map((article, index) => {

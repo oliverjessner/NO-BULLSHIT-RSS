@@ -48,9 +48,11 @@ no-bullshit-rss articles top 100
 no-bullshit-rss articles top --medium t3n
 no-bullshit-rss articles top 100 --json
 no-bullshit-rss articles top --list
+no-bullshit-rss articles top 100 --url
 no-bullshit-rss articles top --choose
+no-bullshit-rss articles top 100 --choose --url
 ```
 
-The default is 40 articles across all media. `--medium` selects a publisher; all its supported selection types are included. `--list` requests readable text, `--json` returns structured article data, and `--choose` opens the interactive article selector. These commands read the existing database without fetching or changing data.
+The default is 40 articles across all media. `--medium` selects a publisher; all its supported selection types are included. Choose one output format: `--list` for readable text, `--json` for structured article data or `--url` for one URL per line. With `--choose --url`, stdout contains only the selected URL and a newline; the chooser appears on stderr. These commands read the existing database without fetching or changing data.
 
 See the [CLI guide](cli.md) for options and examples.

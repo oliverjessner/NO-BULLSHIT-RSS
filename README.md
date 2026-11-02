@@ -110,6 +110,8 @@ Choose **Golem**, **WinFuture**, **ComputerBase**, **heise iX**, **t3n**, **Tech
 
 Rankings refresh automatically every eight hours while the app runs, with the last attempt remembered across restarts. Choose **Refresh** for an immediate update; saved rankings remain available if an update fails. Regular RSS updates continue independently.
 
+![Most read showing articles from multiple publishers, ranking labels and the medium selector](public/images/mockups/most_read.webp)
+
 ## Follow keyword alerts with Watchdog
 
 Collect keyword matches in a dedicated inbox, with exclusions, feed restrictions and filters for reading state and publication time.

@@ -20,7 +20,7 @@ Usage:
   no-bullshit-rss watchdog set-match <id> --data '{"read":true,"archived":false}'
   no-bullshit-rss watchdog notifications on|off
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
-  no-bullshit-rss articles top [count] [--medium <id>] [--list|--json] [--choose]
+  no-bullshit-rss articles top [count] [--medium <id>] [--list|--json|--url] [--choose]
   no-bullshit-rss articles random [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
@@ -56,7 +56,7 @@ Options:
   -v, --version              Show version
   -h, --help                 Show this help
 
-When --url and --title are combined, each line is URL<TAB>TITLE.
+For articles last/random, --url and --title together print URL<TAB>TITLE.
 Publisher media: all, ${RANKING_MEDIA.map(item => item.id).join(', ')}.
 "articles top" combines saved most-read, most-commented and editorial selections across capture history, deduplicated by article URL.
 Without a projection flag, "articles last" prints a JSON array and "articles random" prints one JSON object.
@@ -68,6 +68,7 @@ Examples:
   no-bullshit-rss articles top 100 --json
   no-bullshit-rss articles top --medium golem --list
   no-bullshit-rss articles top 20 --choose --json
+  no-bullshit-rss articles top 100 --choose --url
   no-bullshit-rss rss
   no-bullshit-rss rss --rss-url
   no-bullshit-rss topics
@@ -112,7 +113,7 @@ function rejectUnknownFlags(flags, allowedFlags) {
 }
 
 function parseTopArticlesArgs(args) {
-    const options = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, choose: false };
+    const options = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, url: false, choose: false };
     let index = 0;
     if (args[0] !== undefined && !args[0].startsWith('--')) options.count = parseCount(args[index++]);
     const seen = new Set();
@@ -120,7 +121,7 @@ function parseTopArticlesArgs(args) {
         const flag = args[index];
         if (seen.has(flag)) throw new Error(`Duplicate option: ${flag}`);
         seen.add(flag);
-        if (['--list', '--json', '--choose'].includes(flag)) {
+        if (['--list', '--json', '--url', '--choose'].includes(flag)) {
             options[flag.slice(2)] = true;
             continue;
         }
@@ -132,7 +133,7 @@ function parseTopArticlesArgs(args) {
             throw new Error(`Choose a top-articles medium: all, ${RANKING_MEDIA.map(item => item.id).join(', ')}.`);
         }
     }
-    if (options.list && options.json) throw new Error('Only one of --list or --json may be used.');
+    if ([options.list, options.json, options.url].filter(Boolean).length > 1) throw new Error('Only one of --list, --json or --url may be used.');
     return options;
 }
 

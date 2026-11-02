@@ -85,17 +85,26 @@ no-bullshit-rss articles top 100 --json
 no-bullshit-rss articles top --medium heise-ix --json
 ```
 
+Print only article URLs, one per line, with `--url`; no matches produce no stdout:
+
+```bash
+no-bullshit-rss articles top 100 --url
+no-bullshit-rss articles top --medium t3n --url
+```
+
 Choose one article interactively with the arrow keys or `j`/`k`, then Enter:
 
 ```bash
 no-bullshit-rss articles top --choose
 no-bullshit-rss articles top 100 --choose --json
+no-bullshit-rss articles top 100 --choose --url
 ```
 
 The chooser uses the terminal input and writes its interface to stderr. Stdout
 contains only the selected article: one JSON object with `--json`, or one text
-entry otherwise. Escape, `q` or Ctrl+C cancels. `--choose` requires an interactive
-terminal. `--list` and `--json` cannot be combined.
+entry by default or with `--list`. With `--url`, stdout contains only the selected
+URL followed by a newline. Escape, `q` or Ctrl+C cancels. `--choose` requires an
+interactive terminal. `--list`, `--json` and `--url` are mutually exclusive.
 
 These commands only read the existing database. They do not fetch articles,
 refresh publisher selections or change article state. Use Refresh in the app to

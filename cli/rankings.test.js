@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,7 +14,7 @@ const capture = () => {
     let text = '';
     return { write: chunk => { text += String(chunk); }, read: () => text };
 };
-const defaults = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, choose: false };
+const defaults = { command: 'articles-top', count: 40, medium: 'all', list: false, json: false, url: false, choose: false };
 
 test('articles top defaults to 40 across all media and validates explicit options', () => {
     assert.deepEqual(parseCliArgs(['articles', 'top']), defaults);
@@ -22,6 +23,8 @@ test('articles top defaults to 40 across all media and validates explicit option
         ...defaults, count: 1000, medium: 'golem', choose: true, json: true,
     });
     assert.deepEqual(parseCliArgs(['articles', 'top', '--list', '--medium', 'ALL']), { ...defaults, list: true });
+    assert.deepEqual(parseCliArgs(['articles', 'top', '100', '--choose', '--url']), { ...defaults, count: 100, choose: true, url: true });
+    assert.deepEqual(parseCliArgs(['articles', 'top', '--url', '--medium', 't3n', '--choose']), { ...defaults, medium: 't3n', choose: true, url: true });
     for (const medium of RANKING_MEDIA) {
         assert.equal(parseCliArgs(['articles', 'top', '--medium', medium.id.toUpperCase()]).medium, medium.id);
     }
@@ -33,7 +36,8 @@ test('invalid counts, media, duplicate flags and conflicting output formats fail
         ['articles', 'top', '--medium'], ['articles', 'top', '--medium', 'unknown'],
         ['articles', 'top', '--medium', 'golem', '--medium', 'winfuture'],
         ['articles', 'top', '--json', '--json'], ['articles', 'top', '--list', '--json'],
-        ['articles', 'top', '--url'], ['articles', 'top', '10', '20'], ['articles', 'top', '--medium', '--choose'],
+        ['articles', 'top', '--url', '--url'], ['articles', 'top', '--url', '--json'], ['articles', 'top', '--list', '--url'],
+        ['articles', 'top', '--choose', '--json', '--url'], ['articles', 'top', '10', '20'], ['articles', 'top', '--medium', '--choose'],
     ]) {
         let discovered = false;
         const stdout = capture(), stderr = capture();
@@ -60,6 +64,7 @@ test('removed ranking flags have no aliases and point to articles top before ope
 test('help describes the unified top command and all supported media without legacy flags', () => {
     const text = getHelpText();
     assert.match(text, /articles top \[count\]/);
+    assert.ok(text.includes('articles top 100 --choose --url'));
     assert.match(text, /default: 40/);
     for (const medium of RANKING_MEDIA) assert.ok(text.includes(medium.id));
     assert.doesNotMatch(text, /--most-read|--most-commented|--top-news/);
@@ -83,6 +88,16 @@ test('text output keeps article details and publisher labels, with terminal cont
     assert.deepEqual(JSON.parse(formatTopArticles([], { json: true })), []);
 });
 
+test('top URL output omits all article details, supports canonical-only links and stays empty for no results', () => {
+    const articles = [
+        { title: 'RSS title', url: 'https://example.test/rss', canonicalUrl: 'https://example.test/canonical', sourceName: 'Publisher', teaser: 'Teaser' },
+        { title: 'Publisher link awaiting RSS', canonicalUrl: 'https://example.test/unmatched' },
+    ];
+    assert.equal(formatTopArticles(articles, { url: true }), 'https://example.test/rss\nhttps://example.test/unmatched');
+    assert.equal(formatChosenTopArticle(articles[1], { url: true }), 'https://example.test/unmatched');
+    assert.equal(formatTopArticles([], { url: true }), '');
+});
+
 const fixtureMedia = [
     ['golem', 'Golem', 'https://www.golem.de/', 'https://rss.golem.de/rss.php', i => `https://www.golem.de/news/fixture-${i}.html`],
     ['winfuture', 'WinFuture', 'https://winfuture.de/', 'https://static.winfuture.de/feed', i => `https://winfuture.de/news,${100000 + i}.html`],
@@ -96,7 +111,7 @@ const fixtureMedia = [
 ];
 const fixtureArticleCount = 135;
 
-async function fixtureDatabase(t) {
+async function fixtureDatabase(t, { emptyRankings = false } = {}) {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'nbs-top-cli-'));
     const databasePath = path.join(directory, 'data-v2.db');
     let before, filesBefore;
@@ -148,6 +163,7 @@ async function fixtureDatabase(t) {
             VALUES (135,1,1,'{}','fixture','2026-10-01');
             INSERT INTO lists (id,name,createdAt,updatedAt) VALUES (1,'Saved','2026-10-01','2026-10-01');
             INSERT INTO list_items (listId,articleId,createdAt) VALUES (1,135,'2026-10-01');`);
+        if (emptyRankings) await exec('DELETE FROM most_read');
     } finally {
         await new Promise((resolve, reject) => database.close(error => error ? reject(error) : resolve()));
     }
@@ -308,6 +324,50 @@ test('top chooser receives the unified list and terminal streams, then emits onl
     assert.match(text.stdout, /^1\. Unmatched publisher headline/);
 });
 
+test('top URL output respects count and medium filters without changing the database', async t => {
+    const fixture = await fixtureDatabase(t);
+    for (const args of [['articles', 'top', '100'], ['articles', 'top', '10', '--medium', 't3n']]) {
+        const expected = await fixture.run([...args, '--json']);
+        const result = await fixture.run([...args, '--url']);
+        assert.equal(result.code, 0, result.stderr);
+        assert.equal(result.stderr, '');
+        assert.equal(result.stdout, JSON.parse(expected.stdout).map(article => article.url).join('\n') + '\n');
+    }
+});
+
+test('top 100 chooser writes its interface to stderr and only the selected URL to stdout', async t => {
+    const fixture = await fixtureDatabase(t);
+    const stdin = new EventEmitter();
+    stdin.isTTY = true;
+    stdin.isRaw = false;
+    stdin.setRawMode = value => { stdin.isRaw = value; };
+    stdin.pause = () => {};
+    stdin.resume = () => queueMicrotask(() => {
+        stdin.emit('keypress', '', { name: 'down' });
+        stdin.emit('keypress', '', { name: 'return' });
+    });
+    const stderr = Object.assign(capture(), { isTTY: true, rows: 12, columns: 100 });
+    const result = await fixture.run(['articles', 'top', '100', '--choose', '--url'], { stdin, stderr });
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(result.stdout, `${fixtureMedia[(fixtureArticleCount - 1) % fixtureMedia.length][4](fixtureArticleCount)}\n`);
+    assert.match(stderr.read(), /Choose an article/);
+    assert.match(stderr.read(), /100/);
+    assert.equal(stdin.isRaw, false);
+    const unmatched = await fixture.run(['articles', 'top', '--medium', 'techcrunch', '--url', '--choose'], {
+        chooseArticle: async articles => { assert.equal(articles[0].id, null); return articles[0]; },
+    });
+    assert.equal(unmatched.code, 0, unmatched.stderr);
+    assert.equal(unmatched.stdout, 'https://techcrunch.com/2026/10/04/unmatched/\n');
+});
+
+test('top URL output is empty when no saved rankings match', async t => {
+    const fixture = await fixtureDatabase(t, { emptyRankings: true });
+    const result = await fixture.run(['articles', 'top', '100', '--url']);
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr, '');
+});
+
 test('top chooser requires a terminal and closes its read-only database on cancellation or errors', async t => {
     const fixture = await fixtureDatabase(t);
     const noTerminal = await fixture.run(['articles', 'top', '--choose'], { stdin: {} });
@@ -318,4 +378,8 @@ test('top chooser requires a terminal and closes its read-only database on cance
     assert.equal(cancelled.code, 1);
     assert.equal(cancelled.stdout, '');
     assert.match(cancelled.stderr, /Selection cancelled/);
+    const urlCancelled = await fixture.run(['articles', 'top', '100', '--choose', '--url'], { chooseArticle: async () => { throw new Error('Selection cancelled.'); } });
+    assert.equal(urlCancelled.code, 1);
+    assert.equal(urlCancelled.stdout, '');
+    assert.match(urlCancelled.stderr, /Selection cancelled/);
 });

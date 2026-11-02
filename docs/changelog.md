@@ -1,6 +1,7 @@
 # 2.0.1
 
 - Add URL-only output to `articles top --url`, including interactive selection with `--choose`.
+- Add a Most read product screenshot to the README and automatic release mockups.
 
 # 2.0.0
 

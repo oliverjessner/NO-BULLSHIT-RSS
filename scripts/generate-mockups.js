@@ -33,7 +33,35 @@ async function capture(page, filename, errors) {
     console.log(`Created public/images/mockups/${filename} (${viewport.width} × ${viewport.height})`);
 }
 
-async function generateMockups(url) {
+async function captureMostRead(page, url, errors) {
+    const loaded = page.waitForResponse(response => {
+        const requestUrl = new URL(response.url());
+        return requestUrl.origin === url.origin && requestUrl.pathname === '/api/rankings/top'
+            && requestUrl.searchParams.get('medium') === 'all' && !requestUrl.searchParams.has('cursor');
+    });
+    await page.locator('.nav-link[data-view="rankings"]').click();
+    const response = await loaded;
+    if (!response.ok()) throw new Error(`Could not load Most read articles: HTTP ${response.status()}.`);
+    const payload = await response.json();
+    if (payload.medium !== 'all' || !Array.isArray(payload.items) || !payload.items.length) {
+        throw new Error('Most read has no saved articles. Refresh publisher rankings in the app before generating screenshots.');
+    }
+    await page.locator('#view-rankings').waitFor({ state: 'visible' });
+    await page.locator('#publisher-rankings .feed-card').first().waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.getElementById('rankings-refresh')?.getAttribute('aria-busy') === 'false');
+    if (await page.locator('#rankings-medium').inputValue() !== 'all') throw new Error('Most read must show All media.');
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+    await page.waitForFunction(() => {
+        const visibleCards = [...document.querySelectorAll('#publisher-rankings .feed-card')].filter(card => {
+            const bounds = card.getBoundingClientRect();
+            return bounds.top < innerHeight && bounds.bottom > 0;
+        });
+        return visibleCards.length > 0 && visibleCards.every(card => card.checkVisibility({ contentVisibilityAuto: true }));
+    });
+    await capture(page, 'most_read.webp', errors);
+}
+
+async function generateMockups(url, { onlyMostRead = false } = {}) {
     let browser;
     try {
         browser = await chromium.launch();
@@ -75,6 +103,11 @@ async function generateMockups(url) {
 
         // SSE keeps a connection open, so wait for rendered views instead of networkidle.
         await page.goto(url.href, { waitUntil: 'domcontentloaded' });
+        if (onlyMostRead) {
+            await mkdir(outputDirectory, { recursive: true });
+            await captureMostRead(page, url, errors);
+            return;
+        }
         await page.waitForFunction(() => {
             const count = document.getElementById('feed-count');
             const loading = document.getElementById('loading-row');
@@ -108,6 +141,8 @@ async function generateMockups(url) {
         });
         await page.locator('[data-digest-range="month"][aria-pressed="true"]').waitFor({ state: 'visible' });
         await capture(page, 'digest_month.webp', errors);
+
+        await captureMostRead(page, url, errors);
 
         const watchdogLoaded = page.waitForResponse(response =>
             new URL(response.url()).pathname === '/api/watchdogs/matches' && response.ok());
@@ -146,19 +181,20 @@ async function generateMockups(url) {
 
 async function main() {
     const { values } = parseArgs({
-        options: { url: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
+        options: { url: { type: 'string' }, only: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
     });
     if (values.help) {
         console.log(
-            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377]\nCreates six 1920 × 1080 WebPs, including Watchdog, and replaces public/images/mockups/. Starts a temporary local server from existing app data when needed.',
+            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377] [--only most-read]\nCreates seven 1920 × 1080 WebPs, including Most read and Watchdog, and replaces public/images/mockups/. With --only most-read, writes just most_read.webp and keeps other images. Starts a temporary local server from existing app data when needed.',
         );
         return;
     }
+    if (values.only !== undefined && values.only !== 'most-read') throw new Error('--only supports most-read.');
     const url = new URL(values.url || `http://127.0.0.1:${process.env.PORT || 1377}`);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('--url must use http or https.');
     const server = await ensureMockupServer({ url, projectDirectory });
     try {
-        await generateMockups(server.url);
+        await generateMockups(server.url, { onlyMostRead: values.only === 'most-read' });
     } finally {
         await server.close();
     }

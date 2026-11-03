@@ -37,6 +37,7 @@ export async function runCli(
         discoverDatabase = discoverDatabasePath,
         openDatabase = openReadOnlyDatabase,
         chooseArticle = chooseArticleInteractively,
+        randomIndex,
         fetchApi = fetch,
     } = {},
 ) {
@@ -112,8 +113,11 @@ export async function runCli(
             );
             writeResult(stdout, formatLastArticles(articles));
         } else if (command.command === 'articles-random') {
-            const article = await readRandomStoredArticle(database);
-            if (!article) throw new Error('No stored articles found.');
+            const article = await readRandomStoredArticle(database, { source: command.source, randomIndex });
+            if (!article) {
+                const location = { feed: '', digest: " in today's digest", top: ' in Most read' }[command.source];
+                throw new Error(`No stored articles found${location}.`);
+            }
             writeResult(stdout, formatChosenArticle(article, command));
         } else if (command.command === 'articles-last') {
             const articles = await queryArticles(

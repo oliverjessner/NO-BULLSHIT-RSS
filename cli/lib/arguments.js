@@ -21,7 +21,7 @@ Usage:
   no-bullshit-rss watchdog notifications on|off
   no-bullshit-rss articles last <count> [--topic <slug>|--no-topic] [--choose] [--url] [--title|--titles]
   no-bullshit-rss articles top [count] [--medium <id>] [--list|--json|--url] [--choose]
-  no-bullshit-rss articles random [--url] [--title|--titles]
+  no-bullshit-rss articles random [--feed|--digest|--top] [--url] [--title|--titles]
   no-bullshit-rss articles search <count> (--title|--url) <text>
   no-bullshit-rss articles digest <count> [--daily|--weekly|--monthly]
 
@@ -35,7 +35,7 @@ Commands:
   watchdog                   Read Watchdog rules, matches and notification settings as JSON
   articles last <count>      Show the newest stored articles
   articles top [count]       Show saved publisher selections, newest first (default: 40)
-  articles random            Show one random stored article
+  articles random            Pick one of the newest 50 articles from the selected source
   articles search <count>    Search stored article titles or URLs
   articles digest <count>    Show the newest digest clusters as JSON
 
@@ -50,6 +50,9 @@ Options:
   --topic <slug>             Filter newest articles by stored topic slug
   --no-topic                 Show newest articles without an assigned topic
   --choose                   Interactively choose one of the listed articles
+  --feed                     Pick a random stored Feed article (default)
+  --digest                   Pick a random article from today's stored daily digest
+  --top                      Pick a random article from saved Most read selections
   --daily                    Use today's digest (default)
   --weekly                   Use this week's digest
   --monthly                  Use this month's digest
@@ -60,6 +63,7 @@ For articles last/random, --url and --title together print URL<TAB>TITLE.
 Publisher media: all, ${RANKING_MEDIA.map(item => item.id).join(', ')}.
 "articles top" combines saved most-read, most-commented and editorial selections across capture history, deduplicated by article URL.
 Without a projection flag, "articles last" prints a JSON array and "articles random" prints one JSON object.
+"articles random" chooses uniformly from the newest 50 articles in its source, or all when fewer exist.
 
 Examples:
   no-bullshit-rss stats
@@ -83,6 +87,9 @@ Examples:
   no-bullshit-rss articles last 10 --no-topic
   no-bullshit-rss articles random
   no-bullshit-rss articles random --url
+  no-bullshit-rss articles random --feed --url
+  no-bullshit-rss articles random --digest --url
+  no-bullshit-rss articles random --top --url
   no-bullshit-rss articles search 10 --title "nvidia"
   no-bullshit-rss articles search 10 --url "nvidia"
   no-bullshit-rss articles digest 10 --daily
@@ -238,9 +245,12 @@ export function parseCliArgs(argv) {
     }
     if (action === 'random') {
         const randomFlags = args.slice(2);
-        rejectUnknownFlags(randomFlags, new Set(['--url', '--title', '--titles']));
+        rejectUnknownFlags(randomFlags, new Set(['--url', '--title', '--titles', '--feed', '--digest', '--top']));
+        const selectedSources = randomFlags.filter(flag => ['--feed', '--digest', '--top'].includes(flag));
+        if (selectedSources.length > 1) throw new Error('Only one of --feed, --digest or --top may be used.');
         return {
             command: 'articles-random',
+            source: selectedSources[0]?.slice(2) || 'feed',
             url: randomFlags.includes('--url'),
             title: randomFlags.includes('--title') || randomFlags.includes('--titles'),
         };

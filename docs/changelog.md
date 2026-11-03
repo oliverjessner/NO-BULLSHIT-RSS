@@ -1,3 +1,8 @@
+# 2.0.2
+
+- Add `articles random --feed`, `--digest` and `--top` to choose from stored Feed articles, today's daily digest or saved Most read selections, with URL and title output.
+- Limit every random selection to the newest 50 articles in its source, or all available articles when fewer exist.
+
 # 2.0.1
 
 - Add URL-only output to `articles top --url`, including interactive selection with `--choose`.

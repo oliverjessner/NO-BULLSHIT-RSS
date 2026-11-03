@@ -177,7 +177,7 @@ filter to show articles without an assigned topic.
 
 ## Random article
 
-Return one randomly selected stored article as a compact JSON object:
+Return one randomly selected article from the newest 50 stored Feed articles as a compact JSON object:
 
 ```bash
 no-bullshit-rss articles random
@@ -190,6 +190,30 @@ no-bullshit-rss articles random --url
 no-bullshit-rss articles random --title
 no-bullshit-rss articles random --url --title
 ```
+
+Choose a source with one of these flags:
+
+```bash
+no-bullshit-rss articles random --feed --url
+no-bullshit-rss articles random --digest --url
+no-bullshit-rss articles random --top --url
+```
+
+`--feed` is the default and uses stored articles, like `articles last`.
+`--digest` uses all articles in today's visible, stored daily digest clusters,
+including articles beyond each cluster's representative. It respects excluded
+feeds, Bullshit rules, and completed or dismissed clusters.
+`--top` uses the saved **Most read** selections, like `articles top`, including
+most-read, most-commented and editorial lists and publisher links without a
+matching RSS article.
+
+For every source, the CLI first selects the newest 50 articles, then
+picks one with equal probability. With fewer than 50 articles, it chooses from
+all available articles. Feed and Digest use publication time, then article ID.
+Most read keeps the ordering of `articles top`, falling back to capture time
+when no RSS publication time is available. Source filtering happens before this
+limit. Only one source flag may be used. An empty source returns an error without
+falling back to Feed; the CLI never fetches rankings or generates a digest.
 
 ## Search articles
 

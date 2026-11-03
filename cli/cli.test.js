@@ -271,11 +271,13 @@ test('parses article projections and digest ranges', () => {
     });
     assert.deepEqual(parseCliArgs(['articles', 'random']), {
         command: 'articles-random',
+        source: 'feed',
         url: false,
         title: false,
     });
     assert.deepEqual(parseCliArgs(['articles', 'random', '--url', '--titles']), {
         command: 'articles-random',
+        source: 'feed',
         url: true,
         title: true,
     });

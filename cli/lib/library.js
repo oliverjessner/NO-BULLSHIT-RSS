@@ -1,3 +1,9 @@
+import { randomInt } from 'node:crypto';
+import { readStoredDigestPayload } from '../../backend/services/digest-reader.js';
+import { readTopArticles } from '../../backend/services/top-articles-reader.js';
+
+const RANDOM_ARTICLE_WINDOW = 50;
+
 function parseTopic(row) {
     let config = {};
     try {
@@ -39,7 +45,7 @@ export async function readStoredLists(database) {
     return rows.map(row => ({ ...row, id: Number(row.id), articleCount: Number(row.articleCount) }));
 }
 
-export async function readRandomStoredArticle(database) {
+async function readNewestStoredArticles(database) {
     const sourceNameExpression = database.feedNamesAvailable === false
         ? 'sources.name'
         : "COALESCE(NULLIF(feeds.name, ''), sources.name)";
@@ -50,11 +56,41 @@ export async function readRandomStoredArticle(database) {
         'FROM articles',
         'JOIN feeds ON feeds.id = articles.feedId',
         'JOIN sources ON sources.id = feeds.sourceId',
-        'ORDER BY RANDOM()',
-        'LIMIT 1',
+        'ORDER BY articles.publishedAt DESC, articles.id DESC',
+        'LIMIT ?',
     ].join(' ');
 
-    return database.get(sql);
+    return database.all(sql, [RANDOM_ARTICLE_WINDOW]);
+}
+
+function publicationTime(article) {
+    const value = article.publishedAt;
+    const normalized = typeof value === 'string' && /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?$/.test(value)
+        ? `${value.replace(' ', 'T')}Z` : value;
+    const timestamp = Date.parse(normalized);
+    return Number.isFinite(timestamp) ? timestamp : -Infinity;
+}
+
+export async function readRandomStoredArticle(database, { source = 'feed', randomIndex = randomInt } = {}) {
+    let candidates;
+    if (source === 'digest') {
+        const payload = await readStoredDigestPayload('day', database);
+        const articles = new Map();
+        for (const cluster of payload.clusters) {
+            for (const article of cluster.items) articles.set(article.id, article);
+        }
+        candidates = [...articles.values()]
+            .sort((left, right) => publicationTime(right) - publicationTime(left) || right.id - left.id)
+            .slice(0, RANDOM_ARTICLE_WINDOW);
+    } else if (source === 'top') {
+        const payload = await readTopArticles(database, { limit: RANDOM_ARTICLE_WINDOW, includeContent: false });
+        candidates = payload.items;
+    } else if (source === 'feed') {
+        candidates = await readNewestStoredArticles(database);
+    } else {
+        throw new Error(`Unknown random article source: ${source}`);
+    }
+    return candidates.length ? candidates[randomIndex(candidates.length)] : null;
 }
 
 export async function readStoredListArticles(database, listName) {

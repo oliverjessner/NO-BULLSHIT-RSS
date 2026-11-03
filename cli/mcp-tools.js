@@ -23,7 +23,7 @@ const definitions = [
     tool('get_feed', 'Read newest saved articles, optionally filtered by topic or noTopic. Does not mark articles read.',
         { count, topic: text, noTopic: { type: 'boolean' } }, [], a => ['articles', 'last', String(a.count ?? 50),
             ...(a.topic === undefined ? [] : ['--topic', a.topic]), ...(a.noTopic ? ['--no-topic'] : [])]),
-    tool('get_random_article', 'Read one random saved article.', {}, [], () => ['articles', 'random']),
+    tool('get_random_article', 'Read one random article from the newest 50 saved Feed articles.', {}, [], () => ['articles', 'random']),
     tool('search_articles', 'Search stored article titles or URLs, newest first.',
         { count, field: { type: 'string', enum: ['title', 'url'] }, text }, ['field', 'text'],
         a => ['articles', 'search', String(a.count ?? 50), `--${a.field}`, a.text]),

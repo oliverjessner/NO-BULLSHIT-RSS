@@ -53,7 +53,7 @@
         "@vscode/sqlite3": "5.1.14-vscode",
         "ajv": "^8.20.0",
         "express": "^5.3.0",
-        "express-rate-limit": "^8.7.1",
+        "express-rate-limit": "^8.7.2",
         "fetchary": "2.1.1",
         "helmet": "^8.3.0",
         "iconv-lite": "^0.7.3",

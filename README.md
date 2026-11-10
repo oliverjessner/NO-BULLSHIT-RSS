@@ -25,7 +25,7 @@ Save useful articles to reading lists and create keyword alerts for subjects you
 - Track keyword matches in Watchdog, with optional macOS notifications.
 - Save articles to reading lists and dismiss finished articles or stories.
 - Import article links and export results as Markdown, JSON, CSV or link lists.
-- View library statistics in the app or query stored articles, feeds and digests through the CLI.
+- Explore your library, coverage trends and observed publisher ranking history in Analytics, or query stored articles, feeds and digests through the CLI.
 
 ## Install
 
@@ -118,6 +118,14 @@ Collect keyword matches in a dedicated inbox, with exclusions, feed restrictions
 Enable optional macOS alerts under **Settings → Notifications**; watching continues while the app runs, including with its window closed.
 
 ![Watchdog inbox with saved keyword rules, article matches, filters and archive controls](public/images/mockups/watchdog.webp)
+
+## Explore Analytics
+
+Open **Analytics** for **Overview**, **Trends**, **Publishers**, **Most Read**, **Topics** and **Library**. Share a time period, publisher and topic across sections; compare coverage, inspect topic momentum, and review saved, read and unclassified articles. The logo takes you back to Feed.
+
+Analytics uses your stored SQLite data. Ranking history shows observed positions and captured appearances, with gaps where an article was absent from a recorded snapshot. Rankings are not pageview counts or direct audience measurements; editorial Top-News remain separate from most-read and most-commented lists.
+
+See the [Analytics guide](docs/analytics.md) for metric definitions, comparison methods and data limitations.
 
 ## Import links and export results
 

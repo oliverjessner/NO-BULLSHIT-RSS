@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import feedsRouter from './routes/feeds.js';
 import rankingsRouter from './routes/rankings.js';
+import analyticsRouter from './routes/analytics.js';
 import watchdogsRouter from './routes/watchdogs.js';
 import articlesRouter from './routes/articles.js';
 import listsRouter from './routes/lists.js';
@@ -145,6 +146,7 @@ app.use('/api/rankings', (_req, res, next) => {
     return next();
 }, rankingsRouter);
 app.use('/api/articles', articlesRouter);
+app.use('/api/analytics', analyticsRouter);
 app.use('/api/lists', listsRouter);
 app.use('/api/digest-settings', digestSettingsRouter);
 app.use('/api/bullshit-rules', bullshitRulesRouter);

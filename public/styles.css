@@ -1513,89 +1513,6 @@ html {
     inline-size: min(34rem, calc(100vw - var(--oj-space-8)));
 }
 
-.statistics-dialog {
-    inline-size: min(46rem, calc(100vw - var(--oj-space-8)));
-}
-
-.statistics-help {
-    margin: 0;
-    font-size: var(--font-size-sm);
-}
-
-.statistics-totals, .statistics-rankings {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-24);
-    margin: 0 0 var(--space-24);
-}
-
-.statistics-metric {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: var(--space-10);
-    min-inline-size: 0;
-}
-
-.statistics-metric dt {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-}
-
-.statistics-metric dd {
-    margin: 0;
-    font-size: var(--oj-text-2xl);
-    font-weight: var(--font-weight-semibold);
-    overflow-wrap: anywhere;
-}
-
-.statistics-rankings {
-    margin-block-end: 0;
-}
-
-.statistics-rankings section {
-    min-inline-size: 0;
-}
-
-.statistics-ranking {
-    margin: var(--space-14) 0 0;
-    padding: 0;
-    list-style: none;
-    counter-reset: statistics-rank;
-}
-
-.statistics-row {
-    display: grid;
-    grid-template-columns: 1.5rem minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: var(--space-8);
-    padding-block: var(--space-10);
-    border-block-end: 1px solid var(--color-border-subtle);
-    font-size: var(--font-size-sm);
-    counter-increment: statistics-rank;
-}
-
-.statistics-row::before {
-    content: counter(statistics-rank);
-    color: var(--color-text-muted);
-    font-family: var(--oj-font-mono);
-}
-
-.statistics-name {
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.statistics-count {
-    text-align: end;
-    white-space: nowrap;
-}
-
-.statistics-empty {
-    font-size: var(--font-size-sm);
-    padding-block: var(--space-10);
-}
-
 .feed-import-help {
     margin: 0 0 var(--space-8);
     color: var(--color-text-muted);
@@ -1837,10 +1754,6 @@ html {
 }
 
 @media (max-width: 45rem) {
-    .statistics-totals, .statistics-rankings {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
     :root {
         --padding-page-inline: 5vw;
     }

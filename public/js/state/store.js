@@ -57,6 +57,11 @@ export const store = {
         pageError: false,
         displayStatus: null,
     },
+    analytics: {
+        section: 'overview',
+        filters: { period: '30d', publisher: '', topic: '', group: 'day', basis: 'publishedAt', rankingKey: 'all' },
+        cache: new Map(), articlesById: new Map(), needsRefresh: true,
+    },
     settings: {
         initialized: false,
         feedEditingId: null,

@@ -135,6 +135,33 @@ test('an existing healthy server stays running without opening a database or sta
     assert.equal((await fetch(new URL('/api/health', url))).status, 200);
 });
 
+test('reuseExisting false starts an isolated snapshot while a healthy app stays running', async t => {
+    const source = await fixture(t);
+    const server = createServer((_request, response) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({ ok: true }));
+    });
+    const url = await listen(server);
+    t.after(() => closeServer(server));
+    const app = await ensureMockupServer({
+        url,
+        projectDirectory: source.projectDirectory,
+        env: source.env,
+        reuseExisting: false,
+        startupTimeoutMs: 10000,
+    });
+    t.after(() => app.close());
+    assert.notEqual(app.url.origin, url.origin);
+    const information = await (await fetch(new URL('/test', app.url))).json();
+    assert.notEqual(information.databasePath, source.databasePath);
+    assert.equal(information.schedulerDisabled, '1');
+    assert.deepEqual(information.rows, [{ value: 'persisted' }, { value: 'wal-only' }, { value: 'child' }]);
+    assert.deepEqual(await all(source.database, 'SELECT value FROM mockup_test ORDER BY rowid'), [{ value: 'persisted' }, { value: 'wal-only' }]);
+    assert.equal(await readFile(source.rulesPath, 'utf8'), source.originalRules);
+    await app.close();
+    assert.equal((await fetch(new URL('/api/health', url))).status, 200);
+});
+
 test('a stopped app starts from its existing database including WAL data, then cleans up only its own backend', async t => {
     const source = await fixture(t);
     // The newest row is still in the live database's WAL rather than its main file.

@@ -5,32 +5,45 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 import { ensureMockupServer } from './lib/mockup-server.js';
+import { ANALYTICS_SCREENSHOTS, captureAnalytics } from './lib/analytics-screenshots.js';
 
 const projectDirectory = fileURLToPath(new URL('..', import.meta.url));
 const outputDirectory = path.join(projectDirectory, 'public', 'images', 'mockups');
 const viewport = { width: 1920, height: 1080 };
 
-async function capture(page, filename, errors) {
-    await page.mouse.move(0, 0);
-    await page.evaluate(async () => {
-        document.activeElement?.blur?.();
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+async function capture(page, filename, errors, { target, preserveInteraction = false, fullPage = false } = {}) {
+    if (!preserveInteraction) await page.mouse.move(0, 0);
+    await page.evaluate(async preserve => {
+        if (!preserve) {
+            document.activeElement?.blur?.();
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        }
         await document.fonts.ready;
         const images = [...document.images].filter(image => image.getClientRects().length > 0);
         await Promise.all(images.map(image => image.decode().catch(() => {})));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    });
+    }, preserveInteraction);
     if (errors.length) throw new Error(errors.join('\n'));
 
-    const screenshot = await page.screenshot({
+    const options = {
         type: 'png',
-        fullPage: false,
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
-    });
-    await sharp(screenshot).webp({ quality: 90, effort: 6 }).toFile(path.join(outputDirectory, filename));
-    console.log(`Created public/images/mockups/${filename} (${viewport.width} × ${viewport.height})`);
+        ...(target ? { style: '.topbar { visibility: hidden !important; }' } : {}),
+    };
+    const screenshot = target ? await target.screenshot(options) : await page.screenshot({ ...options, fullPage });
+    const conversion = sharp(screenshot);
+    const dimensions = await conversion.metadata();
+    await conversion.webp({ quality: 90, effort: 6 }).toFile(path.join(outputDirectory, filename));
+    console.log(`Created public/images/mockups/${filename} (${dimensions.width} × ${dimensions.height})`);
+}
+
+async function captureAnalyticsViews(page, url, errors) {
+    const created = new Set();
+    await captureAnalytics(page, url, errors, async (...args) => { await capture(...args); created.add(args[1]); });
+    const missing = ANALYTICS_SCREENSHOTS.filter(filename => !created.has(filename));
+    if (missing.length) throw new Error(`Missing Analytics captures: ${missing.join(', ')}`);
 }
 
 async function captureMostRead(page, url, errors) {
@@ -61,7 +74,7 @@ async function captureMostRead(page, url, errors) {
     await capture(page, 'most_read.webp', errors);
 }
 
-async function generateMockups(url, { onlyMostRead = false } = {}) {
+async function generateMockups(url, { only } = {}) {
     let browser;
     try {
         browser = await chromium.launch();
@@ -83,7 +96,11 @@ async function generateMockups(url, { onlyMostRead = false } = {}) {
             timezoneId: 'Europe/Vienna',
         });
         page.setDefaultTimeout(30000);
-        page.on('pageerror', error => errors.push(error.message));
+        // Original publisher frames can throw their own script errors. Report
+        // failures from the application document without treating those as ours.
+        await page.exposeBinding('__reportMockupAppError', ({ frame }, message) => {
+            if (frame === page.mainFrame()) errors.push(String(message));
+        });
         page.on('response', response => {
             if (new URL(response.url()).origin === url.origin && response.status() >= 400) {
                 errors.push(`HTTP ${response.status()}: ${response.url()}`);
@@ -95,17 +112,26 @@ async function generateMockups(url, { onlyMostRead = false } = {}) {
                 errors.push(`${reason}: ${request.url()}`);
             }
         });
-        await page.addInitScript(() => {
+        await page.addInitScript(appOrigin => {
+            if (window !== window.top || location.origin !== appOrigin) return;
+            const report = message => { void window.__reportMockupAppError(message).catch(() => {}); };
+            window.addEventListener('error', event => {
+                // Browser resize notifications may be deferred to the next
+                // frame; Analytics separately waits for final SVG dimensions.
+                if (event.message && !/^ResizeObserver loop (?:completed with undelivered notifications\.|limit exceeded)$/u.test(event.message)) report(event.message);
+            });
+            window.addEventListener('unhandledrejection', event => report(event.reason?.message || String(event.reason)));
             localStorage.setItem('fnnd.layout', 'list');
             localStorage.setItem('fnnd.digestRange', 'month');
             localStorage.setItem('fnnd.digestSort', 'desc');
-        });
+        }, url.origin);
 
         // SSE keeps a connection open, so wait for rendered views instead of networkidle.
         await page.goto(url.href, { waitUntil: 'domcontentloaded' });
-        if (onlyMostRead) {
+        if (only) {
             await mkdir(outputDirectory, { recursive: true });
-            await captureMostRead(page, url, errors);
+            if (only === 'most-read') await captureMostRead(page, url, errors);
+            else await captureAnalyticsViews(page, url, errors);
             return;
         }
         await page.waitForFunction(() => {
@@ -143,6 +169,7 @@ async function generateMockups(url, { onlyMostRead = false } = {}) {
         await capture(page, 'digest_month.webp', errors);
 
         await captureMostRead(page, url, errors);
+        await captureAnalyticsViews(page, url, errors);
 
         const watchdogLoaded = page.waitForResponse(response =>
             new URL(response.url()).pathname === '/api/watchdogs/matches' && response.ok());
@@ -185,16 +212,16 @@ async function main() {
     });
     if (values.help) {
         console.log(
-            'Usage: npm run screenshots -- [--url http://127.0.0.1:1377] [--only most-read]\nCreates seven 1920 × 1080 WebPs, including Most read and Watchdog, and replaces public/images/mockups/. With --only most-read, writes just most_read.webp and keeps other images. Starts a temporary local server from existing app data when needed.',
+            `Usage: npm run screenshots -- [--url http://127.0.0.1:1377] [--only most-read|analytics]\nCreates ${7 + ANALYTICS_SCREENSHOTS.length} WebPs using a 1920 × 1080 viewport; Analytics panel captures keep their full height. A full run replaces public/images/mockups/. --only most-read writes most_read.webp; --only analytics writes ${ANALYTICS_SCREENSHOTS.length} Analytics captures. Both keep other images. Analytics-only runs without --url use a temporary database snapshot; otherwise an available app server is reused or a temporary local server is started.`,
         );
         return;
     }
-    if (values.only !== undefined && values.only !== 'most-read') throw new Error('--only supports most-read.');
+    if (values.only !== undefined && !['most-read', 'analytics'].includes(values.only)) throw new Error('--only supports most-read or analytics.');
     const url = new URL(values.url || `http://127.0.0.1:${process.env.PORT || 1377}`);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('--url must use http or https.');
-    const server = await ensureMockupServer({ url, projectDirectory });
+    const server = await ensureMockupServer({ url, projectDirectory, reuseExisting: values.only !== 'analytics' || Boolean(values.url) });
     try {
-        await generateMockups(server.url, { onlyMostRead: values.only === 'most-read' });
+        await generateMockups(server.url, { only: values.only });
     } finally {
         await server.close();
     }

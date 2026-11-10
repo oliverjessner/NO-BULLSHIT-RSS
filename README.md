@@ -121,9 +121,83 @@ Enable optional macOS alerts under **Settings → Notifications**; watching cont
 
 ## Explore Analytics
 
-Open **Analytics** for **Overview**, **Trends**, **Publishers**, **Most Read**, **Topics** and **Library**. Share a time period, publisher and topic across sections; compare coverage, inspect topic momentum, and review saved, read and unclassified articles. The logo takes you back to Feed.
+Open **Analytics** for **Overview**, **Trends**, **Publishers**, **Most Read** and **Topics**. Share a period, publisher and topic across tabs, and group charts by day, week or month. The default is the last 30 days; choose 7 days, 90 days or all time. The logo returns to Feed.
 
-Analytics uses your stored SQLite data. Ranking history shows observed positions and captured appearances, with gaps where an article was absent from a recorded snapshot. Rankings are not pageview counts or direct audience measurements; editorial Top-News remain separate from most-read and most-commented lists.
+Charts use eight distinct series colors and connected observation points. Hover, touch or focus a point to inspect its date, series and value; use the arrow keys to explore observations.
+
+**Overview** shows articles in the selected period, bullshit matches, active feeds, saved articles and ranked articles, with publication volume over time.
+
+![Analytics Overview with five summary cards and an article-volume line chart](public/images/mockups/analytics_overview.webp)
+
+<details>
+<summary>Shared filters and chart values</summary>
+
+![Analytics period, publisher, topic and chart-grouping filters](public/images/mockups/analytics_filters.webp)
+
+</details>
+
+**Trends** compares up to eight topics. Topic momentum shows changes against the preceding period, while Emerging topics highlights growth that meets clear minimum-volume thresholds.
+
+![Topic trends with multiple colored series and topic selection controls](public/images/mockups/analytics_trends.webp)
+
+<details>
+<summary>Topic momentum and emerging coverage</summary>
+
+![Current and previous topic counts, absolute changes and emerging topics](public/images/mockups/analytics_topic_momentum.webp)
+
+</details>
+
+**Publishers** compares article totals, output per day, bullshit-match rates and ranking coverage. Publisher names open their saved websites. Choose two publishers to compare volume, topics and captured ranking appearances; unsupported ranking types are marked as unavailable.
+
+![Publisher comparison table with website links, article counts and ranking coverage](public/images/mockups/analytics_publishers.webp)
+
+<details>
+<summary>Compare two publishers</summary>
+
+![Two publishers compared through publication-volume lines, topic counts and ranking appearances](public/images/mockups/analytics_publisher_comparison.webp)
+
+</details>
+
+**Most Read** summarizes ranked articles, first observations, articles reaching #1, captured snapshots and publishers with data. Sort and page through Top performers, inspect Climbers and Decliners, and explore Longest running, topic performance and publishers with ranking data.
+
+![Most Read analytics summary and sortable Top performers table](public/images/mockups/analytics_most_read.webp)
+
+<details>
+<summary>Ranking history, movement and coverage</summary>
+
+Choose **History** to open an article's ranking charts in a dialog. Five cards show its best and latest observed rank, first and last appearance, and observed span. Rank 1 stays at the top; absences from captured snapshots break the line. The observed span can include gaps.
+
+![Ranking history dialog with five metrics and separate charts for each ranking type](public/images/mockups/analytics_ranking_history.webp)
+
+![Climbers and Decliners comparing actual consecutive ranking snapshots](public/images/mockups/analytics_ranking_movement.webp)
+
+![Longest-running articles, topic performance and publishers with stored ranking data](public/images/mockups/analytics_ranking_details.webp)
+
+</details>
+
+**Topics** lets you select a topic to inspect matching articles, coverage over time, momentum, co-occurring topics and ranking appearances. An article can belong to several topics.
+
+![Topic analytics with article counts and coverage over time](public/images/mockups/analytics_topics.webp)
+
+<details>
+<summary>Inspect a topic</summary>
+
+![Selected-topic metrics, momentum, co-occurrence and ranking appearances](public/images/mockups/analytics_topic_details.webp)
+
+</details>
+
+Open matched articles in the shared article viewer, follow the original link or save an article to a reading list.
+
+<details>
+<summary>Read and save from Analytics</summary>
+
+![Analytics article viewer beside the ranking table](public/images/mockups/analytics_article_viewer.webp)
+
+![Save dialog for adding a ranked article to a reading list](public/images/mockups/analytics_save_article.webp)
+
+</details>
+
+Analytics reads your stored library. Ranking positions are not pageview counts or direct audience measurements; editorial Top-News remain separate from most-read and most-commented lists.
 
 See the [Analytics guide](docs/analytics.md) for metric definitions, comparison methods and data limitations.
 

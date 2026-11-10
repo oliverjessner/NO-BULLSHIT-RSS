@@ -51,10 +51,11 @@ export async function ensureMockupServer({
     url,
     projectDirectory,
     env = process.env,
+    reuseExisting = true,
     startupTimeoutMs = 60000,
     serverPath = path.join(projectDirectory, 'backend', 'server.js'),
 }) {
-    if (await healthy(url)) return { url, close: async () => {} };
+    if (reuseExisting && await healthy(url)) return { url, close: async () => {} };
     if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
         throw new Error(`App unavailable at ${url}. Automatic startup requires a local HTTP address.`);
     }

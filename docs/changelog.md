@@ -1,6 +1,7 @@
 # 2.1.0
 
 - Add a Feed-style export menu to Most read for Markdown, JSON, CSV and link lists.
+- Update tauri-plugin-dialog to 2.8.4.
 
 # 2.0.2
 

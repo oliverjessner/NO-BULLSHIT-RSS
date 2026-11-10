@@ -20,7 +20,6 @@ import {
 } from './js/views/feed.js';
 import { initFeedImport } from './js/views/feed-import.js';
 import { initWatchdog, activateWatchdog, deactivateWatchdog, refreshWatchdogs, consumeWatchdogTarget } from './js/views/watchdog.js';
-import { initStatistics } from './js/ui/statistics.js';
 
 const controllers = new Map([
     ['main', { activate: activateFeed, deactivate: deactivateFeed }],
@@ -50,6 +49,15 @@ async function refreshReferences(kind) {
 
 async function ensureController(name) {
     if (controllers.has(name)) return controllers.get(name);
+    if (name === 'analytics') {
+        const module = await import('./js/views/analytics.js');
+        const controller = {
+            activate: module.activateAnalytics, deactivate: module.deactivateAnalytics,
+            dirty: module.markAnalyticsDirty, refresh: module.activateAnalytics,
+        };
+        controllers.set(name, controller);
+        return controller;
+    }
     if (name === 'digest') {
         const module = await import('./js/views/digest.js');
         const controller = {
@@ -116,6 +124,12 @@ function markRankingsDirty() {
     if (store.ui.activeView === 'rankings') void controllers.get('rankings')?.refresh?.();
 }
 
+function markAnalyticsDirty() {
+    store.analytics.needsRefresh = true;
+    controllers.get('analytics')?.dirty?.();
+    if (store.ui.activeView === 'analytics') void controllers.get('analytics')?.refresh?.();
+}
+
 function setupLiveUpdates() {
     initEvents({
         watchdogsUpdated: event => {
@@ -123,14 +137,16 @@ function setupLiveUpdates() {
             if (store.ui.activeView === 'settings') void settingsModule?.refreshWatchdogNotifications({ checkPermission: false }).catch(error => toast.error(error.message));
         },
         fetchCompleted: () => {
+            markAnalyticsDirty();
             markFeedDirty();
             markDigestDirty();
             markRankingsDirty();
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
             void settingsModule?.refreshSettingsMeta();
         },
-        rankingsUpdated: () => markRankingsDirty(),
+        rankingsUpdated: () => { markRankingsDirty(); markAnalyticsDirty(); },
         feedsUpdated: () => {
+            markAnalyticsDirty();
             void refreshReferences('feeds');
             markFeedDirty();
             markDigestDirty();
@@ -139,11 +155,13 @@ function setupLiveUpdates() {
         },
         listsUpdated: () => void refreshReferences('lists'),
         listItemsUpdated: () => {
+            markAnalyticsDirty();
             markFeedDirty();
             markRankingsDirty();
             if (store.ui.activeView === 'main') void loadArticles({ force: true, showLoading: false });
         },
         topicsUpdated: () => {
+            markAnalyticsDirty();
             void refreshReferences('topics');
             void settingsModule?.reloadTopicRules();
         },
@@ -153,12 +171,14 @@ function setupLiveUpdates() {
             void settingsModule?.reloadDigestSettings();
         },
         bullshitRulesUpdated: () => {
+            markAnalyticsDirty();
             markFeedDirty();
             markDigestDirty();
             markRankingsDirty();
             void settingsModule?.reloadBullshitRules();
         },
         articlesUpdated: () => {
+            markAnalyticsDirty();
             markRankingsDirty();
             if (store.digest.pendingMutationEvents > 0) {
                 store.digest.pendingMutationEvents -= 1;
@@ -176,10 +196,10 @@ async function init() {
     cleanupDesignSystem = () => { cleanupOJ(); cleanupSelectDropdowns(); };
     initLayout();
     initArticleViewer();
-    initStatistics();
     initNavigation(activate);
     initModal({
         onSaved: async () => {
+            markAnalyticsDirty();
             markFeedDirty();
             markRankingsDirty();
             if (store.ui.activeView === 'main') await loadArticles({ force: true, showLoading: false });
@@ -187,6 +207,7 @@ async function init() {
     });
     initFeedImport({
         onImported: async () => {
+            markAnalyticsDirty();
             await refreshReferences('feeds');
             markFeedDirty();
             markDigestDirty();

@@ -412,7 +412,8 @@ try {
     assert.equal(await unmatched.locator('.article-save-btn').isDisabled(), true);
     assert.equal(await unmatched.locator('.article-dismiss-btn').isDisabled(), true);
     assert.deepEqual(await page.locator('.publisher-ranking-title').allTextContents(), ['Most read', 'Most commented']);
-    assert.equal(await page.locator('.publisher-rankings-note, .publisher-rankings-title, #rankings-header p').count(), 0);
+    assert.equal(await page.locator('.publisher-rankings-note, .publisher-rankings-title, #rankings-header > p').count(), 0);
+    assert.equal(await page.locator('#rankings-export-popover .export-popover-title').textContent(), 'Export');
 
     await page.locator('#rankings-medium-trigger').click();
     await page.getByRole('menuitemradio', { name: 'WinFuture', exact: true }).click();

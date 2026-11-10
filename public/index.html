@@ -7,10 +7,11 @@
         <link rel="icon" href="/images/logo/logo_small.png" />
         <link rel="stylesheet" href="/vendor/oj-designsystem/styles.css" />
         <link rel="stylesheet" href="/styles.css" />
+        <link rel="stylesheet" href="/analytics.css" />
     </head>
     <body class="oj-app">
         <header class="topbar">
-            <button id="statistics-trigger" class="brand brand-button" type="button" aria-label="Show statistics" aria-haspopup="dialog" aria-controls="statistics-dialog" title="Statistics">
+            <button id="home-trigger" class="brand brand-button" type="button" aria-label="Open Feed" title="Feed">
                 <img class="brand-logo" src="/images/logo/logo.png" alt="No Bullshit RSS" />
             </button>
 
@@ -19,6 +20,7 @@
                 <button class="nav-link oj-nav-link" data-view="digest" aria-pressed="false"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> Digest</button>
                 <button class="nav-link oj-nav-link" data-view="rankings" aria-pressed="false"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> Most read</button>
                 <button class="nav-link oj-nav-link" data-view="watchdog" aria-pressed="false"><i class="fa-solid fa-binoculars" aria-hidden="true"></i> Watchdog <span id="watchdog-nav-badge" class="watchdog-nav-badge" hidden>0</span></button>
+                <button class="nav-link oj-nav-link" data-view="analytics" aria-pressed="false"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Analytics</button>
                 <button class="nav-link oj-nav-link" data-view="settings" aria-pressed="false"><i class="fa-solid fa-gear" aria-hidden="true"></i> Settings</button>
             </nav>
         </header>
@@ -337,6 +339,45 @@
                 </div>
             </section>
 
+            <section id="view-analytics" class="view view-analytics oj-tabs" data-oj-tabs hidden aria-labelledby="analytics-heading">
+                <header class="analytics-header oj-panel">
+                    <div class="analytics-heading"><h1 id="analytics-heading">Analytics</h1><button id="analytics-refresh" class="oj-button oj-button-secondary" type="button"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button></div>
+                    <div class="analytics-filters">
+                        <div class="oj-field"><label class="oj-label" for="analytics-period">Period</label><select id="analytics-period" data-oj-select-dropdown><option value="7d">Last 7 days</option><option value="30d" selected>Last 30 days</option><option value="90d">Last 90 days</option><option value="all">All time</option></select></div>
+                        <div class="oj-field"><label class="oj-label" for="analytics-publisher">Publisher</label><select id="analytics-publisher" data-oj-select-dropdown><option value="">All publishers</option></select></div>
+                        <div class="oj-field"><label class="oj-label" for="analytics-topic">Topic</label><select id="analytics-topic" data-oj-select-dropdown><option value="">All topics</option></select></div>
+                        <div class="oj-field"><label class="oj-label" for="analytics-group">Group by</label><select id="analytics-group" data-oj-select-dropdown><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></div>
+                        <div class="oj-field"><label class="oj-label" for="analytics-basis">Article time</label><select id="analytics-basis" data-oj-select-dropdown><option value="publishedAt">Published</option><option value="fetchedAt">Fetched</option></select></div>
+                    </div>
+                    <p class="oj-helper">Article periods use the selected article time; ranking history uses actual capture times. Calendar buckets use UTC.</p>
+                </header>
+                <div class="analytics-tabs oj-tab-list" role="tablist" aria-label="Analytics sections">
+                    <button id="analytics-overview-tab" class="analytics-tab oj-tab is-active" data-analytics-section="overview" type="button" role="tab" aria-selected="true" aria-controls="analytics-overview">Overview</button>
+                    <button id="analytics-trends-tab" class="analytics-tab oj-tab" data-analytics-section="trends" type="button" role="tab" aria-selected="false" aria-controls="analytics-trends">Trends</button>
+                    <button id="analytics-publishers-tab" class="analytics-tab oj-tab" data-analytics-section="publishers" type="button" role="tab" aria-selected="false" aria-controls="analytics-publishers">Publishers</button>
+                    <button id="analytics-most-read-tab" class="analytics-tab oj-tab" data-analytics-section="most-read" type="button" role="tab" aria-selected="false" aria-controls="analytics-most-read">Most Read</button>
+                    <button id="analytics-topics-tab" class="analytics-tab oj-tab" data-analytics-section="topics" type="button" role="tab" aria-selected="false" aria-controls="analytics-topics">Topics</button>
+                    <button id="analytics-library-tab" class="analytics-tab oj-tab" data-analytics-section="library" type="button" role="tab" aria-selected="false" aria-controls="analytics-library">Library</button>
+                </div>
+                <p id="analytics-status" class="analytics-status oj-status" role="status" aria-live="polite"></p>
+                <div id="analytics-layout" class="dashboard-layout analytics-layout">
+                    <div class="dashboard-primary">
+                        <div id="analytics-overview" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-overview-tab"></div>
+                        <div id="analytics-trends" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-trends-tab" hidden></div>
+                        <div id="analytics-publishers" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-publishers-tab" hidden></div>
+                        <div id="analytics-most-read" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-most-read-tab" hidden></div>
+                        <div id="analytics-topics" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-topics-tab" hidden></div>
+                        <div id="analytics-library" class="analytics-section oj-tab-panel" role="tabpanel" aria-labelledby="analytics-library-tab" hidden></div>
+                    </div>
+                    <aside id="analytics-article-viewer" class="article-viewer oj-panel hide" aria-live="polite">
+                        <div class="article-viewer-header"><h2 id="analytics-article-viewer-title" class="article-viewer-title oj-heading-3">Article viewer</h2><div class="article-viewer-controls"><div class="article-viewer-width-toggle" role="group" aria-label="Viewer width"><button class="article-viewer-width-option oj-button oj-button-ghost" data-viewer-width="35" type="button" aria-pressed="false">35%</button><button class="article-viewer-width-option oj-button oj-button-ghost" data-viewer-width="50" type="button" aria-pressed="true">50%</button></div><button id="analytics-article-viewer-hide" class="oj-button oj-button-ghost" type="button">Hide</button></div></div>
+                        <p id="analytics-article-viewer-message" class="article-viewer-message hide"></p>
+                        <iframe id="analytics-article-viewer-frame" class="article-viewer-frame hide" title="In-app article viewer" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
+                    </aside>
+                </div>
+            </section>
+
+
             <section id="view-settings" class="view view-settings oj-tabs" data-oj-tabs hidden>
                 <div class="settings-tabs-wrap">
                     <div class="settings-tabs oj-tab-list" role="tablist" aria-label="Settings sections">
@@ -630,43 +671,6 @@
                 </div>
             </div>
         </template>
-
-        <dialog id="statistics-dialog" class="modal statistics-dialog oj-dialog" data-oj-dialog aria-labelledby="statistics-title">
-            <div class="modal-header oj-dialog-header">
-                <h2 id="statistics-title" class="modal-title oj-dialog-title">Statistics</h2>
-                <button id="statistics-close" class="oj-icon-button" type="button" aria-label="Close statistics"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-            </div>
-            <div class="modal-body oj-dialog-body">
-                <p class="statistics-help oj-muted">All articles stored in your library.</p>
-                <div id="statistics-status" class="oj-status" role="status" aria-live="polite"></div>
-                <div id="statistics-content" hidden>
-                    <dl class="statistics-totals">
-                        <div class="statistics-metric oj-panel oj-soft">
-                            <dt>Articles</dt>
-                            <dd id="statistics-total" class="oj-mono"></dd>
-                        </div>
-                        <div class="statistics-metric oj-panel oj-soft">
-                            <dt>Found Bullshit Articles</dt>
-                            <dd id="statistics-bullshit" class="oj-mono"></dd>
-                        </div>
-                    </dl>
-                    <div class="statistics-rankings">
-                        <section aria-labelledby="statistics-feeds-title">
-                            <h3 id="statistics-feeds-title" class="oj-heading-3">Top 10 Feeds</h3>
-                            <ol id="statistics-feeds" class="statistics-ranking" role="list"></ol>
-                        </section>
-                        <section aria-labelledby="statistics-topics-title">
-                            <h3 id="statistics-topics-title" class="oj-heading-3">Top 10 Topics</h3>
-                            <ol id="statistics-topics" class="statistics-ranking" role="list"></ol>
-                        </section>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions oj-dialog-footer">
-                <button id="statistics-refresh" class="btn ghost oj-button oj-button-ghost" type="button">Refresh</button>
-                <button id="statistics-done" class="btn oj-button oj-button-secondary" type="button">Close</button>
-            </div>
-        </dialog>
 
         <dialog id="watchdog-dialog" class="oj-dialog modal watchdog-dialog" data-oj-dialog aria-labelledby="watchdog-dialog-title" aria-describedby="watchdog-dialog-help">
             <form id="watchdog-form">

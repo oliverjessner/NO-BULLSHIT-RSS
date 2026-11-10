@@ -3,13 +3,8 @@ const byId = id => document.getElementById(id);
 export const dom = Object.freeze({
     nav: document.querySelector('.nav'),
     navLinks: document.querySelectorAll('.nav-link'),
-    statistics: Object.freeze({
-        trigger: byId('statistics-trigger'), dialog: byId('statistics-dialog'), close: byId('statistics-close'),
-        done: byId('statistics-done'), refresh: byId('statistics-refresh'), status: byId('statistics-status'),
-        content: byId('statistics-content'), total: byId('statistics-total'), bullshit: byId('statistics-bullshit'),
-        feeds: byId('statistics-feeds'), topics: byId('statistics-topics'),
-    }),
-    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), rankings: byId('view-rankings'), watchdog: byId('view-watchdog'), settings: byId('view-settings') }),
+    home: byId('home-trigger'),
+    views: Object.freeze({ main: byId('view-main'), digest: byId('view-digest'), rankings: byId('view-rankings'), watchdog: byId('view-watchdog'), analytics: byId('view-analytics'), settings: byId('view-settings') }),
     feed: Object.freeze({
         count: byId('feed-count'), search: byId('search-input'), topicFilter: byId('filter-topic'),
         sourceFilter: byId('filter-source'), listFilter: byId('filter-list'), bullshitFilter: byId('filter-bullshit'), filterRow: byId('active-filter-row'),
@@ -38,6 +33,7 @@ export const dom = Object.freeze({
         feed: Object.freeze({ layout: byId('dashboard-layout'), panel: byId('article-viewer'), title: byId('article-viewer-title'), message: byId('article-viewer-message'), frame: byId('article-viewer-frame'), hide: byId('article-viewer-hide') }),
         digest: Object.freeze({ layout: byId('digest-layout'), panel: byId('digest-article-viewer'), title: byId('digest-article-viewer-title'), message: byId('digest-article-viewer-message'), frame: byId('digest-article-viewer-frame'), hide: byId('digest-article-viewer-hide') }),
         rankings: Object.freeze({ layout: byId('rankings-layout'), panel: byId('rankings-article-viewer'), title: byId('rankings-article-viewer-title'), message: byId('rankings-article-viewer-message'), frame: byId('rankings-article-viewer-frame'), hide: byId('rankings-article-viewer-hide') }),
+        analytics: Object.freeze({ layout: byId('analytics-layout'), panel: byId('analytics-article-viewer'), title: byId('analytics-article-viewer-title'), message: byId('analytics-article-viewer-message'), frame: byId('analytics-article-viewer-frame'), hide: byId('analytics-article-viewer-hide') }),
         widthOptions: document.querySelectorAll('.article-viewer-width-option'),
     }),
     settings: Object.freeze({

@@ -31,7 +31,7 @@ After `npm link`, the `no-bullshit-rss` command is available in your shell.
 
 ## Statistics
 
-Show the same library statistics as the app's logo dialog:
+Show the library summary retained alongside the app's Analytics section:
 
 ```bash
 no-bullshit-rss stats

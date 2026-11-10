@@ -6,7 +6,7 @@ import { normalizeArticleUrl } from '../utils/format.js';
 import { createViewerSync, invokeDesktop, isDesktop, openBrowser } from './desktop.js';
 
 const viewerState = { open: false, url: null, articleId: null, title: 'Article viewer', message: '' };
-const viewerContexts = { main: dom.viewer.feed, digest: dom.viewer.digest, rankings: dom.viewer.rankings };
+const viewerContexts = { main: dom.viewer.feed, digest: dom.viewer.digest, rankings: dom.viewer.rankings, analytics: dom.viewer.analytics };
 const syncNative = createViewerSync(payload => invokeDesktop('sync_article_viewer', payload));
 let syncScheduled = false;
 
@@ -47,6 +47,7 @@ function setActiveCards() {
 
 export function renderViewer() {
     for (const [view, context] of Object.entries(viewerContexts)) {
+        if (!context?.layout || !context.panel || !context.frame) continue;
         const visible = viewerState.open && store.ui.activeView === view;
         context.layout.dataset.viewerWidth = store.ui.viewerWidth;
         context.layout.classList.toggle('is-viewer-open', visible);
@@ -103,6 +104,7 @@ export function isViewerOpen() { return viewerState.open; }
 export function initArticleViewer() {
     if (isDesktop) {
         for (const context of Object.values(viewerContexts)) {
+            if (!context?.frame) continue;
             context.frame.removeAttribute('src');
             context.frame.style.pointerEvents = 'none';
             context.frame.style.visibility = 'hidden';

@@ -37,6 +37,9 @@ function updateStickyUi() {
 
 export function initNavigation(onActivate) {
     activateView = onActivate;
+    dom.home?.addEventListener('click', () => {
+        void navigate('main').catch(error => console.error('Could not open Feed:', error));
+    });
     dom.nav?.addEventListener('click', event => {
         const link = event.target.closest('.nav-link[data-view]');
         if (link) {

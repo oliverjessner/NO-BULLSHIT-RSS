@@ -1,19 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import {
+
+// These classifier unit tests must never open a user's library or depend on
+// their editable project keyword definitions.
+process.env.DB_PATH = ':memory:';
+const {
     classifyArticleTopicsFromDefinitions,
     definitionsToRulesObject,
     validateAndNormalizeTopicDefinitions,
-} from './topics.js';
+} = await import('./topics.js');
+const { closeDatabase } = await import('../database/datenbank.js');
+test.after(closeDatabase);
 
-const PROJECT_TOPIC_DEFINITIONS = validateAndNormalizeTopicDefinitions(
-    JSON.parse(await readFile(new URL('../../topics.rules.json', import.meta.url), 'utf-8')),
-);
+const AMBIGUITY_FIXTURES = validateAndNormalizeTopicDefinitions({
+    meta: {
+        label: 'Meta', strong: ['meta', 'facebook'], medium: [], weak: [], exclude: ['meta analyse'],
+    },
+    microsoft: {
+        label: 'Microsoft', strong: ['microsoft teams', 'microsoft'], medium: ['azure'], weak: [],
+    },
+    crypto: {
+        label: 'Crypto', strong: ['bitcoin', 'blockchain'], medium: ['cryptocurrency'], weak: [],
+    },
+    gaming: {
+        label: 'Gaming', strong: ['playstation', 'nintendo'], medium: ['steam'], weak: [],
+    },
+});
 
-function getProjectTopic(slug) {
-    const topic = PROJECT_TOPIC_DEFINITIONS.find(definition => definition.slug === slug);
-    assert.ok(topic, `Expected project topic ${slug}`);
+function getAmbiguityFixture(slug) {
+    const topic = AMBIGUITY_FIXTURES.find(definition => definition.slug === slug);
+    assert.ok(topic, `Expected synthetic topic fixture ${slug}`);
     return topic;
 }
 
@@ -164,18 +180,18 @@ test('exclude phrases suppress a topic and remain explainable', async () => {
     assert.equal(scored.excludedTerms[0].term, 'meta analyse');
 });
 
-test('project Meta rules reject Meta-Analyse', async () => {
+test('synthetic Meta exclusion fixture rejects Meta-Analyse', async () => {
     const result = await classifyArticleTopicsFromDefinitions(
         { title: 'Neue Meta-Analyse zur Gesundheitsforschung' },
-        [getProjectTopic('meta')],
+        [getAmbiguityFixture('meta')],
     );
 
     assert.equal(result.assignedTopics.length, 0);
     assert.equal(result.scoredTopics[0].excluded, true);
 });
 
-test('Microsoft Teams assigns Microsoft while generic teams does not', async () => {
-    const microsoft = getProjectTopic('microsoft');
+test('synthetic Microsoft phrase fixture matches Microsoft Teams without generic teams', async () => {
+    const microsoft = getAmbiguityFixture('microsoft');
     const explicit = await classifyArticleTopicsFromDefinitions({ title: 'Microsoft Teams gets an update' }, [microsoft]);
     const generic = await classifyArticleTopicsFromDefinitions({ title: 'Distributed teams improve collaboration' }, [microsoft]);
 
@@ -183,27 +199,27 @@ test('Microsoft Teams assigns Microsoft while generic teams does not', async () 
     assert.equal(generic.assignedTopics.length, 0);
 });
 
-test('AI token usage does not assign Crypto', async () => {
+test('synthetic Crypto fixture rejects AI token usage', async () => {
     const result = await classifyArticleTopicsFromDefinitions(
         { title: 'LLM token limits improve for AI models', teaser: 'Token context windows grow' },
-        [getProjectTopic('crypto')],
+        [getAmbiguityFixture('crypto')],
     );
 
     assert.equal(result.assignedTopics.length, 0);
 });
 
-test('Bitcoin and blockchain still assign Crypto', async () => {
+test('synthetic Crypto fixture assigns Bitcoin and blockchain', async () => {
     const result = await classifyArticleTopicsFromDefinitions(
         { title: 'Bitcoin adoption grows', teaser: 'Blockchain infrastructure expands' },
-        [getProjectTopic('crypto')],
+        [getAmbiguityFixture('crypto')],
     );
 
     assert.equal(result.assignedTopics[0].slug, 'crypto');
     assert.equal(result.assignedTopics[0].distinctMatches, 2);
 });
 
-test('metaphorical game does not assign Gaming but platform terms do', async () => {
-    const gaming = getProjectTopic('gaming');
+test('synthetic Gaming platform fixture excludes metaphorical game', async () => {
+    const gaming = getAmbiguityFixture('gaming');
     const metaphor = await classifyArticleTopicsFromDefinitions({ title: 'The hiring game has changed' }, [gaming]);
     const platforms = await classifyArticleTopicsFromDefinitions(
         { title: 'Steam, PlayStation and Nintendo announce releases' },
@@ -249,4 +265,18 @@ test('legacy definitions receive backwards-compatible defaults', () => {
     assert.equal(topic.type, null);
     assert.equal(topic.minMatches, 1);
     assert.deepEqual(topic.exclude, []);
+});
+
+
+test('explicit generic keyword fixtures retain their configured broad matching behavior', async () => {
+    for (const [slug, keyword, title] of [
+        ['meta', 'meta', 'Neue Meta-Analyse zur Gesundheitsforschung'],
+        ['microsoft', 'teams', 'Distributed teams improve collaboration'],
+        ['gaming', 'game', 'The hiring game has changed'],
+    ]) {
+        const result = await classifyArticleTopicsFromDefinitions({ title }, [
+            { slug, label: slug, strong: [], medium: [keyword], weak: [] },
+        ]);
+        assert.deepEqual(result.assignedTopics.map(topic => topic.slug), [slug]);
+    }
 });

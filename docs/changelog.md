@@ -1,3 +1,5 @@
+# 2.1.0
+
 # 2.0.2
 
 - Add `articles random --feed`, `--digest` and `--top` to choose from stored Feed articles, today's daily digest or saved Most read selections, with URL and title output.

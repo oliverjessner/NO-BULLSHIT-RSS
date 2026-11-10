@@ -206,7 +206,7 @@ function supportFor(row, feed = false) {
 function publisherRow(row, options, feed = false) {
     const support = supportFor(row, feed);
     const days = options.days || Number(row.observedDays) || 1;
-    const { websiteUrl, feedUrls, feedUrl, observedDays, ...data } = row;
+    const { feedUrls, feedUrl, observedDays, ...data } = row;
     return { ...data, ...support, averagePerDay: Number((row.periodArticles / days).toFixed(2)),
         bullshitRate: percent(row.bullshitArticles, row.periodArticles),
         rankedArticles: support.rankingSupported && (!options.rankingKey || support.rankingKeys.includes(options.rankingKey)) ? Number(row.rankedArticles) : null };

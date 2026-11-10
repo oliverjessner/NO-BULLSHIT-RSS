@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { parseHTML } from 'linkedom';
 import { analyticsChange, analyticsChartGeometry, analyticsGrowth, analyticsNumber, analyticsPercent, analyticsRequestKey, analyticsSpan, sortAnalyticsRows } from './analytics.js';
-import { createAnalyticsChart } from '../components/analytics-chart.js';
+import { createAnalyticsChart, disposeAnalyticsCharts } from '../components/analytics-chart.js';
 import { createAnalyticsTable } from '../components/analytics-table.js';
+import { formatDate } from './format.js';
 
 test('analytics formatting distinguishes unknown values, zero baselines, ratios and observed spans', () => {
     assert.equal(analyticsNumber(null), '—');
@@ -74,18 +75,182 @@ test('charts expose observed timestamps and literal labels, without connecting m
         assert.equal(chart.querySelectorAll('script, img').length, 0);
         assert.equal(chart.querySelectorAll('.analytics-chart-series path').length, 1);
         assert.equal(chart.querySelectorAll('.analytics-chart-series circle').length, 3);
-        assert.match(chart.textContent, /Absent from snapshot/);
         assert.match(chart.querySelector('svg desc').textContent, /Rank 1 is at the top/);
         assert.match(chart.querySelector('svg title').textContent, /<img/);
         assert.equal(chart.querySelector('.analytics-chart-plot').getAttribute('role'), 'region');
         assert.equal(chart.querySelector('.analytics-chart-plot').getAttribute('tabindex'), '0');
-        assert.ok(chart.querySelector('details table caption'));
         const volume = createAnalyticsChart({ title: 'Volume', series: [{ label: 'Articles', points: [{ bucket: '2026-11-01', count: 2 }, { bucket: '2026-11-09', count: 7 }] }] });
-        assert.equal(volume.querySelectorAll('.analytics-chart-series path').length, 2);
-        assert.match(volume.querySelector('figcaption').textContent, /Bars mark article counts/);
+        assert.equal(volume.querySelectorAll('.analytics-chart-series path').length, 1);
+        assert.deepEqual(volume.querySelector('.analytics-chart-series path').getAttribute('d').match(/[ML]/gu), ['M', 'L']);
+        assert.equal(volume.querySelectorAll('.analytics-chart-series circle').length, 2);
+        assert.match(volume.querySelector('figcaption').textContent, /Lines connect/);
         assert.match(volume.querySelector('figcaption').textContent, /^2 UTC date buckets/);
         assert.match(chart.querySelector('figcaption').textContent, /^3 captured appearances/);
+        disposeAnalyticsCharts(chart); disposeAnalyticsCharts(volume);
     } finally { if (previous === undefined) delete globalThis.document; else globalThis.document = previous; }
+});
+
+test('chart tooltips expose literal dates, series and values on hover, focus and touch, then hide on dismissal', () => {
+    const previous = globalThis.document;
+    const { document, window } = parseHTML('<html><body></body></html>'); globalThis.document = document;
+    let chart;
+    try {
+        const firstDate = '2026-11-01';
+        const label = '<img src=x onerror=alert(1)> Articles';
+        chart = createAnalyticsChart({ title: 'Observed article volume', series: [
+            { label, points: [{ bucket: firstDate, count: 0 }, { bucket: '2026-11-09', count: 7 }] },
+            { label: 'Second publisher', points: [{ bucket: firstDate, count: 4 }, { bucket: '2026-11-02', count: 6 }] },
+        ] });
+        document.body.append(chart);
+        const tooltip = chart.querySelector('.analytics-chart-tooltip');
+        const allPoints = [...chart.querySelectorAll('.analytics-chart-point')];
+        const points = [...chart.querySelector('.analytics-chart-series').querySelectorAll('.analytics-chart-point')];
+        const plot = chart.querySelector('.analytics-chart-plot');
+        const bounds = { left: 0, top: 0, right: 760, bottom: 250, width: 760, height: 250 };
+        for (const node of [chart, tooltip, plot, ...allPoints]) node.getBoundingClientRect = () => bounds;
+        const emit = (node, type, properties = {}) => {
+            const event = new window.Event(type, { bubbles: true, cancelable: true });
+            Object.assign(event, { clientX: 100, clientY: 80 }, properties); node.dispatchEvent(event); return event;
+        };
+        assert.equal(tooltip.getAttribute('role'), 'tooltip');
+        assert.equal(tooltip.hidden, true);
+        assert.equal(allPoints.length, 4, 'Each observed value has one interactive point, with no duplicate hit circles');
+        assert.equal(chart.querySelectorAll('.analytics-chart-series circle').length, allPoints.length);
+        assert.equal(points[0].getAttribute('aria-describedby'), tooltip.id);
+        assert.equal(points[0].getAttribute('role'), 'img');
+        emit(points[0], 'pointerenter');
+        assert.equal(tooltip.hidden, false);
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-series').textContent, label);
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-value').textContent, '0');
+        assert.ok(tooltip.textContent.includes(formatDate(firstDate)));
+        assert.equal(tooltip.querySelector('img'), null, 'Untrusted series labels remain literal text');
+        assert.ok(points[0].getAttribute('aria-label').includes(formatDate(firstDate)));
+        const related = tooltip.querySelector('.analytics-chart-tooltip-related');
+        assert.equal(related.hidden, false);
+        assert.equal(related.querySelectorAll('.analytics-chart-tooltip-related-row').length, 1, 'Only actual observations at the exact same timestamp are related');
+        assert.equal(related.querySelector('.analytics-chart-tooltip-related-series').textContent, 'Second publisher');
+        assert.equal(related.querySelector('.analytics-chart-tooltip-related-value').textContent, '4');
+        const hoverEscape = emit(document.body, 'keydown', { key: 'Escape' });
+        assert.equal(tooltip.hidden, true, 'Escape dismisses a hover-only tooltip even when focus is outside the chart');
+        assert.equal(hoverEscape.defaultPrevented, true);
+        assert.equal(emit(document.body, 'keydown', { key: 'Escape' }).defaultPrevented, false, 'Hidden tooltips do not consume unrelated Escape presses');
+        emit(points[0], 'pointerenter');
+        emit(points[0], 'pointerleave'); assert.equal(tooltip.hidden, true);
+        emit(points[1], 'focus');
+        assert.equal(tooltip.hidden, false);
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-value').textContent, '7');
+        assert.equal(related.hidden, true, 'A different timestamp does not reuse related values from the previous tooltip');
+        assert.equal(related.querySelectorAll('.analytics-chart-tooltip-related-row').length, 0);
+        emit(points[1], 'blur'); assert.equal(tooltip.hidden, true);
+        emit(points[1], 'pointerdown'); assert.equal(tooltip.hidden, false);
+        emit(points[1], 'keydown', { key: 'Escape' }); assert.equal(tooltip.hidden, true);
+        emit(points[0], 'pointerenter'); emit(plot, 'scroll'); assert.equal(tooltip.hidden, true);
+    } finally {
+        if (chart) disposeAnalyticsCharts(chart);
+        if (previous === undefined) delete globalThis.document; else globalThis.document = previous;
+    }
+});
+
+test('disposing a chart container releases resize observers once', () => {
+    const previous = { document: globalThis.document, ResizeObserver: globalThis.ResizeObserver };
+    const { document } = parseHTML('<html><body></body></html>'); globalThis.document = document;
+    const observers = [];
+    globalThis.ResizeObserver = class {
+        constructor() { this.disconnects = 0; observers.push(this); }
+        observe(target) { this.target = target; }
+        disconnect() { this.disconnects += 1; }
+    };
+    try {
+        const container = document.createElement('section');
+        const chart = createAnalyticsChart({ title: 'Disposable chart', series: [{ label: 'Articles', points: [{ bucket: '2026-11-01', count: 2 }] }] });
+        container.append(chart); document.body.append(container);
+        assert.ok(observers.some(observer => observer.target), 'Responsive charts observe their plot dimensions');
+        disposeAnalyticsCharts(container);
+        assert.ok(observers.every(observer => observer.disconnects === 1));
+        disposeAnalyticsCharts(container);
+        assert.ok(observers.every(observer => observer.disconnects === 1), 'Repeated view cleanup is safe');
+    } finally {
+        for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }
+    }
+});
+
+test('chart arrow keys keep chronological navigation within a series and switch to the closest adjacent series observation', () => {
+    const previous = globalThis.document;
+    const { document, window } = parseHTML('<html><body></body></html>'); globalThis.document = document;
+    let chart;
+    try {
+        chart = createAnalyticsChart({ title: 'Publisher comparison', series: [
+            { label: 'First publisher', points: [{ bucket: '2026-11-01', count: 2 }, { bucket: '2026-11-09', count: 7 }] },
+            { label: 'Second publisher', points: [{ bucket: '2026-11-02', count: 1 }, { bucket: '2026-11-08', count: 4 }] },
+        ] });
+        document.body.append(chart);
+        const groups = [...chart.querySelectorAll('.analytics-chart-series')];
+        const first = [...groups[0].querySelectorAll('.analytics-chart-point')];
+        const second = [...groups[1].querySelectorAll('.analytics-chart-point')];
+        const points = [...first, ...second], tooltip = chart.querySelector('.analytics-chart-tooltip');
+        const bounds = { left: 0, top: 0, right: 760, bottom: 250, width: 760, height: 250 };
+        for (const node of [chart, tooltip, chart.querySelector('.analytics-chart-plot'), ...points]) node.getBoundingClientRect = () => bounds;
+        let focused;
+        points.forEach(point => { point.focus = () => {
+            focused?.dispatchEvent(new window.Event('blur')); focused = point; point.dispatchEvent(new window.Event('focus'));
+        }; });
+        const key = value => {
+            const event = new window.Event('keydown', { bubbles: true, cancelable: true }); event.key = value; focused.dispatchEvent(event);
+        };
+        first[0].focus(); key('ArrowRight'); assert.equal(focused, first[1]);
+        key('Home'); assert.equal(focused, first[0]);
+        key('End'); assert.equal(focused, first[1]);
+        key('ArrowDown'); assert.equal(focused, second[1], 'Adjacent-series navigation uses the nearest actual timestamp');
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-series').textContent, 'Second publisher');
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-value').textContent, '4');
+        key('ArrowUp'); assert.equal(focused, first[1]);
+        assert.equal(points.filter(point => point.getAttribute('tabindex') === '0').length, 1);
+    } finally {
+        if (chart) disposeAnalyticsCharts(chart);
+        if (previous === undefined) delete globalThis.document; else globalThis.document = previous;
+    }
+});
+
+test('chart keyboard navigation visits only observed points and rank tooltips keep ordinal positions', () => {
+    const previous = globalThis.document;
+    const { document, window } = parseHTML('<html><body></body></html>'); globalThis.document = document;
+    let chart;
+    try {
+        chart = createAnalyticsChart({ title: 'Ranking observations', rank: true, series: [{ label: 'Most read', points: [
+            { capturedAt: '2026-11-01T00:00:00Z', rank: 8 }, { capturedAt: '2026-11-01T01:00:00Z', rank: null },
+            { capturedAt: '2026-11-01T08:00:00Z', rank: 1 },
+        ] }] });
+        document.body.append(chart);
+        const points = [...chart.querySelectorAll('.analytics-chart-point')];
+        const tooltip = chart.querySelector('.analytics-chart-tooltip');
+        const bounds = { left: 0, top: 0, right: 760, bottom: 250, width: 760, height: 250 };
+        for (const node of [chart, tooltip, chart.querySelector('.analytics-chart-plot'), ...points]) node.getBoundingClientRect = () => bounds;
+        let focused;
+        points.forEach(point => { point.focus = () => {
+            focused?.dispatchEvent(new window.Event('blur')); focused = point;
+            point.dispatchEvent(new window.Event('focus'));
+        }; });
+        const key = (point, value) => {
+            const event = new window.Event('keydown', { bubbles: true, cancelable: true });
+            event.key = value; point.dispatchEvent(event);
+        };
+        assert.equal(points.length, 2, 'An observed absence is not a focusable invented rank');
+        assert.equal(points.filter(point => point.getAttribute('tabindex') === '0').length, 1);
+        assert.equal(points[0].getAttribute('tabindex'), '0');
+        points[0].focus();
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-value').textContent, '#8');
+        key(points[0], 'ArrowRight');
+        assert.equal(focused, points[1]);
+        assert.equal(points[0].getAttribute('tabindex'), '-1');
+        assert.equal(points[1].getAttribute('tabindex'), '0');
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-series').textContent, 'Most read');
+        assert.equal(tooltip.querySelector('.analytics-chart-tooltip-value').textContent, '#1');
+        key(points[1], 'ArrowLeft'); assert.equal(focused, points[0]);
+        key(points[0], 'Escape'); assert.equal(tooltip.hidden, true);
+    } finally {
+        if (chart) disposeAnalyticsCharts(chart);
+        if (previous === undefined) delete globalThis.document; else globalThis.document = previous;
+    }
 });
 
 test('semantic analytics tables sort safely, paginate and disclose bounded results', () => {
@@ -113,8 +278,8 @@ test('Analytics lifecycle preserves filters, caches sections, aborts stale reads
     const { document, window } = parseHTML(await readFile(new URL('../../index.html', import.meta.url), 'utf8'));
     globalThis.document = document; globalThis.window = window;
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => null, setItem: () => {} } });
-    for (const select of document.querySelectorAll('#view-analytics select')) Object.defineProperty(select, 'value', { configurable: true, writable: true, value: select.id === 'analytics-period' ? '30d' : select.id === 'analytics-group' ? 'day' : select.id === 'analytics-basis' ? 'publishedAt' : '' });
-    const uiStub = `export const initOJ=()=>()=>{}; export const createMultiselect=()=>({node:document.createElement('div'),dispose(){},setValue(){}});`;
+    for (const select of document.querySelectorAll('#view-analytics select')) Object.defineProperty(select, 'value', { configurable: true, writable: true, value: select.id === 'analytics-period' ? '30d' : select.id === 'analytics-group' ? 'day' : '' });
+    const uiStub = `export const initOJ=()=>()=>{}; export const createMultiselect=()=>({node:document.createElement('div'),dispose(){},setValue(){}}); export const openDialog=dialog=>dialog?.setAttribute('open',''); export const closeDialog=dialog=>dialog?.removeAttribute('open');`;
     const selectStub = `export const initSelectDropdowns=()=>()=>{}; export const setSelectValue=(select,value)=>{select.value=value};`;
     const actionStub = `export const openArticle=()=>{};export const openExternal=()=>{};export const openListModal=()=>{};`;
     const dataUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
@@ -128,7 +293,7 @@ test('Analytics lifecycle preserves filters, caches sections, aborts stale reads
         if (url === '/api/analytics/filters') return Response.json({ publishers: [{ id: 1, name: 'Publisher' }], topics: [{ id: 1, slug: 'security', label: 'Security' }] });
         if (String(url).startsWith('/api/analytics/overview?') && new URL(url, 'http://fixture').searchParams.get('period') === '30d') return new Promise(resolve => { staleResolve = resolve; });
         if (mode === 'error') return Response.json({ error: 'Synthetic read failed' }, { status: 500 });
-        if (String(url).startsWith('/api/analytics/library?')) return Response.json({ ...payload(7), collection: [], classification: [], quality: {}, feedFreshness: [] });
+        if (String(url).startsWith('/api/analytics/topics?')) return Response.json({ ...payload(7), topics: [], publishers: [], momentum: [], cooccurrence: [], rankings: [] });
         return Response.json(payload(7));
     };
     const settle = async predicate => { for (let i = 0; i < 30; i += 1) { if (predicate()) return; await new Promise(setImmediate); } assert.ok(predicate(), 'controller reached expected state'); };
@@ -146,7 +311,7 @@ test('Analytics lifecycle preserves filters, caches sections, aborts stale reads
         staleResolve(Response.json(payload(99))); await new Promise(setImmediate);
         assert.equal(document.querySelector('#analytics-overview .analytics-metric-value').textContent, '7');
         function section(name) { document.getElementById('view-analytics').dispatchEvent(new window.CustomEvent('oj:change', { detail: { tab: document.getElementById(`analytics-${name}-tab`) } })); }
-        section('library'); await settle(() => Boolean(document.querySelector('#analytics-library .analytics-metric')));
+        section('topics'); await settle(() => Boolean(document.querySelector('#analytics-topics .analytics-panel')));
         const reads = requests.filter(request => request.url.includes('/overview?')).length;
         section('overview'); await new Promise(setImmediate);
         assert.equal(requests.filter(request => request.url.includes('/overview?')).length, reads);

@@ -3,8 +3,11 @@ import { normalizeTopArticles, publisherRankingsFingerprint, renderPublisherRank
 import { closeViewer, isViewerOpen, openArticle, openExternal, renderViewer } from '../services/article-viewer.js';
 import { store } from '../state/store.js';
 import { dom } from '../ui/dom.js';
+import { bindExportMenu } from '../ui/export-menu.js';
 import { isAbortError } from '../utils/data.js';
 import { setSelectValue } from '../ui/select-dropdown.js';
+import { downloadExport } from '../utils/export.js';
+import { createRankingsExport, fetchAllTopArticles } from '../utils/rankings-export.js';
 
 let initialized = false;
 let refreshPromise = null;
@@ -22,6 +25,21 @@ function publisherName() {
     const medium = selectedMedium();
     return store.rankings.payload?.media?.find(item => item.id === medium)?.name
         || [...dom.rankings.medium.options].find(option => option.value === medium)?.textContent || medium;
+}
+
+async function exportRankings(format) {
+    const medium = selectedMedium();
+    const { toast } = await import('../ui/toast.js');
+    try {
+        const payload = medium === 'all'
+            ? await fetchAllTopArticles(options => api.topArticles(options))
+            : await api.rankings(medium);
+        if (payload?.medium !== medium) throw new Error('Invalid publisher rankings response');
+        if (!await downloadExport(createRankingsExport(format, { payload }))) return;
+        toast.success('Most read exported.');
+    } catch (error) {
+        toast.error(`Export failed: ${error.message}`);
+    }
 }
 
 function clearPoll() {
@@ -299,6 +317,12 @@ async function activateCardAction(event) {
 }
 
 function bindEvents() {
+    bindExportMenu({
+        root: dom.rankings.exportMenu,
+        trigger: dom.rankings.exportTrigger,
+        popover: dom.rankings.exportPopover,
+        onSelect: exportRankings,
+    });
     dom.rankings.medium.addEventListener('change', () => {
         const medium = dom.rankings.medium.value;
         if (refreshPromise || ![...dom.rankings.medium.options].some(option => option.value === medium)) {

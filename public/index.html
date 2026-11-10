@@ -265,6 +265,16 @@
                         <div class="rankings-controls">
                             <label class="rankings-medium"><span class="oj-label">Medium</span><select id="rankings-medium" data-oj-select-dropdown><option value="all">All media</option><option value="golem">Golem</option><option value="winfuture">WinFuture</option><option value="computerbase">ComputerBase</option><option value="heise-ix">heise iX</option><option value="t3n">t3n</option><option value="techcrunch">TechCrunch</option><option value="arstechnica">Ars Technica</option><option value="wired">WIRED</option><option value="theverge">The Verge</option></select></label>
                             <button id="rankings-refresh" class="oj-button oj-button-primary" type="button" title="Refresh all media"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button>
+                            <div id="rankings-export-menu" class="bulk-actions-menu oj-dropdown" data-oj-dropdown>
+                                <button id="rankings-export-trigger" class="bulk-actions-trigger oj-icon-button" type="button" data-oj-dropdown-trigger aria-label="Most read actions" data-oj-tooltip="Actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                                <div id="rankings-export-popover" class="bulk-actions-popover export-popover oj-menu" data-oj-dropdown-menu role="menu" aria-label="Export Most read" hidden>
+                                    <p class="export-popover-title oj-heading-3">Export</p>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="json">JSON</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="csv">CSV</button>
+                                    <button class="oj-menu-item" type="button" role="menuitem" data-export-format="links">Link list</button>
+                                </div>
+                            </div>
                         </div>
                     </header>
                     <div id="rankings-layout" class="dashboard-layout rankings-layout">

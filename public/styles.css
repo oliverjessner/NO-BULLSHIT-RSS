@@ -136,14 +136,14 @@ html {
     padding: var(--oj-space-4);
     margin-block-end: var(--oj-space-6);
 }
-.rankings-header h1, .rankings-header p { margin: 0; }
-.rankings-header p { margin-block-start: var(--oj-space-2); font-size: var(--oj-text-sm); }
+.rankings-header h1, .rankings-header > p { margin: 0; }
+.rankings-header > p { margin-block-start: var(--oj-space-2); font-size: var(--oj-text-sm); }
 .rankings-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--oj-space-3); }
 .rankings-medium { display: grid; gap: var(--oj-space-1); min-inline-size: 11rem; }
 .rankings-medium .select-dropdown { inline-size: 100%; }
 @media (max-width: 45rem) {
-    .rankings-controls { display: grid; grid-template-columns: minmax(0, 1fr); inline-size: 100%; }
-    .rankings-medium { min-inline-size: 0; inline-size: 100%; }
+    .rankings-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; inline-size: 100%; }
+    .rankings-medium { grid-column: 1 / -1; min-inline-size: 0; inline-size: 100%; }
     .rankings-controls .select-dropdown, .rankings-controls .select-dropdown-trigger { min-inline-size: 0; inline-size: 100%; }
     .rankings-controls > .oj-button { inline-size: 100%; }
 }

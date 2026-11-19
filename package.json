@@ -57,7 +57,7 @@
         "@vscode/sqlite3": "5.1.14-vscode",
         "ajv": "^8.20.0",
         "express": "^5.3.0",
-        "express-rate-limit": "^8.7.4",
+        "express-rate-limit": "^8.7.5",
         "fetchary": "2.2.0",
         "helmet": "^8.3.0",
         "iconv-lite": "^0.7.3",
@@ -71,7 +71,7 @@
         "@vscode/sqlite3": true
     },
     "devDependencies": {
-        "@tauri-apps/cli": "2.12.4",
+        "@tauri-apps/cli": "2.12.6",
         "playwright": "^1.65.1",
         "sharp": "^0.35.5"
     }

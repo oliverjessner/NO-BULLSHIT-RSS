@@ -35,6 +35,8 @@ test('publish dry run reads # release headings and only the newest notes', async
     assert.match(result.stdout, /Tag: v1\.1\.2/);
     assert.match(result.stdout, /Mockups: generate product WebP screenshots before the release commit/);
     assert.match(result.stdout, /Homebrew: update oliverjessner\/homebrew-tap after the DMG upload/);
+    assert.match(result.stdout, /older DMGs only after matching the published GitHub SHA-256/);
+    assert.match(result.stdout, /current\/unverified releases and app data are preserved/);
     assert.match(result.stdout, /Release notes:\n# 1\.1\.2\n\n- New release\n$/);
     assert.doesNotMatch(result.stdout, /Old release/);
 });
@@ -91,6 +93,10 @@ async function fullPublish({ failUpload = false, failMockups = false, failBrew =
         await writeFile(eventLog, '');
         const logEvent = `const fs = require('node:fs');
 const event = { command: COMMAND, args: process.argv.slice(2) };
+if (COMMAND === 'cleanup-build-cache') {
+    event.releaseOutput = process.env.RELEASE_OUTPUT_DIR;
+    event.tagPrefix = process.env.TAG_PREFIX;
+}
 if (COMMAND === 'gh' && event.args[0] === 'release' && event.args[1] === 'create') {
     event.notes = fs.readFileSync(event.args[event.args.indexOf('--notes-file') + 1], 'utf8');
 }
@@ -179,6 +185,8 @@ test('full publish generates screenshots before committing, then uploads the DMG
     assert.ok(brewIndex > uploadIndex);
     assert.ok(cleanupIndex > brewIndex);
     assert.deepEqual(events[cleanupIndex].args, ['--apply']);
+    assert.equal(events[cleanupIndex].releaseOutput, 'dist');
+    assert.equal(events[cleanupIndex].tagPrefix, 'v');
     assert.deepEqual(events[uploadIndex].args, ['release', 'upload', 'v1.1.2', 'dist/NO.BULLSHIT.RSS-1.1.2-arm64.dmg']);
     assert.deepEqual(events.filter(event => event.command === 'publish-brew').map(event => event.args), [['--version', '1.1.2']]);
 });

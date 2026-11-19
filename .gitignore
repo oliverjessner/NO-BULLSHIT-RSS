@@ -16,10 +16,14 @@ src-tauri/target/
 src-tauri/binaries/
 src-tauri/resources/
 src-tauri/gen/
+src-tauri/vendor/glib/target/
+src-tauri/vendor/glib/Cargo.lock
 electron/build/
 .desktop-cache/
 .next/
 coverage/
+test-results/
+playwright-report/
 *.log
 publisher-sessions/
 data.db-journal

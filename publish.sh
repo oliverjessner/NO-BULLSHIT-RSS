@@ -227,7 +227,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'Tag: %s\n\n' "$TAG_NAME"
     printf 'Homebrew: update oliverjessner/homebrew-tap after the DMG upload\n\n'
     printf 'Homebrew tap checkout: %s\n\n' "$HOMEBREW_TAP_DIR"
-    printf 'Cache cleanup: Tauri target and recognized desktop build caches after successful publication; dist and app data are preserved\n\n'
+    printf 'Cache cleanup: generated Tauri/runtime/test output and recognized desktop caches after successful publication; older DMGs only after matching the published GitHub SHA-256; current/unverified releases and app data are preserved\n\n'
     printf 'Release notes:\n'
     cat "$RELEASE_NOTES_FILE"
     exit 0
@@ -274,7 +274,8 @@ printf 'Uploaded release artifacts for %s\n' "$TAG_NAME"
 printf 'Publishing Homebrew cask\n'
 node "$SCRIPT_DIR/scripts/publish-brew.js" --version "$VERSION"
 
-printf 'Publication complete; cleaning regenerable build caches\n'
+printf 'Publication complete; cleaning generated output and verified older DMGs\n'
+export RELEASE_OUTPUT_DIR TAG_PREFIX
 if ! node "$SCRIPT_DIR/scripts/cleanup-build-cache.js" --apply; then
     printf 'Warning: publication succeeded, but cache cleanup could not finish. Preview remaining caches with node scripts/cleanup-build-cache.js --dry-run.\n' >&2
 fi

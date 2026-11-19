@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { cleanupBuildCache } from './cleanup-build-cache.js';
+import { cleanupBuildCache, formatCleanupReport, generatedDirectories, generatedFiles } from './cleanup-build-cache.js';
+
+const expectedTargets = [
+    ...generatedDirectories, ...generatedFiles,
+    '.desktop-cache/24.22.0', '.desktop-cache/26.11.1',
+    '.desktop-cache/runtime-Ab123x', '.desktop-cache/runtime-cD4567.previous',
+];
 
 async function fixture(t) {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'rss-cache-cleanup-'));
@@ -15,9 +22,12 @@ async function fixture(t) {
         await mkdir(path.dirname(filename), { recursive: true });
         await writeFile(filename, contents);
     };
-    await put('package.json', JSON.stringify({ name: 'no-bullshit-rss' }));
+    execFileSync('git', ['init', '--quiet', root]);
+    await put('package.json', JSON.stringify({ name: 'no-bullshit-rss', version: '1.7.0' }));
+    await put('src-tauri/Cargo.toml', '[package]\nname = "no-bullshit-rss"\n');
     const removable = [
-        'src-tauri/target/release/cache',
+        ...generatedDirectories.map(directory => `${directory}/generated.bin`),
+        ...generatedFiles,
         '.desktop-cache/26.11.1/node/bin/node',
         '.desktop-cache/24.22.0/archive.tar.gz',
         '.desktop-cache/runtime-Ab123x/temporary',
@@ -26,12 +36,14 @@ async function fixture(t) {
     const preserved = [
         'dist/NO.BULLSHIT.RSS-1.7.0-arm64.dmg', 'data-v2.db', 'publisher-sessions/nbs-golem.json',
         'public/images/logo.svg', 'backend/server.js', 'topics.rules.json', 'node_modules/package/index.js',
-        'src-tauri/resources/runtime/backend/server.js', 'src-tauri/binaries/rss-node-aarch64-apple-darwin',
+        'src-tauri/resources/personal.txt', 'src-tauri/binaries/other-tool',
+        'src-tauri/vendor/glib/src/lib.rs', 'src-tauri/icons/icon.png', '.env', 'backups/saved.db',
         '.desktop-cache/desktop-resources.lock', '.desktop-cache/release-recovery-v1.5.0/release.dmg',
         '.desktop-cache/runtime-foreign/notes', '.desktop-cache/26.11.1-custom/notes',
     ];
     for (const relative of [...removable, ...preserved]) await put(relative);
-    const options = { directory: root, env: {}, processCommands: [], lock: async (_, operation) => operation() };
+    const options = { directory: root, env: {}, processCommands: [], getRelease: async () => null,
+        lock: async (_, operation) => operation() };
     return { root, put, removable, preserved, options };
 }
 
@@ -46,19 +58,20 @@ test('dry-run lists only known build caches and does not mutate any cache or app
     const f = await fixture(t);
     const result = await cleanupBuildCache(f.options);
     assert.equal(result.dryRun, true);
-    assert.deepEqual(result.targets, [
-        'src-tauri/target', '.desktop-cache/24.22.0', '.desktop-cache/26.11.1',
-        '.desktop-cache/runtime-Ab123x', '.desktop-cache/runtime-cD4567.previous',
-    ]);
+    assert.deepEqual(result.targets, expectedTargets);
+    assert.equal(result.bytes, f.removable.length * Buffer.byteLength('fixture'));
+    assert.deepEqual(result.entries.map(entry => entry.path), expectedTargets);
+    assert.match(formatCleanupReport(result), /Would remove \d+ generated paths \([\d.]+ MiB of file contents\)/);
     assert.deepEqual(result.removed, []);
     for (const relative of [...f.removable, ...f.preserved]) assert.equal(await exists(path.join(f.root, relative)), true, relative);
 });
 
-test('apply removes allowed build caches while preserving releases, dependencies, source, sessions and runtime inputs', async t => {
+test('apply removes generated runtime, sidecar, schemas, tests and caches while preserving releases and original inputs', async t => {
     const f = await fixture(t);
     const lockInode = (await lstat(path.join(f.root, '.desktop-cache/desktop-resources.lock'))).ino;
     const result = await cleanupBuildCache({ ...f.options, dryRun: false });
-    assert.equal(result.removed.length, 5);
+    assert.equal(result.removed.length, expectedTargets.length);
+    assert.match(formatCleanupReport(result), /Removed \d+ generated paths/);
     for (const relative of f.removable) assert.equal(await exists(path.join(f.root, relative)), false, relative);
     for (const relative of f.preserved) assert.equal(await exists(path.join(f.root, relative)), true, relative);
     assert.equal((await lstat(path.join(f.root, '.desktop-cache/desktop-resources.lock'))).ino, lockInode);
@@ -66,7 +79,7 @@ test('apply removes allowed build caches while preserving releases, dependencies
 });
 
 test('rejects symlink targets and cache ancestors before deleting anything, without touching outside destinations', async t => {
-    for (const relative of ['src-tauri/target', '.desktop-cache', '.desktop-cache/26.11.1']) {
+    for (const relative of ['src-tauri/target', 'src-tauri/resources', 'src-tauri/gen', 'src-tauri/binaries', '.desktop-cache', '.desktop-cache/26.11.1']) {
         const f = await fixture(t);
         const outside = await mkdtemp(path.join(os.tmpdir(), 'rss-cache-outside-'));
         t.after(() => rm(outside, { recursive: true, force: true }));
@@ -86,7 +99,9 @@ test('nested symlinks are unlinked without following them outside the cache', as
     t.after(() => rm(outside, { recursive: true, force: true }));
     await writeFile(path.join(outside, 'keep.txt'), 'user data');
     await symlink(outside, path.join(f.root, 'src-tauri/target/user-link'), 'dir');
-    await cleanupBuildCache({ ...f.options, dryRun: false });
+    const linkSize = (await lstat(path.join(f.root, 'src-tauri/target/user-link'))).size;
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false });
+    assert.equal(result.bytes, f.removable.length * Buffer.byteLength('fixture') + linkSize);
     assert.equal(await readFile(path.join(outside, 'keep.txt'), 'utf8'), 'user data');
 });
 
@@ -113,11 +128,11 @@ test('running Tauri target binaries prevent removal while an installed app does 
     const result = await cleanupBuildCache({ ...f.options, dryRun: false,
         processCommands: [`${f.root}/src-tauri/target/debug/rss-desktop`] });
     assert.deepEqual(result.removed, []);
-    assert.equal(result.skipped.length, 5);
+    assert.equal(result.skipped.length, expectedTargets.length);
     assert.equal(await exists(path.join(f.root, f.removable[0])), true);
     const installed = await cleanupBuildCache({ ...f.options, dryRun: false,
         processCommands: ['/Applications/NO BULLSHIT RSS.app/Contents/MacOS/rss-desktop'] });
-    assert.equal(installed.removed.length, 5);
+    assert.equal(installed.removed.length, expectedTargets.length);
 });
 
 test('active Rust or Tauri compilation keeps caches even before a target binary exists', async t => {
@@ -132,7 +147,7 @@ test('active Rust or Tauri compilation keeps caches even before a target binary 
     ]) {
         const result = await cleanupBuildCache({ ...f.options, dryRun: false, processCommands: [command] });
         assert.deepEqual(result.removed, [], command);
-        assert.equal(result.skipped.length, 5, command);
+        assert.equal(result.skipped.length, expectedTargets.length, command);
         assert.ok(result.skipped.every(item => item.reason === 'a Rust or Tauri build is active'), command);
         assert.equal(await exists(path.join(f.root, '.desktop-cache/26.11.1/node/bin/node')), true, command);
     }
@@ -147,7 +162,7 @@ test('source-text mentions and read-only Cargo/Tauri commands do not impersonate
         'node node_modules/@tauri-apps/cli/tauri.js --version',
     ];
     const result = await cleanupBuildCache({ ...f.options, dryRun: false, processCommands: commands });
-    assert.equal(result.removed.length, 5);
+    assert.equal(result.removed.length, expectedTargets.length);
     assert.deepEqual(result.skipped, []);
 });
 
@@ -170,6 +185,197 @@ test('refuses cleanup in a different project', async t => {
     await f.put('package.json', JSON.stringify({ name: 'another-project' }));
     await assert.rejects(cleanupBuildCache({ ...f.options, dryRun: false }), /project root/);
     assert.equal(await exists(path.join(f.root, f.removable[0])), true);
+});
+
+test('refuses tracked files before removing any cache, including files tracked after the initial plan', async t => {
+    for (const afterLock of [false, true]) {
+        const f = await fixture(t);
+        const filename = 'src-tauri/gen/generated.bin';
+        const track = () => execFileSync('git', ['add', '--force', '--', filename], { cwd: f.root });
+        if (!afterLock) track();
+        await assert.rejects(cleanupBuildCache({ ...f.options, dryRun: false,
+            lock: async (_, operation) => { if (afterLock) track(); return operation(); },
+        }), /Refusing to remove tracked files: src-tauri\/gen\/generated.bin/);
+        for (const relative of f.removable) assert.equal(await exists(path.join(f.root, relative)), true, relative);
+    }
+});
+
+test('requires the checkout root and matching Cargo package', async t => {
+    const f = await fixture(t);
+    await f.put('nested/package.json', JSON.stringify({ name: 'no-bullshit-rss', version: '1.7.0' }));
+    await f.put('nested/src-tauri/Cargo.toml', '[package]\nname = "no-bullshit-rss"\n');
+    await assert.rejects(cleanupBuildCache({ ...f.options, directory: path.join(f.root, 'nested') }), /root of the Git checkout/);
+    await f.put('src-tauri/Cargo.toml', '[package]\nname = "another-app"\n');
+    await assert.rejects(cleanupBuildCache(f.options), /project root/);
+});
+
+test('an active checkout sidecar protects all generated output', async t => {
+    const f = await fixture(t);
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false,
+        processCommands: [`${f.root}/src-tauri/binaries/rss-node-aarch64-apple-darwin backend/server.js`],
+    });
+    assert.deepEqual(result.removed, []);
+    assert.equal(result.skipped.length, expectedTargets.length);
+    for (const relative of f.removable) assert.equal(await exists(path.join(f.root, relative)), true, relative);
+});
+
+function publishedRelease(version, contents = 'older DMG') {
+    return {
+        tag_name: `v${version}`, draft: false, prerelease: false, published_at: '2026-11-01T12:00:00Z',
+        assets: [{ name: `NO.BULLSHIT.RSS-${version}-arm64.dmg`, state: 'uploaded',
+            digest: `sha256:${createHash('sha256').update(contents).digest('hex')}` }],
+    };
+}
+
+test('previews and removes only numerically older DMGs whose published GitHub digest matches', async t => {
+    const f = await fixture(t);
+    await f.put('package.json', JSON.stringify({ name: 'no-bullshit-rss', version: '1.10.0' }));
+    const old = 'dist/NO.BULLSHIT.RSS-1.9.10-arm64.dmg';
+    await f.put(old, 'older DMG');
+    const keep = [
+        'dist/NO.BULLSHIT.RSS-1.10.0-arm64.dmg', 'dist/NO.BULLSHIT.RSS-1.11.0-arm64.dmg',
+        'dist/NO.BULLSHIT.RSS-01.0.0-arm64.dmg', 'dist/NO.BULLSHIT.RSS-1.0.0-beta-arm64.dmg',
+        'dist/personal.txt', 'dist/recovery/notes',
+    ];
+    for (const relative of keep) await f.put(relative, 'keep');
+    const requested = [];
+    const options = { ...f.options, getRelease: async tag => {
+        requested.push(tag);
+        return publishedRelease(tag.slice(1), tag === 'v1.9.10' ? 'older DMG' : 'does not match');
+    } };
+    const preview = await cleanupBuildCache(options);
+    assert.ok(preview.targets.includes(old));
+    assert.equal(await readFile(path.join(f.root, old), 'utf8'), 'older DMG');
+    assert.ok(preview.preservedReleases.some(item => item.path.endsWith('personal.txt')));
+    const result = await cleanupBuildCache({ ...options, dryRun: false });
+    assert.ok(result.removed.includes(old));
+    assert.equal(await exists(path.join(f.root, old)), false);
+    for (const relative of keep) assert.equal(await readFile(path.join(f.root, relative), 'utf8'), 'keep', relative);
+    assert.ok(!requested.includes('v1.10.0'));
+    assert.ok(!requested.includes('v1.11.0'));
+});
+
+test('keeps missing, draft, unpublished, prerelease, incomplete and mismatching GitHub releases', async t => {
+    for (const change of [
+        () => null,
+        release => ({ ...release, draft: true }),
+        release => ({ ...release, published_at: null }),
+        release => ({ ...release, prerelease: true }),
+        release => ({ ...release, tag_name: 'v0.0.0' }),
+        release => ({ ...release, assets: [] }),
+        release => ({ ...release, assets: [{ ...release.assets[0], state: 'new' }] }),
+        release => ({ ...release, assets: [{ ...release.assets[0], digest: null }] }),
+        () => publishedRelease('1.6.0', 'different DMG'),
+    ]) {
+        const f = await fixture(t);
+        const old = 'dist/NO.BULLSHIT.RSS-1.6.0-arm64.dmg';
+        await f.put(old, 'older DMG');
+        const result = await cleanupBuildCache({ ...f.options, dryRun: false,
+            getRelease: async () => change(publishedRelease('1.6.0')) });
+        assert.equal(await readFile(path.join(f.root, old), 'utf8'), 'older DMG');
+        assert.ok(result.preservedReleases.some(item => item.path === old && /matching SHA-256/.test(item.reason)));
+        assert.equal(result.removed.length, expectedTargets.length);
+    }
+});
+
+test('GitHub failure preserves remaining releases while disposable output is still removed', async t => {
+    const f = await fixture(t);
+    const old = ['dist/NO.BULLSHIT.RSS-1.5.0-arm64.dmg', 'dist/NO.BULLSHIT.RSS-1.6.0-arm64.dmg'];
+    for (const relative of old) await f.put(relative, 'older DMG');
+    let calls = 0;
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false, getRelease: async () => {
+        calls++;
+        throw new Error('GitHub unavailable');
+    } });
+    assert.equal(calls, 2); // One attempt in each of the initial and locked plans.
+    assert.equal(result.removed.length, expectedTargets.length);
+    for (const relative of old) {
+        assert.equal(await readFile(path.join(f.root, relative), 'utf8'), 'older DMG');
+        assert.ok(result.preservedReleases.some(item => item.path === relative && item.reason === 'GitHub unavailable'));
+    }
+});
+
+test('old DMGs are revalidated under the resource lock and again immediately before deletion', async t => {
+    for (const duringVerification of [false, true]) {
+        const f = await fixture(t);
+        const old = 'dist/NO.BULLSHIT.RSS-1.6.0-arm64.dmg';
+        await f.put(old, 'older DMG');
+        let calls = 0;
+        const result = await cleanupBuildCache({ ...f.options, dryRun: false,
+            getRelease: async () => {
+                if (duringVerification && ++calls === 2) await f.put(old, 'modified DMG');
+                return publishedRelease('1.6.0');
+            },
+            lock: async (_, operation) => {
+                if (!duringVerification) await f.put(old, 'modified DMG');
+                return operation();
+            },
+        });
+        assert.equal(await readFile(path.join(f.root, old), 'utf8'), 'modified DMG');
+        assert.ok(!result.removed.includes(old));
+        assert.ok(result.preservedReleases.some(item => item.path === old));
+    }
+});
+
+test('tracked and symlinked old release files abort cleanup before disposable output is deleted', async t => {
+    for (const mode of ['tracked', 'symlink', 'directory-symlink']) {
+        const f = await fixture(t);
+        const old = 'dist/NO.BULLSHIT.RSS-1.6.0-arm64.dmg';
+        await f.put(old, 'older DMG');
+        const outside = await mkdtemp(path.join(os.tmpdir(), 'rss-release-outside-'));
+        t.after(() => rm(outside, { recursive: true, force: true }));
+        await writeFile(path.join(outside, 'keep'), 'outside');
+        if (mode === 'tracked') execFileSync('git', ['add', '--force', '--', old], { cwd: f.root });
+        else {
+            const relative = mode === 'symlink' ? old : 'dist';
+            await rm(path.join(f.root, relative), { recursive: true, force: true });
+            await symlink(mode === 'symlink' ? path.join(outside, 'keep') : outside,
+                path.join(f.root, relative), mode === 'symlink' ? 'file' : 'dir');
+        }
+        await assert.rejects(cleanupBuildCache({ ...f.options, dryRun: false,
+            getRelease: async () => publishedRelease('1.6.0'),
+        }), /Refusing (to remove tracked files|symbolic link)/);
+        for (const relative of f.removable) assert.equal(await exists(path.join(f.root, relative)), true, relative);
+        assert.equal(await readFile(path.join(outside, 'keep'), 'utf8'), 'outside');
+    }
+});
+
+test('a configured release directory inside target keeps its parent and current DMG', async t => {
+    const f = await fixture(t);
+    const old = 'src-tauri/target/release/NO.BULLSHIT.RSS-1.6.0-arm64.dmg';
+    const current = 'src-tauri/target/release/NO.BULLSHIT.RSS-1.7.0-arm64.dmg';
+    await f.put(old, 'older DMG');
+    await f.put(current, 'current');
+    const tags = [];
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false,
+        env: { RELEASE_OUTPUT_DIR: 'src-tauri/target/release', TAG_PREFIX: 'release-' },
+        getRelease: async tag => {
+            tags.push(tag);
+            return { ...publishedRelease('1.6.0'), tag_name: 'release-1.6.0' };
+        },
+    });
+    assert.ok(result.removed.includes(old));
+    assert.ok(!result.removed.includes('src-tauri/target'));
+    assert.equal(await readFile(path.join(f.root, current), 'utf8'), 'current');
+    assert.equal(await exists(path.join(f.root, f.removable[0])), true);
+    assert.deepEqual(tags, ['release-1.6.0', 'release-1.6.0']);
+});
+
+test('protected data and release directories outside the checkout are never deleted', async t => {
+    const f = await fixture(t);
+    const old = 'dist/NO.BULLSHIT.RSS-1.6.0-arm64.dmg';
+    await f.put(old, 'saved data');
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false,
+        env: { DB_PATH: old }, getRelease: async () => { throw new Error('Must not verify protected data'); },
+    });
+    assert.equal(await readFile(path.join(f.root, old), 'utf8'), 'saved data');
+    assert.ok(result.preservedReleases.some(item => item.path === old && /protected/.test(item.reason)));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'rss-release-output-'));
+    t.after(() => rm(outside, { recursive: true, force: true }));
+    await writeFile(path.join(outside, path.basename(old)), 'external DMG');
+    const external = await cleanupBuildCache({ ...f.options, dryRun: false, env: { RELEASE_OUTPUT_DIR: outside } });
+    assert.equal(await readFile(path.join(outside, path.basename(old)), 'utf8'), 'external DMG');
+    assert.ok(external.preservedReleases.some(item => item.path === outside && /inside the checkout/.test(item.reason)));
 });
 
 test('shares the desktop resource lock and preserves its inode', { skip: process.platform !== 'darwin' }, async t => {

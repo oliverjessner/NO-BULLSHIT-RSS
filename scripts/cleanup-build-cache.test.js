@@ -160,9 +160,43 @@ test('source-text mentions and read-only Cargo/Tauri commands do not impersonate
         'node -e "console.log(\'cargo build\')"', 'node --eval="rustc"',
         'node --test scripts/cleanup-build-cache.test.js', 'cargo metadata --format-version 1', 'tauri info',
         'node node_modules/@tauri-apps/cli/tauri.js --version',
+        `rg '${f.root}/src-tauri/target/debug/no-bullshit-rss' README.md`,
+        `editor ${f.root}/src-tauri/target/debug/output`,
+        `node -e "console.log('${f.root}/src-tauri/binaries/rss-node-aarch64-apple-darwin')"`,
+        `/bin/zsh -c 'cat ${f.root}/src-tauri/target/debug/output'`,
+        `/Applications/NO BULLSHIT RSS.app/Contents/MacOS/rss-node backend/server.js --log ${f.root}/src-tauri/target/log.txt`,
+        '/other-checkout/src-tauri/target/debug/no-bullshit-rss',
+        '/other-checkout/src-tauri/binaries/rss-node-aarch64-apple-darwin',
     ];
     const result = await cleanupBuildCache({ ...f.options, dryRun: false, processCommands: commands });
     assert.equal(result.removed.length, expectedTargets.length);
+    assert.deepEqual(result.skipped, []);
+});
+
+test('target checks use the OS executable path, preserve spaces and identify the blocking PID', async t => {
+    const f = await fixture(t);
+    const executable = `${f.root}/src-tauri/target/release/bundle/macos/NO BULLSHIT RSS.app/Contents/MacOS/no-bullshit-rss`;
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false, processRecords: [
+        { pid: 456, executable, command: `${executable} --some-argument` },
+    ] });
+    assert.deepEqual(result.removed, []);
+    assert.deepEqual(result.blocker, { pid: 456, executable });
+    assert.ok(formatCleanupReport(result).includes(`Cleanup blocked by PID 456: ${executable}`));
+    for (const relative of f.removable) assert.equal(await exists(path.join(f.root, relative)), true, relative);
+});
+
+test('installed processes and path mentions in arguments do not block the checkout cleanup', async t => {
+    const f = await fixture(t);
+    const target = `${f.root}/src-tauri/target/debug/no-bullshit-rss`;
+    const sidecar = `${f.root}/src-tauri/binaries/rss-node-aarch64-apple-darwin`;
+    const result = await cleanupBuildCache({ ...f.options, dryRun: false, processRecords: [
+        { pid: 1, executable: '/usr/bin/rg', command: `rg ${target} log.txt` },
+        { pid: 2, executable: '/usr/bin/node', command: `node -e "console.log('${sidecar}')"` },
+        { pid: 3, executable: '/Applications/NO BULLSHIT RSS.app/Contents/MacOS/rss-node', command: `rss-node server.js --log ${target}` },
+        { pid: 4, executable: '/other-checkout/src-tauri/target/debug/rss', command: '/other-checkout/src-tauri/target/debug/rss' },
+    ] });
+    assert.equal(result.removed.length, expectedTargets.length);
+    assert.equal(result.blocker, null);
     assert.deepEqual(result.skipped, []);
 });
 

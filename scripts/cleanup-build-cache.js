@@ -173,12 +173,33 @@ async function planOldReleases(root, env, getRelease) {
     return { targets, preservedReleases, digests };
 }
 
-function activeTargetProcess(root, commands) {
+function commandExecutable(command) {
+    const match = command.trim().match(/^(?:"([^"]+)"|'([^']+)'|(\S+))/);
+    return match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+}
+
+function readProcesses() {
+    const rows = field => execFileSync('ps', ['-axww', '-o', `pid=,${field}=`], {
+        encoding: 'utf8', maxBuffer: 10 * 1024 * 1024,
+    }).split('\n').flatMap(line => {
+        const match = line.match(/^\s*(\d+)\s+(.+)$/);
+        return match ? [[Number(match[1]), match[2]]] : [];
+    });
+    // `command` contains arbitrary arguments (including search patterns and inline
+    // source). Use the separate executable field for target/sidecar detection.
+    const commands = new Map(rows('command'));
+    return rows('comm').map(([pid, executable]) => ({ pid, executable, command: commands.get(pid) || executable }));
+}
+
+function activeTargetProcess(root, processes) {
     const target = path.join(root, 'src-tauri', 'target');
-    return commands.some(command => command.includes(`${target}${path.sep}`)
-        || command.includes('src-tauri/target/') || command.includes('src-tauri\\target\\')
-        || command.includes(path.join(root, 'src-tauri', 'binaries', 'rss-node-'))
-        || command.includes('src-tauri/binaries/rss-node-'));
+    const sidecars = generatedFiles.filter(filename => filename.startsWith('src-tauri/binaries/'))
+        .map(filename => path.join(root, filename));
+    return processes.find(({ executable }) => {
+        if (!executable) return false;
+        const absolute = path.resolve(root, executable);
+        return isInside(target, absolute) || sidecars.includes(absolute);
+    });
 }
 
 function activeBuildProcess(commands) {
@@ -208,7 +229,7 @@ function activeBuildProcess(commands) {
     });
 }
 
-export async function planBuildCacheCleanup({ directory = projectDirectory, env = process.env, processCommands, getRelease = githubRelease } = {}) {
+export async function planBuildCacheCleanup({ directory = projectDirectory, env = process.env, processCommands, processRecords, getRelease = githubRelease } = {}) {
     const root = await inspectProject(directory);
     const candidates = [...generatedDirectories, ...generatedFiles];
     const cache = await inspectPath(root, '.desktop-cache');
@@ -237,9 +258,14 @@ export async function planBuildCacheCleanup({ directory = projectDirectory, env 
         if (!targets.some(parent => isInside(path.join(root, parent), path.join(root, relative)))) targets.push(relative);
     }
     refuseTrackedFiles(root, targets);
-    const commands = processCommands ?? execFileSync('ps', ['-axo', 'command='], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }).split('\n');
-    const busyReason = activeBuildProcess(commands) ? 'a Rust or Tauri build is active'
-        : activeTargetProcess(root, commands) ? 'a process is using a Tauri target directory or sidecar' : null;
+    const processes = processRecords ?? (processCommands
+        ? processCommands.map(command => ({ command, executable: commandExecutable(command) }))
+        : readProcesses());
+    const build = processes.find(process => activeBuildProcess([process.command]));
+    const target = activeTargetProcess(root, processes);
+    const blocker = build || target || null;
+    const busyReason = build ? 'a Rust or Tauri build is active'
+        : target ? 'a process is using a Tauri target directory or sidecar' : null;
     if (busyReason) {
         skipped.push(...targets.map(relative => ({ path: relative, reason: busyReason })));
         targets.length = 0;
@@ -247,7 +273,8 @@ export async function planBuildCacheCleanup({ directory = projectDirectory, env 
     const entries = [];
     for (const relative of targets) entries.push({ path: relative, bytes: await sizeOf(path.join(root, relative)) });
     return { root, targets, skipped, entries, bytes: entries.reduce((total, entry) => total + entry.bytes, 0),
-        preservedReleases: releases.preservedReleases, releaseDigests: Object.fromEntries(releases.digests) };
+        preservedReleases: releases.preservedReleases, releaseDigests: Object.fromEntries(releases.digests),
+        blocker: blocker ? { pid: blocker.pid, executable: blocker.executable } : null };
 }
 
 async function withDesktopResourceLock(root, operation) {
@@ -280,14 +307,14 @@ async function withDesktopResourceLock(root, operation) {
     }
 }
 
-export async function cleanupBuildCache({ directory = projectDirectory, env = process.env, dryRun = true, processCommands, getRelease = githubRelease,
+export async function cleanupBuildCache({ directory = projectDirectory, env = process.env, dryRun = true, processCommands, processRecords, getRelease = githubRelease,
     lock = withDesktopResourceLock } = {}) {
-    const initial = await planBuildCacheCleanup({ directory, env, processCommands, getRelease });
+    const initial = await planBuildCacheCleanup({ directory, env, processCommands, processRecords, getRelease });
     if (dryRun || !initial.targets.length) return { ...initial, dryRun, removed: [] };
     return lock(initial.root, async () => {
         // Recheck all boundaries and active processes while holding the build
         // resource lock; a dry-run plan is never reused for a later deletion.
-        const plan = await planBuildCacheCleanup({ directory: initial.root, env, processCommands, getRelease });
+        const plan = await planBuildCacheCleanup({ directory: initial.root, env, processCommands, processRecords, getRelease });
         const removed = [];
         // Validate the whole set again before the first deletion, including Git state.
         refuseTrackedFiles(plan.root, plan.targets);
@@ -312,6 +339,7 @@ export function formatCleanupReport(result) {
     const verb = result.dryRun ? 'Would remove' : 'Removed';
     return [
         `${verb} ${selected.length} generated paths (${(bytes / 1024 ** 2).toFixed(1)} MiB of file contents).`,
+        ...(result.blocker ? [`Cleanup blocked by ${result.blocker.pid ? `PID ${result.blocker.pid}: ` : ''}${result.blocker.executable}`] : []),
         ...selected.map(entry => `${verb}: ${entry.path} (${(entry.bytes / 1024 ** 2).toFixed(1)} MiB)`),
         ...[...result.skipped, ...result.preservedReleases].map(item => `Kept ${item.path}: ${item.reason}`),
         'Current and unverified releases, source, installed dependencies and application data are preserved.',

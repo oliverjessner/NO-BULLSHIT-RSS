@@ -72,7 +72,7 @@
     },
     "devDependencies": {
         "@tauri-apps/cli": "2.12.4",
-        "playwright": "^1.65.0",
+        "playwright": "^1.65.1",
         "sharp": "^0.35.5"
     }
 }

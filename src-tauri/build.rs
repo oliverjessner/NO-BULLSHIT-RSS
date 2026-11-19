@@ -25,6 +25,12 @@ fn main() {
             .compile("watchdog_permissions");
         println!("cargo:rustc-link-lib=framework=UserNotifications");
         println!("cargo:rerun-if-changed=src/watchdog_permissions.m");
+        cc::Build::new()
+            .file("src/about.m")
+            .flag("-fobjc-arc")
+            .compile("about");
+        println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rerun-if-changed=src/about.m");
     }
     // Preparation must finish before tauri-build walks/copies the runtime tree.
     #[cfg(target_os = "macos")]

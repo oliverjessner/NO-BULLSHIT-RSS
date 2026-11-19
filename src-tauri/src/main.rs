@@ -1,10 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod about;
 mod backend;
 mod watchdog;
 use std::sync::Mutex;
+#[cfg(not(target_os = "macos"))]
+use tauri::menu::AboutMetadata;
 use tauri::{
-    menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     webview::{NewWindowResponse, WebviewBuilder},
     window::WindowBuilder,
     LogicalPosition, LogicalSize, Manager, WebviewUrl,
@@ -233,14 +237,19 @@ fn create_main(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    let about = MenuItem::with_id(app, "about", "About NO BULLSHIT RSS", true, None::<&str>)?;
+    #[cfg(not(target_os = "macos"))]
     let about = PredefinedMenuItem::about(
         app,
         None,
         Some(AboutMetadata {
             name: Some("NO BULLSHIT RSS".into()),
             version: Some(app.package_info().version.to_string()),
-            copyright: Some("© Oliver Jessner".into()),
-            website: Some("https://oliverjessner.com".into()),
+            copyright: Some("Copyright © 2026 Oliver Jessner".into()),
+            license: Some("MIT License".into()),
+            website: Some("https://oliverjessner.at".into()),
+            website_label: Some("oliverjessner.at".into()),
             ..Default::default()
         }),
     )?;
@@ -293,6 +302,8 @@ fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
         &[&application, &file, &edit, &view, &help],
     )?)?;
     app.on_menu_event(|app, event| match event.id().as_ref() {
+        #[cfg(target_os = "macos")]
+        "about" => about::show(app),
         "search-selection" => {
             if let (Some(main), Ok(text)) = (
                 app.get_webview("main"),

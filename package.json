@@ -62,7 +62,7 @@
         "helmet": "^8.3.0",
         "iconv-lite": "^0.7.3",
         "json-rules-engine": "^7.3.1",
-        "linkary": "https://codeload.github.com/oliverjessner/linkary/tar.gz/c467cacaf0048992178188e411aed129d968622f",
+        "linkary": "0.2.0",
         "linkedom": "0.18.15",
         "oj-designsystem": "0.3.0",
         "rss-parser": "^3.13.0"

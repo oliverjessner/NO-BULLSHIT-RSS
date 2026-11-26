@@ -1,6 +1,7 @@
 # 2.1.1
 
 - updated deps
+- Use the published Linkary 0.2.0 npm package instead of a pinned GitHub archive for URL cleaning.
 
 # 2.1.0
 
